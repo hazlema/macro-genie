@@ -214,13 +214,38 @@ export function ideaPrompt(request) {
 // An ingredient id from find_foods. As a last resort, a model that wrote a
 // food name instead of an id gets the best match for that name.
 function resolveFood(ref, dislikes) {
-  const key = String(ref ?? "");
-  if (byId.has(key)) return byId.get(key);
-  if (/^usda-row-/.test(key) || key.length < 3) return null;
+  const key = String(ref ?? "").trim();
+  // Models sometimes copy more than the id: "usda-row-7811 | Pumpkin, …".
+  const id = key.match(/usda-row-\d+/)?.[0];
+  if (id) return byId.get(id) ?? null;
+  if (key.length < 3) return null;
   return (
     findFoods(foods, key, { exclude: expandDislikes(dislikes), limit: 1 })[0] ??
     null
   );
+}
+
+// What's wrong with a submitted idea, in words the model can act on.
+export function reviewSubmission(submission, request) {
+  const problems = [];
+  const ingredients = Array.isArray(submission?.ingredients)
+    ? submission.ingredients
+    : [];
+  if (!ingredients.length) problems.push("The ingredients list is empty.");
+  let usable = 0;
+  for (const ingredient of ingredients) {
+    const food = resolveFood(ingredient?.id, request.dislikes);
+    if (!food)
+      problems.push(
+        `"${String(ingredient?.id).slice(0, 60)}" is not an id from find_foods.`,
+      );
+    else if (isDisliked(food, request.dislikes))
+      problems.push(`${food.name} is a food they won't eat.`);
+    else if (!(Number(ingredient.grams) > 0))
+      problems.push(`${food.name} needs grams greater than 0.`);
+    else usable++;
+  }
+  return { problems, usable };
 }
 
 // The foods asked for, minus any that are also on the dislike list.
@@ -313,12 +338,15 @@ function checkStop(response) {
     throw new UserFacingError("The idea ran too long. Try again.", 502);
 }
 
+// Each turn is one model call; five fit comfortably in the 60-second limit.
+const MAX_TURNS = 5;
+
 export async function generateIdea(input, api = client(), model = ideaModel()) {
   const req = ideaRequest.parse(input);
   const messages = [{ role: "user", content: ideaPrompt(req) }];
   const usage = emptyUsage(model);
   const started = Date.now();
-  for (let turn = 0; turn < 4; turn++) {
+  for (let turn = 0; turn < MAX_TURNS; turn++) {
     const response = await api.beta.messages.create(
       request(model, {
         max_tokens: 8000,
@@ -331,11 +359,13 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
     checkStop(response);
     const calls = response.content.filter((b) => b.type === "tool_use");
     const submit = calls.find((c) => c.name === "submit_idea");
-    // Ids that didn't come from find_foods, e.g. guessed in the same turn as the search.
-    const unknown = (submit?.input.ingredients ?? [])
-      .map((i) => String(i.id))
-      .filter((id) => !byId.has(id));
-    if (submit && (!unknown.length || turn === 3)) {
+    // Anything wrong with the idea (ids guessed before the search came back,
+    // disliked foods, missing grams) goes back to the model to fix.
+    const review = submit
+      ? reviewSubmission(submit.input, req)
+      : { problems: [], usable: 0 };
+    const lastTurn = turn === MAX_TURNS - 1;
+    if (submit && (!review.problems.length || (lastTurn && review.usable))) {
       try {
         const idea = finishIdea(submit.input, req);
         const line = logUsage("idea", usage, { ms: Date.now() - started });
@@ -344,7 +374,7 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
         logUsage("idea", usage, {
           ms: Date.now() - started,
           failed: error.message,
-          unknownIds: unknown.slice(0, 12),
+          problems: review.problems.slice(0, 8),
         });
         throw error;
       }
@@ -372,7 +402,7 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
               is_error: true,
               content:
                 call.name === "submit_idea"
-                  ? `Not accepted: ${unknown.join(", ")} ${unknown.length === 1 ? "is not an id" : "are not ids"} from find_foods. Use only ids that find_foods returned (they look like usda-row-1234). Search for anything missing, then call submit_idea again.`
+                  ? `Not accepted. ${review.problems.join(" ")} Use only the bare ids that find_foods returned, like usda-row-1234. Search for anything missing, then call submit_idea again.`
                   : "Unknown tool.",
             },
       ),

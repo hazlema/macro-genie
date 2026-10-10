@@ -53,7 +53,6 @@ test("an idea is searched, checked against dislikes, and sized by the solver", a
       ingredients: [
         { id: pumpkin.id, grams: 300, required: false },
         { id: gruyere.id, grams: 120, required: false },
-        { id: mushroom.id, grams: 100, required: false },
       ],
       seasonings: ["sage", "nutmeg", "fresh mushrooms"],
     }),
@@ -79,7 +78,7 @@ test("an idea is searched, checked against dislikes, and sized by the solver", a
   assert.deepEqual(
     idea.ingredients.map((i) => i.id).sort(),
     [gruyere.id, pumpkin.id].sort(),
-    "disliked foods dropped",
+    "only the chosen foods",
   );
   assert.equal(
     idea.ingredients.find((i) => i.id === pumpkin.id).required,
@@ -226,7 +225,7 @@ test("idea cost is logged per job and the model follows IDEA_MODEL", async () =>
   }
 });
 
-test("guessed ids are sent back for a retry; food names resolve as a last resort", async () => {
+test("problem ideas go back for a retry; copied id lines and names still resolve", async () => {
   const quiet = console.log;
   console.log = () => {};
   try {
@@ -268,19 +267,44 @@ test("guessed ids are sent back for a retry; food names resolve as a last resort
     assert.match(replies.find((r) => r.tool_use_id === "s").content, /Pumpkin/);
     const rejected = replies.find((r) => r.tool_use_id === "x");
     assert.equal(rejected.is_error, true);
-    assert.match(rejected.content, /usda-row-123456789 is not an id/);
+    assert.match(rejected.content, /"usda-row-123456789" is not an id/);
 
-    // On the last turn, a name written in place of an id is looked up.
-    const names = toolUse("z", "submit_idea", {
-      name: "Cheese plate",
+    // A whole result line copied as the id, or a food name, still works.
+    const copied = toolUse("c", "submit_idea", {
+      name: "Copied",
       description: "",
-      ingredients: [{ id: "cheese gruyere", grams: 100, required: false }],
+      ingredients: [
+        {
+          id: `${pumpkin.id} | Pumpkin, canned, without salt`,
+          grams: 200,
+          required: true,
+        },
+        { id: "cheese gruyere", grams: 60, required: false },
+      ],
       seasonings: [],
     });
-    const stubborn = fakeApi([names, names, names, names]);
-    const last = await generateIdea({ ...base, want: [] }, stubborn);
-    assert.equal(stubborn.calls.length, 4);
-    assert.equal(last.ingredients[0].id, gruyere.id);
+    const once = fakeApi([copied]);
+    const accepted = await generateIdea(base, once);
+    assert.equal(once.calls.length, 1);
+    assert.deepEqual(
+      accepted.ingredients.map((i) => i.id).sort(),
+      [gruyere.id, pumpkin.id].sort(),
+    );
+
+    // An empty or disliked-only idea is retried, then fails clearly.
+    const empty = toolUse("e", "submit_idea", {
+      name: "Nothing",
+      description: "",
+      ingredients: [{ id: mushroom.id, grams: 100, required: false }],
+      seasonings: [],
+    });
+    const stubborn = fakeApi([empty, empty, empty, empty, empty]);
+    await assert.rejects(generateIdea(base, stubborn), /too many steps/);
+    assert.equal(stubborn.calls.length, 5);
+    assert.match(
+      stubborn.calls[1].messages.at(-1).content[0].content,
+      /won't eat/,
+    );
   } finally {
     console.log = quiet;
   }
