@@ -2,8 +2,8 @@
   import RangeTable from './RangeTable.svelte';
   import RecipeCard from './RecipeCard.svelte';
   import DislikeSummary from './DislikeSummary.svelte';
-  import { NUTRIENTS, PRESETS, emptyRanges, formatAmount } from '../lib/foods.js';
-  import { solveRecipe, isDisliked, recipeText, splitFoodList, missingRequests } from '../lib/recipe.js';
+  import { NUTRIENTS, PRESETS, emptyRanges, findFoods, formatAmount } from '../lib/foods.js';
+  import { solveRecipe, isDisliked, expandDislikes, recipeText, splitFoodList, missingRequests } from '../lib/recipe.js';
   import { prefs, save, saveRecipe } from '../lib/prefs.svelte.js';
   import { printRecipe } from '../lib/print.svelte.js';
 
@@ -30,6 +30,9 @@
   let activePreset = $state('');
   let mobileOpen = $state(false);
   let copied = $state(false);
+  // Swapping one recipe ingredient for another food, e.g. feta for cheddar.
+  let swapping = $state(null);
+  let swapQuery = $state('');
   let batch = 0;
 
   $effect(() => {
@@ -60,6 +63,20 @@
       return { solved: solveRecipe(items, { servings, ranges }), error: '' };
     } catch (error) { return { solved: null, error: error.message }; }
   });
+  const swapMatches = $derived(!swapping || swapQuery.trim().length < 2 ? [] :
+    findFoods(foods, swapQuery, { exclude: expandDislikes(prefs.dislikes), limit: 16 })
+      .filter(f => !chosen?.items.some(i => i.id === f.id)).slice(0, 8));
+  function startSwap(item, food) {
+    swapping = item.id;
+    // Start from the food's main word: "Cheese, feta" -> "cheese".
+    swapQuery = food.name.split(/[,\s]/)[0].toLocaleLowerCase();
+  }
+  function swapTo(item, food) {
+    item.id = food.id;
+    swapping = null;
+  }
+  const focusOnMount = (node) => { node.focus(); node.select(); };
+
   const solvedById = $derived(new Map((recipe.solved?.amounts ?? []).map(a => [a.food.id, a])));
 
   function applyPreset(preset) { ranges = { ...emptyRanges(), ...structuredClone(preset.ranges) }; activePreset = preset.name; }
@@ -272,7 +289,7 @@
               <li class="ingredient" class:dropped={solved?.grams === 0} class:blocked={isDisliked(food, prefs.dislikes)}>
                 <div class="ingredient-name">
                   <h3>{food.name}</h3>
-                  <p>{isDisliked(food, prefs.dislikes) ? 'On your list of foods you won’t eat. Left out.' : food.categoryName}</p>
+                  <p>{isDisliked(food, prefs.dislikes) ? 'On your list of foods you won’t eat. Left out.' : food.categoryName}<button class="swap-link" aria-expanded={swapping === item.id} onclick={() => swapping === item.id ? swapping = null : startSwap(item, food)}>{swapping === item.id ? 'Cancel swap' : 'Swap'}</button></p>
                 </div>
                 <label class="want"><span>You’d like</span><span class="gram-input"><input type="number" min="1" max="5000" step="1" inputmode="numeric" bind:value={item.grams} aria-label={`Grams of ${food.name} you'd like`} />g</span></label>
                 <label class="must"><input type="checkbox" bind:checked={item.required} /> Must use</label>
@@ -287,6 +304,24 @@
                 </div>
                 <button class="remove" aria-label={`Remove ${food.name}`} onclick={() => chosen.items.splice(i, 1)}>×</button>
               </li>
+              {#if swapping === item.id}
+                <li class="swap-panel">
+                  <label><span>Swap {food.name} for</span><input use:focusOnMount bind:value={swapQuery} placeholder="cheddar, broccoli, chicken thigh" onkeydown={(e) => { if (e.key === 'Escape') swapping = null; if (e.key === 'Enter' && swapMatches.length) swapTo(item, swapMatches[0]); }} /></label>
+                  {#if swapMatches.length}
+                    <ul class="swap-options" aria-label="Foods to swap in">
+                      {#each swapMatches as option (option.id)}
+                        <li><button onclick={() => swapTo(item, option)}>
+                          <span class="swap-name">{option.name}</span>
+                          <span class="swap-facts">Per 100 g: {formatAmount(option.per100g.calories)} kcal, {formatAmount(option.per100g.protein)} g protein, {formatAmount(option.per100g.netCarbs)} g net carbs, {formatAmount(option.per100g.fat)} g fat</span>
+                        </button></li>
+                      {/each}
+                    </ul>
+                  {:else if swapQuery.trim().length >= 2}
+                    <p class="swap-none">No foods match “{swapQuery.trim()}”. Try a shorter word.</p>
+                  {/if}
+                  <p class="swap-hint">Keeps the amount; the dish is re-fitted to your targets.</p>
+                </li>
+              {/if}
             {/if}
           {/each}
         </ul>

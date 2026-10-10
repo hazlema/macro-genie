@@ -10,6 +10,7 @@ import {
   recipeText,
   solveRecipe,
   splitFoodList,
+  usdaNamesFor,
 } from "../src/lib/recipe.js";
 
 const { foods } = normalizeDataset({
@@ -190,4 +191,14 @@ test("requested foods are recognized despite periods and describing words", () =
   assert.deepEqual(missingRequests(names, wanted), []);
   assert.deepEqual(missingRequests(names, ["onions", "steak"]), ["onions"]);
   assert.deepEqual(missingRequests(["garlic"], ["garlic cloves"]), []);
+});
+
+test("everyday names count as the USDA food they mean", () => {
+  const groundBeef = ["Beef, ground, 85% lean meat / 15% fat, raw"];
+  assert.deepEqual(missingRequests(groundBeef, ["hamburger", "burgers"]), []);
+  assert.deepEqual(
+    missingRequests(["Peppers, sweet, red, raw"], ["bell peppers", "onions"]),
+    ["onions"],
+  );
+  assert.deepEqual(usdaNamesFor("Hamburgers"), ["beef, ground"]);
 });

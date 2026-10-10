@@ -18,6 +18,26 @@ const SYNONYMS = {
   "green onion": ["onions, spring", "scallions"],
   scallion: ["onions, spring"],
   liver: ["liverwurst"],
+  // Everyday names for foods USDA lists differently.
+  hamburger: ["beef, ground"],
+  burger: ["beef, ground"],
+  "ground beef": ["beef, ground"],
+  "ground turkey": ["turkey, ground"],
+  "ground pork": ["pork, ground"],
+  "ground chicken": ["chicken, ground"],
+  "bell pepper": ["peppers, sweet"],
+  "green beans": ["beans, snap"],
+  "string beans": ["beans, snap"],
+  "hot dog": ["frankfurter"],
+  ketchup: ["catsup"],
+  "broccoli rabe": ["broccoli raab"],
+  rapini: ["broccoli raab"],
+};
+
+// The USDA names for an everyday food name: "hamburgers" -> ["beef, ground"].
+export const usdaNamesFor = (word) => {
+  const w = word.toLocaleLowerCase().trim();
+  return SYNONYMS[w] ?? SYNONYMS[singular(w)] ?? [];
 };
 
 export function expandDislikes(words = []) {
@@ -27,7 +47,11 @@ export function expandDislikes(words = []) {
   // "pecans" should also catch "pecan pie", so add the singular.
   return [
     ...new Set(
-      phrases.flatMap((w) => [w, singular(w), ...(SYNONYMS[w] ?? [])]),
+      phrases.flatMap((w) => [
+        w,
+        singular(w),
+        ...(SYNONYMS[w] ?? SYNONYMS[singular(w)] ?? []),
+      ]),
     ),
   ];
 }

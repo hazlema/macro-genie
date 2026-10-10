@@ -17,6 +17,7 @@ import {
   answersRequest,
   missingRequests,
   solveRecipe,
+  usdaNamesFor,
 } from "../src/lib/recipe.js";
 
 // Which model writes ideas and recipes. Set IDEA_MODEL / RECIPE_MODEL in
@@ -174,13 +175,20 @@ export function findFoodsResult(queries, dislikeWords) {
   return queries
     .slice(0, 12)
     .map((query) => {
-      // Drop trailing words until something matches.
+      // Everyday names first ("hamburger" -> "beef, ground"), then the query
+      // itself, dropping trailing words until something matches.
+      let matches = usdaNamesFor(String(query)).flatMap((name) =>
+        findFoods(foods, name, { exclude, limit: 10 }),
+      );
       let words = String(query).trim().split(/\s+/).slice(0, 6);
-      let matches = [];
-      while (words.length && !matches.length) {
-        matches = findFoods(foods, words.join(" "), { exclude, limit: 10 });
-        if (!matches.length) words = words.slice(0, -1);
+      let direct = [];
+      while (words.length && !direct.length) {
+        direct = findFoods(foods, words.join(" "), { exclude, limit: 10 });
+        if (!direct.length) words = words.slice(0, -1);
       }
+      matches = [
+        ...new Map([...matches, ...direct].map((f) => [f.id, f])).values(),
+      ].slice(0, 10);
       return `"${query}":\n${matches.length ? matches.map(describeFood).join("\n") : "no matches"}`;
     })
     .join("\n\n");
