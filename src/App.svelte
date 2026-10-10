@@ -1,7 +1,13 @@
 <script>
   import { onMount } from 'svelte';
   import FoodCard from './components/FoodCard.svelte';
-  import { BASES, GROUPS, NUTRIENTS, SORTS, emptyRanges, normalizeDataset, searchFoods } from './lib/foods.js';
+  import RangeTable from './components/RangeTable.svelte';
+  import DislikeSummary from './components/DislikeSummary.svelte';
+  import DislikesModal from './components/DislikesModal.svelte';
+  import Recipes from './components/Recipes.svelte';
+  import { BASES, GROUPS, PRESETS, SORTS, emptyRanges, normalizeDataset, searchFoods } from './lib/foods.js';
+  import { expandDislikes } from './lib/recipe.js';
+  import { prefs } from './lib/prefs.svelte.js';
 
   let dataset = $state(null);
   let loading = $state(true);
@@ -15,17 +21,11 @@
   let visible = $state(20);
   let activePreset = $state('');
   let mobileFilters = $state(false);
+  let dislikesOpen = $state(false);
 
-  const presets = [
-    { name: 'Keto strict', ranges: { netCarbs: { max: 5 } } },
-    { name: 'Protein hunt', ranges: { protein: { min: 20 }, netCarbs: { max: 6 } } },
-    { name: 'Lean cut', ranges: { protein: { min: 20 }, fat: { max: 10 }, calories: { max: 300 } } },
-    { name: 'Bulk', ranges: { protein: { min: 20 }, calories: { min: 300 } } },
-    { name: 'Low sodium', ranges: { sodium: { max: 140 } } },
-  ];
   const activeCount = $derived(Object.values(ranges).filter(r => r.min != null || r.max != null).length);
   const result = $derived.by(() => {
-    try { return { foods: searchFoods(dataset?.foods ?? [], { query, category, sort, ranges, basis }), error: '' }; }
+    try { return { foods: searchFoods(dataset?.foods ?? [], { query, category, sort, ranges, basis, exclude: prefs.hideOnFoods ? expandDislikes(prefs.dislikes) : [] }), error: '' }; }
     catch (error) { return { foods: [], error: error.message }; }
   });
   const categories = $derived(Object.entries(GROUPS).filter(([id]) => dataset?.foods.some(food => food.category === id)));
@@ -62,7 +62,7 @@
   <a class="wordmark" href="/" aria-label="Macro Genie home">Macro Genie<span class="brand-dot"></span></a>
   <nav class="tabs" aria-label="Browse">
     <button class:current={tab === 'foods'} aria-current={tab === 'foods' ? 'page' : undefined} onclick={() => tab = 'foods'}>Foods <span>{dataset ? dataset.foods.length.toLocaleString() : '…'}</span></button>
-    <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => tab = 'recipes'}>Recipes <span class="soon-badge">Soon</span></button>
+    <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => tab = 'recipes'}>Recipes</button>
   </nav>
   {#if tab === 'foods'}
     <div class="search-box">
@@ -78,20 +78,8 @@
       <button class="mobile-filter-toggle" onclick={() => mobileFilters = !mobileFilters} aria-expanded={mobileFilters} aria-controls="filter-content">Your ranges {activeCount ? `(${activeCount})` : ''}<span>{mobileFilters ? '−' : '+'}</span></button>
       <div class="filter-content" id="filter-content">
         <div class="filter-heading"><h1>Your ranges</h1><select class="basis-select" aria-label="Nutrient basis" bind:value={basis} onchange={() => visible = 20}>{#each Object.entries(BASES) as [key, name]}<option value={key}>{name}</option>{/each}</select></div>
-        <p class="filter-intro">Leave blank for no limit.</p>
-        <div class="range-table">
-          <div class="range-header"><span>Nutrient</span><span>Min</span><span>Max</span></div>
-          {#each NUTRIENTS as nutrient}
-            {@const active = ranges[nutrient.key].min != null || ranges[nutrient.key].max != null}
-            {@const invalid = ranges[nutrient.key].min != null && ranges[nutrient.key].max != null && ranges[nutrient.key].min > ranges[nutrient.key].max}
-            <div class="range-row" class:active>
-              <div class="nutrient-label"><span class="active-dot"></span>{nutrient.label} <small>{nutrient.unit}</small></div>
-              <input type="number" min="0" step="any" inputmode="decimal" placeholder="–" aria-label={`${nutrient.label} minimum`} aria-invalid={invalid} aria-describedby={result.error ? 'range-error' : undefined} class:filled={ranges[nutrient.key].min != null} bind:value={ranges[nutrient.key].min} oninput={changed} />
-              <input type="number" min="0" step="any" inputmode="decimal" placeholder="–" aria-label={`${nutrient.label} maximum`} aria-invalid={invalid} aria-describedby={result.error ? 'range-error' : undefined} class:filled={ranges[nutrient.key].max != null} bind:value={ranges[nutrient.key].max} oninput={changed} />
-            </div>
-          {/each}
-        </div>
-        {#if result.error}<p class="range-error" id="range-error" role="alert">{result.error}</p>{/if}
+        <p class="filter-intro"><span class="mobile-only">{BASES[basis]}. </span>Leave blank for no limit.</p>
+        <RangeTable bind:ranges error={result.error} onchange={changed} />
         <label class="category-label" for="category">Category</label>
         <select id="category" bind:value={category} onchange={changed}>
           <option value="all">All foods</option>
@@ -99,8 +87,9 @@
         </select>
         <p class="presets-label">A starting point</p>
         <div class="presets">
-          {#each presets as preset}<button class:chosen={activePreset === preset.name} aria-pressed={activePreset === preset.name} onclick={() => applyPreset(preset)}>{preset.name}</button>{/each}
+          {#each PRESETS as preset}<button class:chosen={activePreset === preset.name} aria-pressed={activePreset === preset.name} onclick={() => applyPreset(preset)}>{preset.name}</button>{/each}
         </div>
+        <DislikeSummary onedit={() => dislikesOpen = true} />
         <button class="clear-button" onclick={clearAll}>↺ <span>Clear all</span></button>
         <div class="serving-note"><span class="note-icon" aria-hidden="true">i</span><p>{basis === '100g' ? 'Every number is for 100 g of the food, so foods compare weight for weight.' : 'Every number is for the serving shown. Different foods have different serving sizes.'}</p></div>
       </div>
@@ -127,6 +116,10 @@
       <footer><p>Food by your numbers. <span>No accounts. Just answers.</span></p><p>USDA SR Legacy · {dataset?.total.toLocaleString() ?? '…'} food records. {dataset?.excluded ?? '…'} without serving sizes excluded.</p><p>Missing nutrients appear as — and won’t match an active range. Values are rounded for display; filters use full precision.</p></footer>
     </main>
   </div>
+{:else if dataset}
+  <Recipes foods={dataset.foods} oneditdislikes={() => dislikesOpen = true} />
 {:else}
-  <main class="coming-soon" id="results" tabindex="-1"><span class="serving-badge">Coming soon</span><h1>Recipes that fit.</h1><p>The same simple search, for your next meal.<br />For now, find the foods that fit your numbers.</p><button class="outline-button" onclick={() => tab = 'foods'}>Back to foods</button></main>
+  <main class="coming-soon" id="results" tabindex="-1"><h1>{loading ? 'Loading foods…' : 'Food data unavailable'}</h1><p>{loading ? 'Recipes need the food library. One moment.' : loadError}</p>{#if !loading}<button class="outline-button" onclick={loadFoods}>Try again</button>{/if}</main>
 {/if}
+
+<DislikesModal bind:open={dislikesOpen} foods={dataset?.foods ?? []} />

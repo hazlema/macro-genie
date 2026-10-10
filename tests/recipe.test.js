@@ -1,0 +1,134 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import raw from "../foods.json" with { type: "json" };
+import { findFoods, normalizeDataset, searchFoods } from "../src/lib/foods.js";
+import { expandDislikes, isDisliked, solveRecipe } from "../src/lib/recipe.js";
+
+const { foods } = normalizeDataset({
+  src: "Fixture source",
+  foods: [
+    // name, group, kcal, protein, fat, carbs, fiber, sugar, sodium, satFat, grams, label
+    ["Pumpkin, canned", "1100", 34, 1, 0.3, 8, 3, 3, 5, 0.1, 245, "1 cup"],
+    ["Cheese, gruyere", "0100", 413, 30, 32, 0.4, 0, 0.4, 700, 19, 28, "1 oz"],
+    ["Cream, heavy", "0100", 340, 3, 36, 3, 0, 3, 27, 23, 15, "1 tbsp"],
+  ],
+});
+const [pumpkin, gruyere, cream] = foods;
+
+test("amounts stay as asked when every target already fits", () => {
+  const r = solveRecipe(
+    [
+      { food: pumpkin, grams: 200 },
+      { food: gruyere, grams: 100 },
+    ],
+    { servings: 4, ranges: { calories: { max: 1000 } } },
+  );
+  assert.equal(r.fits, true);
+  assert.deepEqual(
+    r.amounts.map((a) => a.grams),
+    [200, 100],
+  );
+  assert.equal(r.perServing.protein, (2 + 30) / 4);
+});
+
+test("the food driving a missed limit is cut, others stay", () => {
+  const r = solveRecipe(
+    [
+      { food: pumpkin, grams: 400, required: true },
+      { food: gruyere, grams: 100 },
+    ],
+    { servings: 4, ranges: { netCarbs: { max: 4 } } },
+  );
+  assert.equal(r.fits, true);
+  assert.ok(r.amounts[0].grams < 400 && r.amounts[0].grams >= 100);
+  assert.equal(r.amounts[1].grams, 100);
+  assert.ok(r.perServing.netCarbs <= 4.05);
+});
+
+test("impossible targets return the closest match within the amount bounds", () => {
+  const r = solveRecipe(
+    [
+      { food: pumpkin, grams: 400, required: true },
+      { food: cream, grams: 50 },
+    ],
+    { servings: 2, ranges: { protein: { min: 30 }, netCarbs: { max: 1 } } },
+  );
+  assert.equal(r.fits, false);
+  assert.ok(r.misses.length > 0);
+  assert.ok(r.amounts[0].grams >= 100, "must-use keeps a quarter");
+  assert.ok(
+    r.amounts.every((a) => a.grams <= a.wanted * 2),
+    "at most double",
+  );
+});
+
+test("rounding to whole grams never causes a miss the solver avoided", () => {
+  const { foods: all } = normalizeDataset(raw);
+  const pick = (q) => searchFoods(all, { query: q, sort: "name" })[0];
+  const items = [
+    ["pumpkin canned without salt", 400, true],
+    ["cream heavy whipping fluid", 150],
+    ["egg whole raw fresh", 150],
+    ["cheese gruyere", 120],
+    ["bacon cooked", 60],
+    ["pecans", 20],
+  ].map(([q, grams, required]) => ({ food: pick(q), grams, required }));
+  const r = solveRecipe(items, {
+    servings: 4,
+    ranges: {
+      protein: { min: 40 },
+      netCarbs: { max: 5 },
+      calories: { max: 600 },
+    },
+  });
+  assert.deepEqual(
+    r.misses.map((m) => m.key),
+    ["protein"],
+  );
+  assert.ok(Math.round(r.perServing.calories * 10) / 10 <= 600);
+  assert.ok(Math.round(r.perServing.netCarbs * 10) / 10 <= 5);
+});
+
+test("bad servings or ranges fail explicitly; no usable items gives nothing", () => {
+  const items = [{ food: pumpkin, grams: 100 }];
+  assert.throws(() => solveRecipe(items, { servings: 0 }), /Servings/);
+  assert.throws(
+    () => solveRecipe(items, { ranges: { protein: { min: 5, max: 1 } } }),
+    /range/,
+  );
+  assert.equal(solveRecipe([{ food: pumpkin, grams: 0 }]), null);
+});
+
+test("dislikes match word starts and common alternative names", () => {
+  assert.equal(isDisliked(pumpkin, ["pump"]), true);
+  assert.equal(isDisliked(pumpkin, ["kin"]), false);
+  assert.equal(isDisliked(gruyere, ["Cheese  "]), true);
+  assert.deepEqual(expandDislikes(["Cilantro"]), ["cilantro", "coriander"]);
+  assert.deepEqual(expandDislikes(["pecans", "berries", "tomatoes", "swiss"]), [
+    "pecans",
+    "pecan",
+    "berries",
+    "berry",
+    "tomatoes",
+    "tomato",
+    "swiss",
+  ]);
+  assert.equal(
+    searchFoods(foods, { exclude: expandDislikes(["cheese", "heavy"]) }).length,
+    1,
+  );
+});
+
+test("food finding ranks plain foods first and matches plurals", () => {
+  const { foods: all } = normalizeDataset(raw);
+  const names = (q) => findFoods(all, q, { limit: 10 }).map((f) => f.name);
+  assert.match(names("shrimp")[0], /^Crustaceans, shrimp/);
+  assert.ok(names("eggs").includes("Egg, whole, raw, fresh"));
+  assert.ok(!names("eggs").some((n) => /eggnog|eggplant/i.test(n)));
+  assert.equal(names("onions")[0], "Onions, raw");
+  assert.ok(
+    !names("pumpkin")
+      .slice(0, 3)
+      .some((n) => /pie mix/i.test(n)),
+  );
+});

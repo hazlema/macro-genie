@@ -54,6 +54,20 @@ export function withBasis({ per100g, ...food }, basis = "serving") {
   return basis === "100g" ? { ...food, nutrients: per100g } : food;
 }
 
+export const PRESETS = [
+  { name: "Keto strict", ranges: { netCarbs: { max: 5 } } },
+  {
+    name: "Protein hunt",
+    ranges: { protein: { min: 20 }, netCarbs: { max: 6 } },
+  },
+  {
+    name: "Lean cut",
+    ranges: { protein: { min: 20 }, fat: { max: 10 }, calories: { max: 300 } },
+  },
+  { name: "Bulk", ranges: { protein: { min: 20 }, calories: { min: 300 } } },
+  { name: "Low sodium", ranges: { sodium: { max: 140 } } },
+];
+
 export function emptyRanges() {
   return Object.fromEntries(
     NUTRIENTS.map(({ key }) => [key, { min: undefined, max: undefined }]),
@@ -136,22 +150,9 @@ export function validateRanges(ranges = {}) {
   }
 }
 
-export function searchFoods(
-  foods,
-  {
-    query = "",
-    category = "all",
-    ranges = {},
-    sort = "protein",
-    basis = "serving",
-  } = {},
-) {
-  validateRanges(ranges);
-  if (!(basis in BASES)) throw new Error("Unknown nutrient basis.");
-  const valueOf = (food, key) =>
-    (basis === "100g" ? food.per100g : food.nutrients)[key];
-  // Each word must start a word in the name, so "tea" finds tea, not steak.
-  const terms = query
+// Each word must start a word in the name, so "tea" finds tea, not steak.
+export function queryMatchers(query) {
+  return query
     .toLocaleLowerCase()
     .trim()
     .split(/\s+/)
@@ -163,9 +164,39 @@ export function searchFoods(
           "u",
         ),
     );
+}
+
+// True when every word of any phrase starts a word in the food's name.
+export function matchesAny(food, phrases) {
+  const name = food.name.toLocaleLowerCase();
+  return phrases.some((phrase) => {
+    const words = queryMatchers(phrase);
+    return words.length > 0 && words.every((term) => term.test(name));
+  });
+}
+
+export function searchFoods(
+  foods,
+  {
+    query = "",
+    category = "all",
+    ranges = {},
+    sort = "protein",
+    basis = "serving",
+    exclude = [],
+  } = {},
+) {
+  validateRanges(ranges);
+  if (!(basis in BASES)) throw new Error("Unknown nutrient basis.");
+  const valueOf = (food, key) =>
+    (basis === "100g" ? food.per100g : food.nutrients)[key];
+  const terms = queryMatchers(query);
+  const blocked = (exclude ?? []).map(queryMatchers).filter((m) => m.length);
   const found = foods.filter((food) => {
     if (category !== "all" && food.category !== category) return false;
-    if (!terms.every((term) => term.test(food.name.toLocaleLowerCase())))
+    const name = food.name.toLocaleLowerCase();
+    if (!terms.every((term) => term.test(name))) return false;
+    if (blocked.some((words) => words.every((term) => term.test(name))))
       return false;
     return Object.entries(ranges).every(([key, { min, max }]) => {
       if (min == null && max == null) return true;
@@ -189,6 +220,62 @@ export function searchFoods(
       a.name.localeCompare(b.name)
     );
   });
+}
+
+// "pecans" -> "pecan", "berries" -> "berry", "tomatoes" -> "tomato".
+export function singular(word) {
+  if (word.length < 4 || !word.endsWith("s") || word.endsWith("ss"))
+    return word;
+  if (word.endsWith("ies")) return `${word.slice(0, -3)}y`;
+  if (word.endsWith("oes")) return word.slice(0, -2);
+  return word.slice(0, -1);
+}
+
+// Restaurant meals, brands, and processed versions rank below the plain food.
+const PREPARED =
+  /^(fast foods|restaurant|babyfood|baby food|cereals|soup|sauce|snacks|candies|cookies|crackers|bread|pizza|fruit-flavored|beverages, .*(drink|mix))/i;
+const PROCESSED =
+  /\b(breaded|battered|fried|mix|sweetened|condensed|frozen mixture|with added|imitation)\b/i;
+const BRAND = /\b[A-Z][A-Z'.&-]{2,}\b/;
+
+// How plain and on-topic a food is for a search word: lower is better. USDA
+// names read "Category, item, details", so the word appearing in the first
+// or second part is a good sign.
+function plainness(food, word) {
+  const parts = food.name.toLocaleLowerCase().split(",");
+  const words = (part) => part.trim().split(/[^\p{L}\p{N}]+/u);
+  const index = parts.findIndex((part) =>
+    words(part).some((w) => w.startsWith(word)),
+  );
+  // "egg" should prefer "Egg, whole" over "Eggplant".
+  const whole = parts.some((part) =>
+    words(part).some((w) => w === word || singular(w) === word),
+  );
+  return (
+    (index < 0 ? 40 : index * 10) +
+    (whole ? 0 : 15) +
+    (PREPARED.test(food.name) ? 30 : 0) +
+    (BRAND.test(food.name) ? 30 : 0) +
+    (PROCESSED.test(food.name) ? 8 : 0) +
+    food.name.length / 25
+  );
+}
+
+// Best matches for a typed food name, plain foods first. Plurals also match
+// the singular, so "eggs" finds "Egg, whole, raw, fresh".
+export function findFoods(foods, query, { exclude = [], limit = 8 } = {}) {
+  const words = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const found = new Map();
+  for (const q of new Set([words.join(" "), words.map(singular).join(" ")]))
+    for (const food of searchFoods(foods, { query: q, sort: "none", exclude }))
+      found.set(food.id, food);
+  const first = singular(words[0]);
+  return [...found.values()]
+    .map((food) => ({ food, score: plainness(food, first) }))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, limit)
+    .map(({ food }) => food);
 }
 
 export function formatAmount(value) {

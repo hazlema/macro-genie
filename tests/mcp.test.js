@@ -18,6 +18,7 @@ test("MCP exposes searchable serving values and retrievable food details", async
       "get_food_details",
       "list_food_categories",
       "search_foods",
+      "size_recipe",
     ]);
     const found = await client.callTool({
       name: "search_foods",
@@ -67,6 +68,35 @@ test("MCP exposes searchable serving values and retrievable food details", async
       JSON.parse(per100Detail.content[0].text).food,
       per100Data.foods[0],
     );
+    const excluded = await client.callTool({
+      name: "search_foods",
+      arguments: { query: "chicken", exclude: ["breast"], limit: 100 },
+    });
+    const excludedData = JSON.parse(excluded.content[0].text);
+    assert.ok(excludedData.total > 0);
+    assert.ok(excludedData.foods.every((f) => !/\bbreast/i.test(f.name)));
+    const sized = await client.callTool({
+      name: "size_recipe",
+      arguments: {
+        servings: 2,
+        ingredients: [
+          { id: data.foods[0].id, grams: 300, required: true },
+          { id: data.foods[1].id, grams: 200 },
+        ],
+        ranges: { calories: { max: 250 } },
+      },
+    });
+    assert.ok(!sized.isError);
+    const sizedData = JSON.parse(sized.content[0].text);
+    assert.equal(sizedData.basis, "per serving");
+    assert.equal(sizedData.ingredients.length, 2);
+    assert.ok(sizedData.ingredients[0].grams >= 75);
+    assert.ok(sizedData.fits ? sizedData.perServing.calories <= 250.05 : true);
+    const missing = await client.callTool({
+      name: "size_recipe",
+      arguments: { ingredients: [{ id: "nope", grams: 10 }] },
+    });
+    assert.equal(missing.isError, true);
     const invalid = await client.callTool({
       name: "search_foods",
       arguments: { ranges: { protein: { min: 30, max: 2 } } },

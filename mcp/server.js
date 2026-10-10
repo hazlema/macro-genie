@@ -10,14 +10,34 @@ import {
   searchFoods,
   withBasis,
 } from "../src/lib/foods.js";
+import { expandDislikes, solveRecipe } from "../src/lib/recipe.js";
 
 const dataset = normalizeDataset(raw);
+const exclude = z
+  .array(z.string().min(1).max(40))
+  .max(50)
+  .optional()
+  .describe(
+    'Foods to leave out: any food whose name contains all words of an entry (matched at word starts), e.g. ["mushroom", "cilantro"]',
+  );
 const range = z
   .object({
     min: z.number().nonnegative().optional(),
     max: z.number().nonnegative().optional(),
   })
   .strict();
+const rangesInput = (basis) =>
+  z
+    .object(
+      Object.fromEntries(
+        NUTRIENTS.map((n) => [
+          n.key,
+          range.optional().describe(`${n.label} in ${n.unit} ${basis}`),
+        ]),
+      ),
+    )
+    .strict()
+    .optional();
 const units = Object.fromEntries(NUTRIENTS.map((n) => [n.key, n.unit]));
 const reply = (value) => ({
   content: [{ type: "text", text: JSON.stringify(value) }],
@@ -43,7 +63,7 @@ const metadata = (basis) => ({
 });
 
 export function createMcpServer() {
-  const server = new McpServer({ name: "macro-genie", version: "0.2.0" });
+  const server = new McpServer({ name: "macro-genie", version: "0.3.0" });
   server.registerTool(
     "search_foods",
     {
@@ -56,29 +76,22 @@ export function createMcpServer() {
           .optional()
           .describe("Food name; all space-separated words must match"),
         category: z.enum(["all", ...Object.keys(GROUPS)]).optional(),
-        ranges: z
-          .object(
-            Object.fromEntries(
-              NUTRIENTS.map((n) => [
-                n.key,
-                range
-                  .optional()
-                  .describe(`${n.label} in ${n.unit} per the chosen basis`),
-              ]),
-            ),
-          )
-          .strict()
-          .optional(),
+        ranges: rangesInput("per the chosen basis"),
         sort: z.enum(Object.keys(SORTS)).optional(),
         basis: basisInput,
+        exclude,
         limit: z.number().int().min(1).max(100).default(20),
         offset: z.number().int().nonnegative().default(0),
       },
       annotations,
     },
-    async ({ limit, offset, basis, ...options }) => {
+    async ({ limit, offset, basis, exclude, ...options }) => {
       try {
-        const found = searchFoods(dataset.foods, { ...options, basis });
+        const found = searchFoods(dataset.foods, {
+          ...options,
+          basis,
+          exclude: expandDislikes(exclude),
+        });
         return reply({
           ...metadata(basis),
           total: found.length,
@@ -128,6 +141,72 @@ export function createMcpServer() {
             }),
             isError: true,
           };
+    },
+  );
+  server.registerTool(
+    "size_recipe",
+    {
+      description:
+        "Work out ingredient amounts for a dish so EACH SERVING meets nutrient ranges, using USDA data. Use this instead of doing nutrition math yourself. Give food IDs from search_foods with the grams you'd like for the whole dish. Amounts stay as close to those as possible: each can shrink to 0 (a required one keeps at least a quarter) or grow to double. If the ranges can't all be met, it returns the closest match and lists the misses. Returned nutrients are per serving and computed from the whole-gram amounts.",
+      inputSchema: {
+        ingredients: z
+          .array(
+            z
+              .object({
+                id: z.string().max(100),
+                grams: z
+                  .number()
+                  .positive()
+                  .max(5000)
+                  .describe("Grams you'd like in the whole dish"),
+                required: z
+                  .boolean()
+                  .optional()
+                  .describe("Keep at least a quarter of this amount"),
+              })
+              .strict(),
+          )
+          .min(1)
+          .max(20),
+        servings: z.number().int().min(1).max(50).default(1),
+        ranges: rangesInput("per serving"),
+      },
+      annotations,
+    },
+    async ({ ingredients, servings, ranges = {} }) => {
+      try {
+        const items = ingredients.map(({ id, grams, required }) => {
+          const food = dataset.foods.find((f) => f.id === id);
+          if (!food)
+            throw new Error(
+              `Food ${id} not found. Search again to get a current ID.`,
+            );
+          return { food, grams, required: !!required };
+        });
+        const solved = solveRecipe(items, { servings, ranges });
+        return reply({
+          basis: "per serving",
+          units: metadata("serving").units,
+          source: dataset.source,
+          servings,
+          fits: solved.fits,
+          misses: solved.misses,
+          ingredients: solved.amounts.map(({ food, wanted, grams }) => ({
+            id: food.id,
+            name: food.name,
+            requestedGrams: wanted,
+            grams,
+            listedServing: food.serving,
+          })),
+          totalGrams: solved.totalGrams,
+          perServing: solved.perServing,
+          notReported: solved.unknown,
+          notes:
+            "Use these amounts exactly. Seasonings with negligible calories (salt, pepper, herbs, spices, vinegar, water) can be added freely. notReported lists foods missing a nutrient; those totals may be low.",
+        });
+      } catch (error) {
+        return { ...reply({ error: error.message }), isError: true };
+      }
     },
   );
   return server;

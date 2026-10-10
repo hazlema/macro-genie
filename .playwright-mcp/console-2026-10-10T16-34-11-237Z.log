@@ -1,0 +1,6 @@
+[   17399ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5199/@vite/client:864
+[   70891ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5199/api/idea:0
+[   70892ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5199/api/idea:0
+[   70892ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5199/api/idea:0
+[   70892ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5199/api/idea:0
+[   70892ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:5199/api/idea:0

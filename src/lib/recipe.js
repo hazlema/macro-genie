@@ -1,0 +1,167 @@
+import solver from "javascript-lp-solver";
+import { NUTRIENTS, matchesAny, singular, validateRanges } from "./foods.js";
+
+// USDA names use American words. Map common alternatives onto them.
+const SYNONYMS = {
+  cilantro: ["coriander"],
+  coriander: ["cilantro"],
+  prawn: ["shrimp"],
+  prawns: ["shrimp"],
+  shrimp: ["prawn"],
+  aubergine: ["eggplant"],
+  eggplant: ["aubergine"],
+  courgette: ["squash, summer"],
+  zucchini: ["squash, summer"],
+  chickpea: ["garbanzo"],
+  chickpeas: ["garbanzo"],
+  garbanzo: ["chickpeas"],
+  "green onion": ["onions, spring", "scallions"],
+  scallion: ["onions, spring"],
+  liver: ["liverwurst"],
+};
+
+export function expandDislikes(words = []) {
+  const phrases = words
+    .map((w) => w.toLocaleLowerCase().trim())
+    .filter(Boolean);
+  // "pecans" should also catch "pecan pie", so add the singular.
+  return [
+    ...new Set(
+      phrases.flatMap((w) => [w, singular(w), ...(SYNONYMS[w] ?? [])]),
+    ),
+  ];
+}
+
+// True when the food's name contains any of the words (plurals and common
+// alternative names included).
+export const nameMatches = (food, words) =>
+  matchesAny(food, expandDislikes(words));
+export const isDisliked = nameMatches;
+
+// Nutrients shown for a dish, in order.
+export const DISH_NUTRIENTS = [
+  ...NUTRIENTS,
+  { key: "carbs", label: "Total carbs", unit: "g" },
+  { key: "fiber", label: "Fiber", unit: "g" },
+];
+
+// How much one unit of each nutrient "costs" when a limit is missed, so a
+// 50 kcal miss and a 1 g carb miss weigh about the same.
+const MISS_SCALE = { calories: 50, sodium: 100 };
+
+/**
+ * Size ingredient amounts so each serving of the dish meets the ranges.
+ * items: [{ food, grams, required }] where grams is the amount you'd like.
+ * Amounts stay as close to what you asked for as possible, between zero
+ * (a quarter for must-use items) and double. When the ranges
+ * can't all be met, it returns the closest match and lists what's missed.
+ */
+export function solveRecipe(items, { servings = 1, ranges = {} } = {}) {
+  validateRanges(ranges);
+  if (!Number.isInteger(servings) || servings < 1 || servings > 50)
+    throw new Error("Servings must be a whole number from 1 to 50.");
+  const usable = items.filter((item) => item.grams > 0);
+  if (!usable.length) return null;
+
+  const active = Object.entries(ranges).filter(
+    ([, r]) => r && (r.min != null || r.max != null),
+  );
+  const constraints = {};
+  const variables = {};
+  usable.forEach((item, i) => {
+    // Amounts can shrink to zero or grow to double what was asked for.
+    const x = { cost: 0, [`want${i}`]: 1, [`cap${i}`]: 1 };
+    constraints[`want${i}`] = { equal: item.grams };
+    constraints[`cap${i}`] = { max: item.grams * 2 };
+    // Deviation from the requested amount, relative to that amount.
+    variables[`more${i}`] = { cost: 1 / item.grams, [`want${i}`]: -1 };
+    variables[`less${i}`] = { cost: 1 / item.grams, [`want${i}`]: 1 };
+    if (item.required) {
+      // A must-use ingredient keeps at least a quarter of its amount.
+      constraints[`floor${i}`] = { min: item.grams / 4 };
+      x[`floor${i}`] = 1;
+    }
+    for (const [key] of active)
+      x[key] = (item.food.per100g[key] ?? 0) / 100 / servings;
+    variables[`x${i}`] = x;
+  });
+  for (const [key, { min, max }] of active) {
+    constraints[key] = {};
+    if (min != null) constraints[key].min = min;
+    if (max != null) constraints[key].max = max;
+    const cost = 1000 / Math.max(MISS_SCALE[key] ?? 1, min ?? 0, max ?? 0);
+    if (max != null) variables[`over_${key}`] = { cost, [key]: -1 };
+    if (min != null) variables[`under_${key}`] = { cost, [key]: 1 };
+  }
+
+  const solution = solver.Solve({
+    optimize: "cost",
+    opType: "min",
+    constraints,
+    variables,
+  });
+  if (!solution.feasible) throw new Error("These amounts couldn't be sized.");
+
+  const amounts = usable.map((item, i) => ({
+    ...item,
+    wanted: item.grams,
+    grams: Math.round(solution[`x${i}`] ?? 0),
+  }));
+  // Rounding to whole grams can push a total just past a limit the exact
+  // solution met. Nudge single grams until those limits hold again.
+  const total = (key) =>
+    amounts.reduce((sum, a) => sum + (a.food.per100g[key] ?? 0) * a.grams, 0) /
+    100 /
+    servings;
+  const shownValue = (v) => Math.round(v * 10) / 10;
+  for (let step = 0; step < 200; step++) {
+    const broken = active.find(
+      ([key, { min, max }]) =>
+        ((max != null && shownValue(total(key)) > max) ||
+          (min != null && shownValue(total(key)) < min)) &&
+        !(solution[`over_${key}`] > 1e-6 || solution[`under_${key}`] > 1e-6),
+    );
+    if (!broken) break;
+    const [key, { max }] = broken;
+    const down = max != null && shownValue(total(key)) > max;
+    const options = amounts.filter((a) =>
+      down
+        ? a.grams > (a.required ? Math.ceil(a.wanted / 4) : 0)
+        : a.grams < a.wanted * 2,
+    );
+    const best = options.sort(
+      (x, y) => (y.food.per100g[key] ?? 0) - (x.food.per100g[key] ?? 0),
+    )[0];
+    if (!best || !best.food.per100g[key]) break;
+    best.grams += down ? -1 : 1;
+  }
+
+  const perServing = {};
+  const unknown = {};
+  for (const { key } of DISH_NUTRIENTS) {
+    perServing[key] = 0;
+    for (const amount of amounts) {
+      const value = amount.food.per100g[key];
+      if (value == null) {
+        if (amount.grams > 0) (unknown[key] ??= []).push(amount.food.name);
+      } else perServing[key] += (value * amount.grams) / 100 / servings;
+    }
+  }
+  const misses = active.flatMap(([key, { min, max }]) => {
+    const value = shownValue(perServing[key]);
+    if (max != null && value > max)
+      return [{ key, bound: "max", limit: max, value: perServing[key] }];
+    if (min != null && value < min)
+      return [{ key, bound: "min", limit: min, value: perServing[key] }];
+    return [];
+  });
+  return {
+    servings,
+    amounts,
+    perServing,
+    unknown,
+    misses,
+    fits: misses.length === 0,
+    totalGrams: amounts.reduce((sum, a) => sum + a.grams, 0),
+  };
+}
