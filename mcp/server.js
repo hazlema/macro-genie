@@ -43,7 +43,7 @@ const metadata = (basis) => ({
 });
 
 export function createMcpServer() {
-  const server = new McpServer({ name: "macro-genie", version: "0.1.0" });
+  const server = new McpServer({ name: "macro-genie", version: "0.2.0" });
   server.registerTool(
     "search_foods",
     {
