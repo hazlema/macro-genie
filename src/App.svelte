@@ -1,0 +1,131 @@
+<script>
+  import { onMount } from 'svelte';
+  import FoodCard from './components/FoodCard.svelte';
+  import { GROUPS, NUTRIENTS, SORTS, emptyRanges, normalizeDataset, searchFoods } from './lib/foods.js';
+
+  let dataset = $state(null);
+  let loading = $state(true);
+  let loadError = $state('');
+  let query = $state('');
+  let category = $state('all');
+  let sort = $state('protein');
+  let ranges = $state(emptyRanges());
+  let tab = $state('foods');
+  let visible = $state(20);
+  let activePreset = $state('');
+  let mobileFilters = $state(false);
+
+  const presets = [
+    { name: 'Keto strict', ranges: { netCarbs: { max: 5 } } },
+    { name: 'Protein hunt', ranges: { protein: { min: 20 }, netCarbs: { max: 6 } } },
+    { name: 'Lean cut', ranges: { protein: { min: 20 }, fat: { max: 10 }, calories: { max: 300 } } },
+    { name: 'Bulk', ranges: { protein: { min: 20 }, calories: { min: 300 } } },
+    { name: 'Low sodium', ranges: { sodium: { max: 140 } } },
+  ];
+  const activeCount = $derived(Object.values(ranges).filter(r => r.min != null || r.max != null).length);
+  const result = $derived.by(() => {
+    try { return { foods: searchFoods(dataset?.foods ?? [], { query, category, sort, ranges }), error: '' }; }
+    catch (error) { return { foods: [], error: error.message }; }
+  });
+  const categories = $derived(Object.entries(GROUPS).filter(([id]) => dataset?.foods.some(food => food.category === id)));
+
+  async function loadFoods() {
+    loading = true;
+    loadError = '';
+    try {
+      const response = await fetch('/foods.json');
+      if (!response.ok) throw new Error('Food data request failed.');
+      dataset = normalizeDataset(await response.json());
+      if (!dataset.foods.length) throw new Error('Food data is empty.');
+    } catch {
+      loadError = 'The food data couldn’t be loaded. Check your connection and try again.';
+    } finally { loading = false; }
+  }
+  onMount(loadFoods);
+
+  function changed() { visible = 20; activePreset = ''; }
+  function applyPreset(preset) {
+    ranges = { ...emptyRanges(), ...structuredClone(preset.ranges) };
+    activePreset = preset.name;
+    visible = 20;
+  }
+  function clearAll() {
+    ranges = emptyRanges(); query = ''; category = 'all'; sort = 'protein'; activePreset = ''; visible = 20;
+  }
+</script>
+
+<svelte:head><title>Macro Genie — Food by your numbers</title></svelte:head>
+
+<a class="skip-link" href="#results">Skip to foods</a>
+<header class="topbar">
+  <a class="wordmark" href="/" aria-label="Macro Genie home">Macro Genie<span class="brand-dot"></span></a>
+  <nav class="tabs" aria-label="Browse">
+    <button class:current={tab === 'foods'} aria-current={tab === 'foods' ? 'page' : undefined} onclick={() => tab = 'foods'}>Foods <span>{dataset ? dataset.foods.length.toLocaleString() : '…'}</span></button>
+    <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => tab = 'recipes'}>Recipes <span class="soon-badge">Soon</span></button>
+  </nav>
+  {#if tab === 'foods'}
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+      <input type="search" aria-label="Search foods" placeholder="Search foods: steak, lentil, yogurt" bind:value={query} oninput={changed} />
+    </div>
+  {/if}
+</header>
+
+{#if tab === 'foods'}
+  <div class="workspace">
+    <aside class:mobile-open={mobileFilters}>
+      <button class="mobile-filter-toggle" onclick={() => mobileFilters = !mobileFilters} aria-expanded={mobileFilters} aria-controls="filter-content">Your ranges {activeCount ? `(${activeCount})` : ''}<span>{mobileFilters ? '−' : '+'}</span></button>
+      <div class="filter-content" id="filter-content">
+        <div class="filter-heading"><h1>Your ranges</h1><span class="serving-badge">Per serving</span></div>
+        <p class="filter-intro">Leave blank for no limit.</p>
+        <div class="range-table">
+          <div class="range-header"><span>Nutrient</span><span>Min</span><span>Max</span></div>
+          {#each NUTRIENTS as nutrient}
+            {@const active = ranges[nutrient.key].min != null || ranges[nutrient.key].max != null}
+            {@const invalid = ranges[nutrient.key].min != null && ranges[nutrient.key].max != null && ranges[nutrient.key].min > ranges[nutrient.key].max}
+            <div class="range-row" class:active>
+              <div class="nutrient-label"><span class="active-dot"></span>{nutrient.label} <small>{nutrient.unit}</small></div>
+              <input type="number" min="0" step="any" inputmode="decimal" placeholder="–" aria-label={`${nutrient.label} minimum`} aria-invalid={invalid} aria-describedby={result.error ? 'range-error' : undefined} class:filled={ranges[nutrient.key].min != null} bind:value={ranges[nutrient.key].min} oninput={changed} />
+              <input type="number" min="0" step="any" inputmode="decimal" placeholder="–" aria-label={`${nutrient.label} maximum`} aria-invalid={invalid} aria-describedby={result.error ? 'range-error' : undefined} class:filled={ranges[nutrient.key].max != null} bind:value={ranges[nutrient.key].max} oninput={changed} />
+            </div>
+          {/each}
+        </div>
+        {#if result.error}<p class="range-error" id="range-error" role="alert">{result.error}</p>{/if}
+        <label class="category-label" for="category">Category</label>
+        <select id="category" bind:value={category} onchange={changed}>
+          <option value="all">All foods</option>
+          {#each categories as [id, name]}<option value={id}>{name}</option>{/each}
+        </select>
+        <p class="presets-label">A starting point</p>
+        <div class="presets">
+          {#each presets as preset}<button class:chosen={activePreset === preset.name} aria-pressed={activePreset === preset.name} onclick={() => applyPreset(preset)}>{preset.name}</button>{/each}
+        </div>
+        <button class="clear-button" onclick={clearAll}>↺ <span>Clear all</span></button>
+        <div class="serving-note"><span class="note-icon" aria-hidden="true">i</span><p>Every number is for the serving shown. Different foods have different serving sizes.</p></div>
+      </div>
+    </aside>
+
+    <main id="results" tabindex="-1">
+      <div class="results-top">
+        <div class="result-count" aria-live="polite" aria-atomic="true"><strong>{loading ? '…' : loadError || result.error ? '—' : result.foods.length.toLocaleString()}</strong><span>{loading ? 'Loading foods' : `of ${(dataset?.foods.length ?? 0).toLocaleString()} foods fit`}</span></div>
+        <select aria-label="Sort foods" bind:value={sort} onchange={() => visible = 20}>{#each Object.entries(SORTS) as [key, name]}<option value={key}>{name}</option>{/each}</select>
+      </div>
+      <div class="results-context"><span>Nutrition per serving</span><div class="legend" aria-label="Macro bar legend"><span><i class="protein-key"></i>Protein</span><span><i class="carb-key"></i>Net carbs</span><span><i class="fat-key"></i>Fat</span></div></div>
+      {#if loading}
+        <div class="empty-state"><h2>Finding your food data…</h2><p>Loading the food library.</p></div>
+      {:else if loadError}
+        <div class="empty-state" role="alert"><h2>Food data unavailable</h2><p>{loadError}</p><button class="outline-button" onclick={loadFoods}>Try again</button></div>
+      {:else if result.error}
+        <div class="empty-state"><h2>Check your ranges</h2><p>{result.error}</p></div>
+      {:else if result.foods.length === 0}
+        <div class="empty-state"><span class="empty-symbol" aria-hidden="true">∅</span><h2>No foods fit just yet.</h2><p>Try widening a range, choosing another category,<br />or using fewer search words.</p><button class="outline-button" onclick={clearAll}>Clear all filters</button></div>
+      {:else}
+        <div class="food-list">{#each result.foods.slice(0, visible) as food (food.id)}<FoodCard {food} />{/each}</div>
+        <div class="pagination"><span>Showing {Math.min(visible, result.foods.length).toLocaleString()} of {result.foods.length.toLocaleString()}</span>{#if result.foods.length > visible}<button class="outline-button" onclick={() => visible += 20}>Show {Math.min(20, result.foods.length - visible)} more <span aria-hidden="true">↓</span></button>{/if}</div>
+      {/if}
+      <footer><p>Food by your numbers. <span>No accounts. Just answers.</span></p><p>USDA SR Legacy · {dataset?.total.toLocaleString() ?? '…'} food records. {dataset?.excluded ?? '…'} without serving sizes excluded.</p><p>Missing nutrients appear as — and won’t match an active range. Values are rounded for display; filters use full precision.</p></footer>
+    </main>
+  </div>
+{:else}
+  <main class="coming-soon" id="results" tabindex="-1"><span class="serving-badge">Coming soon</span><h1>Recipes that fit.</h1><p>The same simple search, for your next meal.<br />For now, find the foods that fit your numbers.</p><button class="outline-button" onclick={() => tab = 'foods'}>Back to foods</button></main>
+{/if}

@@ -1,0 +1,282 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Macro Genie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet">
+<style>
+/* Layout: one column; filter bench on top, result ledger below — a query tool, not a feed. */
+:root{
+  --paper:#F2EFE9; --ink:#2B2620; --ink-soft:#6A6054; --line:#D6CEC2; --card:#FAF8F4;
+  --accent:#8A5A00; --accent-soft:#EFE3C8; --hit:#1E6B40;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#1B1813; --ink:#EAE4DA; --ink-soft:#A89C8C; --line:#3A342B; --card:#241F18;
+    --accent:#E0A935; --accent-soft:#3A2F17; --hit:#6FC592;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1B1813; --ink:#EAE4DA; --ink-soft:#A89C8C; --line:#3A342B; --card:#241F18;
+  --accent:#E0A935; --accent-soft:#3A2F17; --hit:#6FC592;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Atkinson Hyperlegible",system-ui,sans-serif;font-size:18px;line-height:1.45}
+main{max-width:50rem;margin:0 auto;padding-block:1.5rem 5rem;padding-inline:1.25rem}
+h1{font-family:"Fraunces","Iowan Old Style",Georgia,serif;font-weight:700;font-size:clamp(2.1rem,7vw,3.2rem);line-height:1.05;letter-spacing:-.01em;margin:0}
+.lede{color:var(--ink-soft);margin:.4rem 0 0;max-width:36rem}
+a{color:var(--accent)}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.bench{margin-top:1.5rem;border:2px solid var(--ink);border-radius:8px;background:var(--card);padding:1rem}
+.bench h2{font-family:"Fraunces",Georgia,serif;font-size:1rem;font-weight:500;color:var(--ink-soft);margin:0 0 .6rem;text-transform:uppercase;letter-spacing:.06em}
+.limits{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.75rem}
+.limit label{display:block;font-size:.85rem;color:var(--ink-soft);margin-bottom:.25rem}
+.limit input{width:100%;font:inherit;font-variant-numeric:tabular-nums;padding:.45rem .6rem;border:2px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink)}
+.limit input::placeholder{color:var(--ink-soft);opacity:.6}
+.rowline{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.9rem}
+.rowline > *{flex:1 1 12rem;min-width:0}
+.rowline input[type=search],.rowline select{width:100%;font:inherit;padding:.45rem .6rem;border:2px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink)}
+.presets{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.9rem;align-items:center}
+.presets span{font-size:.85rem;color:var(--ink-soft)}
+.chip{padding:.25rem .75rem;border:2px solid var(--line);border-radius:999px;font-size:.9rem;color:var(--ink-soft)}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip[aria-pressed=true]{border-color:var(--accent);color:var(--accent);font-weight:700}
+
+.countline{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:baseline;margin:1.4rem 0 .4rem}
+.countline b{font-family:"Fraunces",Georgia,serif;font-size:1.5rem;color:var(--accent)}
+.countline .note{color:var(--ink-soft);font-size:.9rem}
+
+.list{border-top:2px solid var(--ink)}
+.food{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.2rem 1.25rem;padding:.7rem 0;border-bottom:1px solid var(--line)}
+.food .name{font-weight:700}
+.food .tag{display:inline-block;font-size:.78rem;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:.05rem .45rem;margin-left:.45rem;vertical-align:.08em;white-space:nowrap}
+.food .serv{grid-column:1 / -1;font-size:.85rem;color:var(--ink-soft)}
+.m{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;font-size:.95rem;color:var(--ink-soft)}
+.m b{color:var(--ink);font-size:1.05rem}
+.m .hit{color:var(--hit);font-weight:700}
+.empty{padding:2.5rem 0;color:var(--ink-soft)}
+footer{margin-top:3rem;color:var(--ink-soft);font-size:.9rem}
+footer p{margin:.3rem 0}
+</style>
+
+<main>
+  <h1>Macro Genie</h1>
+  <p class="lede">Public food databases, filtered by your numbers. No popularity contest — set the range, see every food inside it.</p>
+
+  <section class="bench" aria-label="Filters">
+    <div class="presets" id="dschips" hidden style="margin:0 0 .9rem"></div>
+    <h2>Per 100 g limits — blank means no limit</h2>
+    <div class="limits">
+      <div class="limit"><label for="pmin">Protein, at least (g)</label><input id="pmin" type="number" inputmode="decimal" min="0" placeholder="–"></div>
+      <div class="limit"><label for="ncmax">Net carbs, at most (g)</label><input id="ncmax" type="number" inputmode="decimal" min="0" placeholder="–"></div>
+      <div class="limit"><label for="kmax">Calories, at most</label><input id="kmax" type="number" inputmode="decimal" min="0" placeholder="–"></div>
+      <div class="limit"><label for="fmax">Fat, at most (g)</label><input id="fmax" type="number" inputmode="decimal" min="0" placeholder="–"></div>
+      <div class="limit"><label for="smax">Sugar, at most (g)</label><input id="smax" type="number" inputmode="decimal" min="0" placeholder="–"></div>
+      <div class="limit"><label for="namax">Sodium, at most (mg)</label><input id="namax" type="number" inputmode="decimal" min="0" placeholder="–"></div>
+    </div>
+    <div class="rowline">
+      <input id="q" type="search" placeholder="Search names — steak, broccoli, cheese…" aria-label="Search food names">
+      <select id="grp" aria-label="Food group"></select>
+      <select id="sort" aria-label="Sort order">
+        <option value="density">Most protein per 100 kcal</option>
+        <option value="protein">Most protein per 100 g</option>
+        <option value="netc">Fewest net carbs</option>
+        <option value="kcal">Fewest calories</option>
+        <option value="sodium">Lowest sodium</option>
+        <option value="name">A to Z</option>
+      </select>
+    </div>
+    <div class="presets">
+      <span>Presets:</span>
+      <button type="button" class="chip" data-preset="keto">Keto strict</button>
+      <button type="button" class="chip" data-preset="hunt">Protein hunt</button>
+      <button type="button" class="chip" data-preset="lowna">Low sodium</button>
+      <button type="button" class="chip" data-preset="clear">Clear all</button>
+    </div>
+  </section>
+
+  <div class="countline" id="countline"></div>
+  <div class="list" id="list"><div class="empty">Loading the database…</div></div>
+
+  <footer>
+    <p id="srcnote">Loading sources…</p>
+    <p>All limits apply per 100 g, so serving-size games don't work here. Net carbs = total carbs − fiber. For packaged products, the label on the box wins.</p>
+  </footer>
+</main>
+
+<script>
+(() => {
+"use strict";
+const GROUPS = {
+  "0100":"Dairy & eggs","0200":"Spices & herbs","0300":"Baby food","0400":"Fats & oils",
+  "0500":"Poultry","0600":"Soups & sauces","0700":"Sausages & deli","0800":"Breakfast cereals",
+  "0900":"Fruit","1000":"Pork","1100":"Vegetables","1200":"Nuts & seeds","1300":"Beef",
+  "1400":"Beverages","1500":"Fish & shellfish","1600":"Legumes","1700":"Lamb, veal & game",
+  "1800":"Baked goods","1900":"Sweets","2000":"Grains & pasta","2100":"Fast food",
+  "2200":"Meals & entrees","2500":"Snacks","3500":"Native American","3600":"Restaurant"
+};
+const CAP = 250;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = (v, d) => v == null ? "–" : (Math.round(v * 10) / 10).toFixed(d == null ? (v < 10 && v !== Math.round(v) ? 1 : 0) : d);
+
+const DATASETS = [
+  { id:"usda", label:"USDA", file:"foods.json", note:"USDA SR Legacy (SR28) — 8,789 generic foods, public domain." },
+  { id:"off",  label:"Food Facts", file:"off.json", note:"Open Food Facts — packaged products with label data, © Open Food Facts contributors, ODbL." },
+];
+let FOODS = [];   // combined rows; each row carries its dataset id at index 12
+let LOADED = [];  // datasets that actually loaded
+const state = { pmin:null, ncmax:null, kmax:null, fmax:null, smax:null, namax:null, q:"", grp:"all", sort:"density", ds:"all" };
+
+const STORE_KEY = "macro-genie.v1";
+function loadState(){
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY));
+    if (s && typeof s === "object") Object.assign(state, s);
+  } catch (e) {}
+}
+function saveState(){
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+}
+
+function buildGroupSelect(){
+  const sel = $("grp");
+  sel.innerHTML = '<option value="all">All food groups</option>' +
+    Object.entries(GROUPS).map(([c,n]) => `<option value="${c}">${esc(n)}</option>`).join("");
+}
+
+function syncControls(){
+  for (const k of ["pmin","ncmax","kmax","fmax","smax","namax"]) $(k).value = state[k] == null ? "" : state[k];
+  $("q").value = state.q;
+  $("grp").value = state.grp;
+  $("sort").value = state.sort;
+}
+
+// food row: [name, grp, kcal, protein, fat, carb, fiber, sugar, sodium, satfat, servG, servDesc]
+function netc(f){ return Math.max(0, (f[5] || 0) - (f[6] || 0)); }
+
+function matches(f){
+  if (state.ds !== "all" && f[12] !== state.ds) return false;
+  if (state.grp !== "all" && f[1] !== state.grp) return false;
+  if (state.pmin != null && (f[3] || 0) < state.pmin) return false;
+  if (state.ncmax != null && netc(f) > state.ncmax) return false;
+  if (state.kmax != null && f[2] > state.kmax) return false;
+  if (state.fmax != null && (f[4] || 0) > state.fmax) return false;
+  if (state.smax != null && (f[7] == null ? 0 : f[7]) > state.smax) return false;
+  if (state.namax != null && (f[8] == null ? 0 : f[8]) > state.namax) return false;
+  if (state.q){
+    const terms = state.q.toLowerCase().split(/\s+/).filter(Boolean);
+    const name = f[0].toLowerCase();
+    for (const t of terms) if (!name.includes(t)) return false;
+  }
+  return true;
+}
+
+const SORTS = {
+  density: (a,b) => (b[3]/Math.max(b[2],1)) - (a[3]/Math.max(a[2],1)),
+  protein: (a,b) => (b[3]||0) - (a[3]||0),
+  netc:    (a,b) => netc(a) - netc(b) || (b[3]||0) - (a[3]||0),
+  kcal:    (a,b) => a[2] - b[2],
+  sodium:  (a,b) => (a[8] ?? 1e9) - (b[8] ?? 1e9),
+  name:    (a,b) => a[0].localeCompare(b[0]),
+};
+
+function renderChips(){
+  const el = $("dschips");
+  if (LOADED.length < 2){ el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<span>Dataset:</span>` + [{id:"all",label:"All"}].concat(LOADED).map(d =>
+    `<button type="button" class="chip" data-ds="${d.id}" aria-pressed="${state.ds===d.id}">${esc(d.label)}</button>`).join("");
+  el.querySelectorAll("[data-ds]").forEach(b => b.addEventListener("click", () => {
+    state.ds = b.dataset.ds; saveState(); render();
+  }));
+}
+
+function render(){
+  renderChips();
+  const hits = FOODS.filter(matches).sort(SORTS[state.sort] || SORTS.density);
+  const shown = hits.slice(0, CAP);
+  $("countline").innerHTML = `<b>${hits.length.toLocaleString()}</b> of ${FOODS.length.toLocaleString()} foods fit` +
+    (hits.length > CAP ? ` <span class="note">— showing the top ${CAP}; tighten the range or sort to dig deeper</span>` : "");
+  if (!hits.length){
+    $("list").innerHTML = `<div class="empty">Nothing in the database fits that range. Loosen a limit.</div>`;
+    return;
+  }
+  $("list").innerHTML = shown.map(f => {
+    const nc = netc(f);
+    const serv = f[10] ? `${esc(f[11] || "1 serving")} (${fmt(f[10],0)} g) ≈ ${Math.round(f[2]*f[10]/100)} kcal · ${fmt(f[3]*f[10]/100)} g protein` : "";
+    return `<div class="food">
+      <div><span class="name">${esc(f[0])}</span><span class="tag">${esc(GROUPS[f[1]] || "Packaged")}</span>
+        ${serv ? `<div class="serv">${serv}</div>` : ""}</div>
+      <div class="m"><b>${fmt(f[2],0)}</b> kcal · <b class="hit">${fmt(f[3])} g</b> protein<br>
+        ${fmt(nc)} g net carbs · ${fmt(f[4])} g fat · ${f[8] == null ? "–" : fmt(f[8],0)} mg Na</div>
+    </div>`;
+  }).join("");
+}
+
+function readLimit(id){
+  const v = $(id).value.trim();
+  if (v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function onControl(){
+  for (const k of ["pmin","ncmax","kmax","fmax","smax","namax"]) state[k] = readLimit(k);
+  state.q = $("q").value.trim();
+  state.grp = $("grp").value;
+  state.sort = $("sort").value;
+  saveState();
+  render();
+}
+
+const PRESETS = {
+  keto:  { pmin:null, ncmax:5,  kmax:null, fmax:null, smax:null, namax:null },
+  hunt:  { pmin:20,   ncmax:6,  kmax:null, fmax:null, smax:null, namax:null },
+  lowna: { pmin:null, ncmax:null, kmax:null, fmax:null, smax:null, namax:140 },
+  clear: { pmin:null, ncmax:null, kmax:null, fmax:null, smax:null, namax:null, q:"", grp:"all", sort:"density", ds:"all" },
+};
+
+function wire(){
+  for (const k of ["pmin","ncmax","kmax","fmax","smax","namax"]) $(k).addEventListener("input", onControl);
+  $("q").addEventListener("input", onControl);
+  $("grp").addEventListener("change", onControl);
+  $("sort").addEventListener("change", onControl);
+  document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => {
+    Object.assign(state, PRESETS[b.dataset.preset]);
+    saveState(); syncControls(); render();
+  }));
+}
+
+buildGroupSelect();
+loadState();
+syncControls();
+wire();
+
+Promise.allSettled(DATASETS.map(d =>
+  fetch(d.file).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(j => ({ d, rows: j.foods || [] }))
+)).then(results => {
+  for (const res of results){
+    if (res.status !== "fulfilled") continue;
+    const { d, rows } = res.value;
+    for (const f of rows) f[12] = d.id;
+    LOADED.push(d);
+    FOODS = FOODS.concat(rows);
+  }
+  if (!LOADED.length){
+    $("list").innerHTML = `<div class="empty">Couldn't load any food data. Reload the page to try again.</div>`;
+    $("srcnote").textContent = "";
+    return;
+  }
+  if (state.ds !== "all" && !LOADED.some(x => x.id === state.ds)) state.ds = "all";
+  $("srcnote").textContent = "Sources: " + LOADED.map(x => x.note).join(" · ");
+  render();
+});
+})();
+</script>
+
+</body></html>

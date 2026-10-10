@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.netlify/
+test-results/
+.env
+.env.*
+!.env.example
