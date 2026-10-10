@@ -2,7 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import raw from "../foods.json" with { type: "json" };
 import { findFoods, normalizeDataset, searchFoods } from "../src/lib/foods.js";
-import { expandDislikes, isDisliked, solveRecipe } from "../src/lib/recipe.js";
+import {
+  expandDislikes,
+  isDisliked,
+  parseMethod,
+  recipeText,
+  solveRecipe,
+} from "../src/lib/recipe.js";
 
 const { foods } = normalizeDataset({
   src: "Fixture source",
@@ -131,4 +137,26 @@ test("food finding ranks plain foods first and matches plurals", () => {
       .slice(0, 3)
       .some((n) => /pie mix/i.test(n)),
   );
+});
+
+test("written recipes parse into headings, lists, and steps for the card", () => {
+  const blocks = parseMethod(
+    "## Ingredients\n- 1 cup pumpkin (230 g)\n- 3 eggs\n\n## Method\n1. Heat oven.\n2) Bake.\nEnjoy warm.",
+  );
+  assert.deepEqual(blocks, [
+    { kind: "h", text: "Ingredients" },
+    { kind: "ul", items: ["1 cup pumpkin (230 g)", "3 eggs"] },
+    { kind: "h", text: "Method" },
+    { kind: "ol", items: ["Heat oven.", "Bake."] },
+    { kind: "p", text: "Enjoy warm." },
+  ]);
+  const text = recipeText({
+    name: "Gratin",
+    description: "",
+    servings: 4,
+    perServing: { protein: 20.04, calories: 400 },
+    method: "## Method\n1. Bake.",
+  });
+  assert.match(text, /^Gratin\nServes 4\. Per serving: 20 g protein/);
+  assert.match(text, /\n\nMethod\n1\. Bake\.$/);
 });

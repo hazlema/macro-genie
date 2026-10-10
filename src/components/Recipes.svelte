@@ -1,11 +1,13 @@
 <script>
   import RangeTable from './RangeTable.svelte';
+  import RecipeCard from './RecipeCard.svelte';
   import DislikeSummary from './DislikeSummary.svelte';
   import { NUTRIENTS, PRESETS, emptyRanges, formatAmount } from '../lib/foods.js';
-  import { solveRecipe, isDisliked } from '../lib/recipe.js';
-  import { prefs, save } from '../lib/prefs.svelte.js';
+  import { solveRecipe, isDisliked, recipeText } from '../lib/recipe.js';
+  import { prefs, save, saveRecipe } from '../lib/prefs.svelte.js';
+  import { printRecipe } from '../lib/print.svelte.js';
 
-  let { foods, oneditdislikes } = $props();
+  let { foods, oneditdislikes, onviewsaved } = $props();
 
   // Matches the five variations the server asks for, in order.
   const ANGLES = ['A bake or gratin', 'A skillet dish', 'A soup or stew', 'A bowl or plate', 'Something unexpected'];
@@ -19,6 +21,10 @@
   let ideas = $state(Array.isArray(draft.ideas) ? draft.ideas.filter(i => i?.status === 'ready' && Array.isArray(i.idea?.ingredients)) : []);
   let chosen = $state(Array.isArray(draft.chosen?.items) ? draft.chosen : null);
   let method = $state(typeof draft.method === 'string' ? draft.method : '');
+  // Which amounts the written recipe was for, and whether it's been saved.
+  let methodFor = $state(typeof draft.methodFor === 'string' ? draft.methodFor : '');
+  let savedId = $state(typeof draft.savedId === 'string' ? draft.savedId : null);
+  let saveError = $state('');
   let writing = $state(false);
   let methodError = $state('');
   let activePreset = $state('');
@@ -27,7 +33,7 @@
   let batch = 0;
 
   $effect(() => {
-    prefs.draft = $state.snapshot({ servings, ranges, wantText, note, ideas: ideas.filter(i => i.status === 'ready'), chosen, method });
+    prefs.draft = $state.snapshot({ servings, ranges, wantText, note, ideas: ideas.filter(i => i.status === 'ready'), chosen, method, methodFor, savedId });
     save();
   });
 
@@ -58,7 +64,7 @@
   const solvedById = $derived(new Map((recipe.solved?.amounts ?? []).map(a => [a.food.id, a])));
 
   function applyPreset(preset) { ranges = { ...emptyRanges(), ...structuredClone(preset.ranges) }; activePreset = preset.name; }
-  function startOver() { batch++; wantText = ''; note = ''; ideas = []; chosen = null; method = ''; ranges = emptyRanges(); servings = 4; activePreset = ''; }
+  function startOver() { batch++; wantText = ''; note = ''; ideas = []; chosen = null; method = ''; savedId = null; ranges = emptyRanges(); servings = 4; activePreset = ''; }
 
   function activeRanges() {
     return Object.fromEntries(Object.entries($state.snapshot(ranges)).flatMap(([k, r]) => {
@@ -100,13 +106,15 @@
     chosen = { name: idea.name, description: idea.description, seasonings: idea.seasonings, items: idea.ingredients.map(i => ({ id: i.id, grams: i.suggested, required: i.required })) };
     method = '';
     methodError = '';
+    savedId = null;
     requestAnimationFrame(() => document.getElementById('your-recipe')?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
   }
 
   async function writeRecipe() {
     const s = recipe.solved;
     if (!s || writing) return;
-    writing = true; method = ''; methodError = '';
+    writing = true; method = ''; methodError = ''; savedId = null; saveError = '';
+    methodFor = amountsKey;
     try {
       const res = await fetch('/api/recipe-method', {
         method: 'POST',
@@ -130,24 +138,26 @@
     } finally { writing = false; }
   }
 
-  // Plain text with "## Heading", "- item", and "1. step" lines, rendered without injecting HTML.
-  const methodBlocks = $derived.by(() => {
-    const blocks = [];
-    for (const line of method.split('\n')) {
-      const text = line.trim();
-      if (!text) continue;
-      const kind = text.startsWith('## ') ? 'h' : /^[-*] /.test(text) ? 'ul' : /^\d+[.)] /.test(text) ? 'ol' : 'p';
-      const body = kind === 'h' ? text.slice(3) : kind === 'ul' ? text.slice(2) : kind === 'ol' ? text.replace(/^\d+[.)] /, '') : text;
-      const last = blocks.at(-1);
-      if ((kind === 'ul' || kind === 'ol') && last?.kind === kind) last.items.push(body);
-      else blocks.push(kind === 'ul' || kind === 'ol' ? { kind, items: [body] } : { kind, text: body });
-    }
-    return blocks;
-  });
+  // The amounts the recipe would be written for; a change makes a written recipe stale.
+  const amountsKey = $derived(recipe.solved ? JSON.stringify([servings, recipe.solved.amounts.filter(a => a.grams > 0).map(a => [a.food.id, a.grams])]) : '');
+  const stale = $derived(!!method && !writing && methodFor !== amountsKey);
+  const card = $derived(chosen && recipe.solved ? {
+    name: chosen.name,
+    description: chosen.description ?? '',
+    servings,
+    gramsPerServing: recipe.solved.totalGrams / servings,
+    perServing: Object.fromEntries(NUTRIENTS.map(n => [n.key, recipe.solved.perServing[n.key]])),
+    ingredients: recipe.solved.amounts.filter(a => a.grams > 0).map(a => ({ name: a.food.name, grams: a.grams })),
+    seasonings: chosen.seasonings ?? [],
+    method,
+  } : null);
 
   async function copyRecipe() {
-    const header = `${chosen.name}\n${chosen.description ?? ''}\nServes ${servings}\n\n`;
-    try { await navigator.clipboard.writeText(header + method.trim()); copied = true; setTimeout(() => copied = false, 2000); } catch { copied = false; }
+    try { await navigator.clipboard.writeText(recipeText(card)); copied = true; setTimeout(() => copied = false, 2000); } catch { copied = false; }
+  }
+  function saveCard() {
+    savedId = saveRecipe($state.snapshot(card));
+    saveError = savedId ? '' : 'This browser wouldn’t store the recipe. Private browsing can block saving; copy or print it instead.';
   }
 
   function kitchen(food, grams) {
@@ -319,21 +329,24 @@
                 <button class="primary-button" onclick={writeRecipe}>Write the recipe</button>
               </div>
             {:else}
-              <div class="method-text" aria-live="polite" aria-busy={writing}>
-                {#each methodBlocks as block}
-                  {#if block.kind === 'h'}<h3>{block.text}</h3>
-                  {:else if block.kind === 'ul'}<ul>{#each block.items as item}<li>{item}</li>{/each}</ul>
-                  {:else if block.kind === 'ol'}<ol>{#each block.items as item}<li>{item}</li>{/each}</ol>
-                  {:else}<p>{block.text}</p>{/if}
-                {/each}
-                {#if writing}<p class="writing">Writing…</p>{/if}
-              </div>
-              {#if !writing}
-                <div class="write-actions">
-                  <button class="primary-button" onclick={copyRecipe}>{copied ? 'Copied' : 'Copy recipe'}</button>
-                  <button class="outline-button" onclick={writeRecipe}>Write it again</button>
-                </div>
-              {/if}
+              <RecipeCard recipe={card} {writing}>
+                {#if !writing}
+                  {#if stale}
+                    <p class="stale-note">You changed the amounts since this was written. Write it again so the steps match.</p>
+                    <button class="primary-button" onclick={writeRecipe}>Write it again</button>
+                  {:else}
+                    {#if savedId}
+                      <button class="primary-button" onclick={onviewsaved}>Saved. View in My recipes</button>
+                    {:else}
+                      <button class="primary-button" onclick={saveCard}>Save recipe</button>
+                    {/if}
+                    <button class="outline-button" onclick={() => printRecipe($state.snapshot(card))}>Print</button>
+                    <button class="outline-button" onclick={copyRecipe}>{copied ? 'Copied' : 'Copy'}</button>
+                    <button class="text-button" onclick={writeRecipe}>Write it again</button>
+                  {/if}
+                {/if}
+              </RecipeCard>
+              {#if saveError}<p class="method-error" role="alert">{saveError}</p>{/if}
             {/if}
             {#if methodError}<p class="method-error" role="alert">{methodError}</p>{/if}
           </div>

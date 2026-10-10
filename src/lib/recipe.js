@@ -165,3 +165,55 @@ export function solveRecipe(items, { servings = 1, ranges = {} } = {}) {
     totalGrams: amounts.reduce((sum, a) => sum + a.grams, 0),
   };
 }
+
+// Turns the written recipe (plain text with "## Heading", "- item", and
+// "1. step" lines) into blocks the page renders without injecting HTML.
+export function parseMethod(text = "") {
+  const blocks = [];
+  for (const line of text.split("\n")) {
+    const value = line.trim();
+    if (!value) continue;
+    const kind = value.startsWith("## ")
+      ? "h"
+      : /^[-*] /.test(value)
+        ? "ul"
+        : /^\d+[.)] /.test(value)
+          ? "ol"
+          : "p";
+    const body =
+      kind === "h"
+        ? value.slice(3)
+        : kind === "ul"
+          ? value.slice(2)
+          : kind === "ol"
+            ? value.replace(/^\d+[.)] /, "")
+            : value;
+    const last = blocks.at(-1);
+    if ((kind === "ul" || kind === "ol") && last?.kind === kind)
+      last.items.push(body);
+    else
+      blocks.push(
+        kind === "ul" || kind === "ol"
+          ? { kind, items: [body] }
+          : { kind, text: body },
+      );
+  }
+  return blocks;
+}
+
+// Plain-text version of a recipe card, for copying.
+export function recipeText(recipe) {
+  const per = NUTRIENTS.map(
+    (n) =>
+      `${Math.round((recipe.perServing?.[n.key] ?? 0) * 10) / 10} ${n.unit} ${n.label.toLocaleLowerCase()}`,
+  ).join(", ");
+  return [
+    recipe.name,
+    recipe.description,
+    `Serves ${recipe.servings}. Per serving: ${per}.`,
+    "",
+    recipe.method.trim().replace(/^## /gm, ""),
+  ]
+    .filter((line, i) => line !== undefined && (line !== "" || i === 3))
+    .join("\n");
+}

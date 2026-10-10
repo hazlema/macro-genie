@@ -1720,38 +1720,30 @@ dialog.dislikes[open] {
   color: var(--muted);
   margin: -8px 0 22px 4px;
 }
-.method-text {
-  border: 1px solid var(--line);
-  border-radius: 17px;
-  padding: 24px 28px;
-  margin-bottom: 14px;
-  line-height: 1.65;
-  font-size: 15px;
-}
-.method-text h3 {
+.card-body h3 {
   font-size: 17px;
   margin: 18px 0 8px;
 }
-.method-text h3:first-child {
+.card-body h3:first-child {
   margin-top: 0;
 }
-.method-text ul,
-.method-text ol {
+.card-body ul,
+.card-body ol {
   margin: 0;
   padding-left: 22px;
   max-width: 75ch;
 }
-.method-text li {
+.card-body li {
   margin: 4px 0;
 }
-.method-text li::marker {
+.card-body li::marker {
   color: var(--lime);
 }
-.method-text p {
+.card-body p {
   margin: 8px 0;
   max-width: 75ch;
 }
-.method-text .writing {
+.card-body .writing {
   color: var(--muted);
   font-size: 13px;
 }
@@ -1771,12 +1763,244 @@ dialog.dislikes[open] {
     padding: 18px;
     min-height: 0;
   }
-  .method-text {
-    padding: 18px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .idea-shimmer span {
     animation: none;
+  }
+}
+
+/* Recipe card: Recipes tab, My recipes, and print */
+.recipe-card {
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--panel);
+  padding: 30px 32px 26px;
+}
+.card-head h2 {
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -1px;
+  line-height: 1.15;
+  margin: 0 0 10px;
+  max-width: 30ch;
+}
+.card-description {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #c8d0c8;
+  margin: 0 0 10px;
+  max-width: 70ch;
+}
+.card-meta {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+.card-nutrition {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 22px 0 24px;
+  border-top: 3px solid #e6e8e4;
+  border-bottom: 1px solid #e6e8e4;
+}
+.card-nutrition div {
+  padding: 10px 12px 12px 0;
+}
+.card-nutrition div + div {
+  padding-left: 12px;
+  border-left: 1px solid var(--line);
+}
+.card-nutrition dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+.card-nutrition dd {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.card-nutrition dd strong {
+  font-size: 20px;
+  font-weight: 600;
+  color: #e6e8e4;
+  font-variant-numeric: tabular-nums;
+}
+.card-body {
+  line-height: 1.65;
+  font-size: 15px;
+}
+.card-foot {
+  margin-top: 22px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+}
+.card-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+.stale-note {
+  flex-basis: 100%;
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: var(--amber);
+}
+.text-button {
+  border: 0;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--muted);
+}
+.text-button:hover {
+  color: var(--lime);
+}
+.danger-button {
+  border-radius: 30px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 650;
+  border-color: var(--coral);
+  color: var(--coral);
+}
+.danger-button:hover {
+  background: #ffab9614;
+}
+.confirm-delete {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+}
+.saved-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.saved-list button {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.saved-list button:hover {
+  background: var(--panel);
+}
+.saved-list button.current {
+  background: var(--panel);
+  border-color: var(--line);
+}
+.saved-name {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.saved-list button.current .saved-name {
+  color: var(--lime);
+}
+.saved-facts,
+.saved-date {
+  font-size: 12px;
+  color: var(--muted);
+}
+.saved-date {
+  font-size: 11px;
+}
+.print-only {
+  display: none;
+}
+@media (max-width: 1250px) {
+  .card-nutrition {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .card-nutrition div:nth-child(4) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .card-nutrition div:nth-child(n + 4) {
+    border-top: 1px solid var(--line);
+  }
+}
+@media (max-width: 760px) {
+  .recipe-card {
+    padding: 22px 18px;
+  }
+  .card-head h2 {
+    font-size: 24px;
+  }
+}
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  :root,
+  body {
+    color-scheme: light;
+    background: #fff;
+  }
+  #app > :not(.print-only) {
+    display: none !important;
+  }
+  .print-only {
+    display: block;
+  }
+  .print-only .recipe-card {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: #fff;
+    color: #111;
+  }
+  .print-only .card-head h2 {
+    max-width: none;
+  }
+  .print-only .card-description,
+  .print-only .card-meta,
+  .print-only .card-nutrition dt,
+  .print-only .card-nutrition dd,
+  .print-only .card-foot {
+    color: #333;
+  }
+  .print-only .card-nutrition {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    border-top-color: #111;
+    border-bottom-color: #111;
+    break-inside: avoid;
+  }
+  .print-only .card-nutrition div {
+    border-top: 0;
+  }
+  .print-only .card-nutrition div + div {
+    padding-left: 10px;
+    border-left: 1px solid #bbb;
+  }
+  .print-only .card-nutrition dd strong {
+    color: #111;
+  }
+  .print-only .card-body {
+    font-size: 12pt;
+  }
+  .print-only .card-body li::marker {
+    color: #111;
+  }
+  .print-only .card-body li,
+  .print-only .card-body h3 {
+    break-inside: avoid;
+  }
+  .print-only .card-foot {
+    border-top-color: #bbb;
   }
 }

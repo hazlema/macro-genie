@@ -1,6 +1,7 @@
 import { untrack } from "svelte";
 
-// Browser-only settings: dislikes and the recipe in progress. Nothing leaves the device.
+// Browser-only settings: dislikes, the recipe in progress, and saved recipes.
+// Nothing leaves the device.
 const KEY = "macro-genie:prefs:v1";
 
 function load() {
@@ -13,22 +14,33 @@ function load() {
       hideOnFoods: saved.hideOnFoods === true,
       draft:
         saved.draft && typeof saved.draft === "object" ? saved.draft : null,
+      recipes: Array.isArray(saved.recipes)
+        ? saved.recipes.filter(
+            (r) =>
+              r &&
+              typeof r.id === "string" &&
+              typeof r.name === "string" &&
+              typeof r.method === "string",
+          )
+        : [],
     };
   } catch {
-    return { dislikes: [], hideOnFoods: false, draft: null };
+    return { dislikes: [], hideOnFoods: false, draft: null, recipes: [] };
   }
 }
 
 export const prefs = $state(load());
 
+// Returns false when the browser won't store it (private browsing, full storage).
 export function save() {
   try {
     localStorage.setItem(
       KEY,
       untrack(() => JSON.stringify(prefs)),
     );
+    return true;
   } catch {
-    // Private browsing or full storage: settings last for this visit only.
+    return false;
   }
 }
 
@@ -42,5 +54,24 @@ export function addDislike(word) {
 
 export function removeDislike(word) {
   prefs.dislikes = prefs.dislikes.filter((w) => w !== word);
+  save();
+}
+
+// Saved recipes are snapshots: they keep their numbers even if the food data
+// changes. Returns the new id, or null if the browser couldn't store it.
+export function saveRecipe(recipe) {
+  const saved = {
+    ...recipe,
+    id: crypto.randomUUID(),
+    savedAt: new Date().toISOString(),
+  };
+  prefs.recipes = [saved, ...prefs.recipes];
+  if (save()) return saved.id;
+  prefs.recipes = prefs.recipes.filter((r) => r.id !== saved.id);
+  return null;
+}
+
+export function deleteRecipe(id) {
+  prefs.recipes = prefs.recipes.filter((r) => r.id !== id);
   save();
 }

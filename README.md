@@ -1,6 +1,6 @@
 # Macro Genie
 
-A Svelte food search with nutrient ranges **per listed serving** or **per 100 g** (chosen from a dropdown). The website is static; a read-only Netlify Function exposes the same search through MCP. The Recipes tab asks Claude for dish ideas through two more Netlify Functions, which need an Anthropic API key. Nothing needs a database, accounts, or persistent storage; dislikes and the recipe in progress are saved in the visitor's browser.
+A Svelte food search with nutrient ranges **per listed serving** or **per 100 g** (chosen from a dropdown). The website is static; a read-only Netlify Function exposes the same search through MCP. The Recipe Builder tab asks Claude for dish ideas through two more Netlify Functions, which need an Anthropic API key. Nothing needs a database, accounts, or persistent storage; dislikes, the recipe in progress, and saved recipes are kept in the visitor's browser.
 
 ## Run locally
 
@@ -17,7 +17,7 @@ Open the address printed by Vite. The Netlify Vite plugin runs the `/api` and `/
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Without it, everything works except the Recipes tab's ideas and recipe writing, which say the key is missing. `npm run build` validates the food file and creates `dist/`. `npm run preview` serves that production build locally. `npm run check` checks Svelte, and `npm test` runs the search and MCP integration tests.
+Without it, everything works except the Recipe Builder's ideas and recipe writing, which say the key is missing. `npm run build` validates the food file and creates `dist/`. `npm run preview` serves that production build locally. `npm run check` checks Svelte, and `npm test` runs the search and MCP integration tests.
 
 ## Deploy to Netlify
 
@@ -27,13 +27,13 @@ Connect this GitHub repository to Netlify. The included `netlify.toml` supplies:
 - Publish directory: `dist`
 - Node version: 24
 - A stateless function exposed at `/mcp`
-- `/api/idea` and `/api/recipe-method`, which call Claude for the Recipes tab
+- `/api/idea` and `/api/recipe-method`, which call Claude for the Recipe Builder tab
 
 Push changes to the branch connected to Netlify to rebuild both the website and MCP data. The static website works independently of the functions.
 
 ### Recipe ideas (Claude)
 
-Set `ANTHROPIC_API_KEY` in Netlify under **Project configuration → Environment variables**, scoped to **Functions**, then redeploy. Without it, the Recipes tab explains that ideas aren't set up.
+Set `ANTHROPIC_API_KEY` in Netlify under **Project configuration → Environment variables**, scoped to **Functions**, then redeploy. Without it, the Recipe Builder explains that ideas aren't set up.
 
 - **How it works:** "Get 5 ideas" sends five requests at once, each asking `claude-opus-5-5` (low effort) for one dish with a different lean (a bake, a skillet dish, a soup, a bowl, something unexpected). Claude searches the USDA data through a `find_foods` tool and submits food IDs with rough grams. Visitors type the foods they want as plain text ("eggs, pumpkin, onions"). The server drops anything unknown or disliked (seasonings too), keeps the asked-for foods from being cut below a quarter, notes any the idea left out, and sizes the amounts with the same solver the page uses. "Write the recipe" streams the method for the chosen dish with the amounts fixed. Claude never supplies nutrition numbers.
 - **Cost:** you pay per request on your Anthropic account. Each idea is one or two short model calls; check real usage in the Anthropic Console and set a monthly spend limit there.
@@ -83,7 +83,7 @@ The server uses the [official MCP SDK](https://ts.sdk.modelcontextprotocol.io/se
 
 `search_foods` accepts `query`, `category`, `ranges`, `sort`, `basis` (`serving` by default, or `100g`), `limit` (1–100, default 20), and `offset`. `get_food_details` also accepts `basis`. `search_foods` accepts `exclude`, a list of words for foods to leave out (plurals also match the singular). Range keys are `protein`, `netCarbs`, `calories`, `fat`, `sugar`, and `sodium`. Sort keys are `none` (source order), `protein` (descending), `netCarbs`, `calories`, `sodium` (ascending), and `name`. Query words match the start of words in the food name. Every returned nutrient is per the chosen basis (reported in `basis`); source, units, and missing-data rules are included.
 
-`size_recipe` takes `ingredients` (food IDs with the grams you'd like for the whole dish, optionally `required`), `servings` (1–50), and per-serving `ranges`. It keeps amounts as close to the request as possible: each can drop to zero (a required one keeps a quarter) or grow to double. When the ranges can't all be met, it returns the closest match with `fits: false` and the `misses`. It uses the same solver as the Recipes tab.
+`size_recipe` takes `ingredients` (food IDs with the grams you'd like for the whole dish, optionally `required`), `servings` (1–50), and per-serving `ranges`. It keeps amounts as close to the request as possible: each can drop to zero (a required one keeps a quarter) or grow to double. When the ranges can't all be met, it returns the closest match with `fits: false` and the `misses`. It uses the same solver as the Recipe Builder.
 
 Example tool arguments:
 
@@ -124,6 +124,8 @@ Run `npm ci` in that checkout first. Local MCP reads the local checkout's food f
 
 - `src/App.svelte`: filters, search state, results, and tab switching
 - `src/components/Recipes.svelte`: targets and wanted foods, five Claude ideas, then an editable recipe sized to the targets with a written method
+- `src/components/RecipeCard.svelte`: the written recipe as a card with per-serving nutrition, used on screen and for printing
+- `src/components/SavedRecipes.svelte`: the My recipes tab (saved in localStorage; print, copy, delete)
 - `src/components/DislikesModal.svelte`: foods you won't eat, saved in the browser's localStorage
 - `src/lib/recipe.js`: ingredient solver (linear programming via `javascript-lp-solver`) and dislike matching
 - `src/lib/prefs.svelte.js`: browser-stored dislikes and the recipe in progress
