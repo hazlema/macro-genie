@@ -1,6 +1,6 @@
 # Macro Genie
 
-A Svelte food search with nutrient ranges **per listed serving**. The website is static; a read-only Netlify Function exposes the same search through MCP. Neither needs a database, accounts, API keys, or persistent storage.
+A Svelte food search with nutrient ranges **per listed serving** or **per 100 g** (chosen from a dropdown). The website is static; a read-only Netlify Function exposes the same search through MCP. Neither needs a database, accounts, API keys, or persistent storage.
 
 ## Run locally
 
@@ -39,7 +39,7 @@ The source format remains:
 ] }
 ```
 
-Source nutrients are **per 100 g**, with sodium in mg and other nutrient masses in g. The shared normalization code converts every value to the row's listed serving before filtering, sorting, or returning results. Do not put per-serving values into this source format; they would be converted twice.
+Source nutrients are **per 100 g**, with sodium in mg and other nutrient masses in g. The shared normalization code keeps the per-100 g values and also converts every value to the row's listed serving; the chosen basis is used for filtering, sorting, and returned results. Do not put per-serving values into this source format; they would be converted twice.
 
 Important data behavior:
 
@@ -63,7 +63,7 @@ The server uses the [official MCP SDK](https://ts.sdk.modelcontextprotocol.io/se
 | `list_food_categories` | Get category codes, labels, and searchable counts                                |
 | `get_food_details`     | Retrieve serving and nutrient information using a search result ID               |
 
-`search_foods` accepts `query`, `category`, `ranges`, `sort`, `limit` (1–100, default 20), and `offset`. Range keys are `protein`, `netCarbs`, `calories`, `fat`, `sugar`, and `sodium`. Sort keys are `protein` (descending), `netCarbs`, `calories`, `sodium` (ascending), and `name`. Every returned nutrient is per the accompanying serving; source, units, and missing-data rules are included.
+`search_foods` accepts `query`, `category`, `ranges`, `sort`, `basis` (`serving` by default, or `100g`), `limit` (1–100, default 20), and `offset`. `get_food_details` also accepts `basis`. Range keys are `protein`, `netCarbs`, `calories`, `fat`, `sugar`, and `sodium`. Sort keys are `protein` (descending), `netCarbs`, `calories`, `sodium` (ascending), and `name`. Every returned nutrient is per the chosen basis (reported in `basis`); source, units, and missing-data rules are included.
 
 Example tool arguments:
 

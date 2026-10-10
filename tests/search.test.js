@@ -80,3 +80,21 @@ test("invalid ranges fail explicitly instead of silently clearing filters", () =
     assert.throws(() => searchFoods(foods, { ranges }), /range|number/i);
   }
 });
+
+test("per-100 g basis filters and sorts on source values", () => {
+  const { foods } = normalizeDataset(raw);
+  assert.equal(foods[0].per100g.protein, 30);
+  assert.equal(foods[0].per100g.netCarbs, 3);
+  assert.deepEqual(
+    searchFoods(foods, {
+      basis: "100g",
+      ranges: { protein: { min: 25 } },
+    }).map((f) => f.name),
+    ["Chicken, cooked"],
+  );
+  assert.equal(
+    searchFoods(foods, { basis: "100g", sort: "protein" })[0].name,
+    "Chicken, cooked",
+  );
+  assert.throws(() => searchFoods(foods, { basis: "cup" }), /basis/);
+});

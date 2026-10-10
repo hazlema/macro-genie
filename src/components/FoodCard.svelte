@@ -1,8 +1,8 @@
 <script>
   import { formatAmount, NUTRIENTS } from '../lib/foods.js';
-  let { food } = $props();
+  let { food, basis = 'serving' } = $props();
   let expanded = $state(false);
-  const nutrition = $derived(food.nutrients);
+  const nutrition = $derived(basis === '100g' ? food.per100g : food.nutrients);
   const macrosKnown = $derived([nutrition.protein, nutrition.netCarbs, nutrition.fat].every(v => v != null));
   const macroEnergy = $derived((nutrition.protein ?? 0) * 4 + (nutrition.netCarbs ?? 0) * 4 + (nutrition.fat ?? 0) * 9);
 </script>
@@ -29,13 +29,13 @@
   </div>
   {#if expanded}
     <div class="food-detail" id={`detail-${food.id}`}>
-      <p class="detail-caption">Nutrition per {food.serving.label} ({formatAmount(food.serving.grams)} g)</p>
+      <p class="detail-caption">Nutrition per {basis === '100g' ? '100 g' : `${food.serving.label} (${formatAmount(food.serving.grams)} g)`}</p>
       <dl>
         {#each [...NUTRIENTS, { key: 'carbs', label: 'Total carbs', unit: 'g' }, { key: 'fiber', label: 'Fiber', unit: 'g' }, { key: 'saturatedFat', label: 'Saturated fat', unit: 'g' }] as nutrient}
           <div><dt>{nutrient.label}</dt><dd>{nutrition[nutrient.key] == null ? 'Not reported' : `${formatAmount(nutrition[nutrient.key])} ${nutrient.unit}`}</dd></div>
         {/each}
       </dl>
-      <p class="detail-note">Source: {food.source.replace(', per 100 g', '')}. Values converted to the listed serving. Net carbs = total carbs − fiber. The bar shows estimated energy from protein, net carbs, and fat.</p>
+      <p class="detail-note">Source: {food.source.replace(', per 100 g', '')}. {basis === '100g' ? '' : 'Values converted to the listed serving. '}Net carbs = total carbs − fiber. The bar shows estimated energy from protein, net carbs, and fat.</p>
     </div>
   {/if}
 </article>

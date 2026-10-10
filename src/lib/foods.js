@@ -36,12 +36,22 @@ export const NUTRIENTS = [
 ];
 
 export const SORTS = {
-  protein: "Most protein per serving",
-  netCarbs: "Fewest net carbs per serving",
-  calories: "Fewest calories per serving",
-  sodium: "Lowest sodium per serving",
+  protein: "Most protein",
+  netCarbs: "Fewest net carbs",
+  calories: "Fewest calories",
+  sodium: "Lowest sodium",
   name: "Name: A to Z",
 };
+
+export const BASES = {
+  serving: "Per serving",
+  "100g": "Per 100 g",
+};
+
+// Returns the food with `nutrients` expressed for the chosen basis.
+export function withBasis({ per100g, ...food }, basis = "serving") {
+  return basis === "100g" ? { ...food, nutrients: per100g } : food;
+}
 
 export function emptyRanges() {
   return Object.fromEntries(
@@ -70,8 +80,24 @@ export function normalizeDataset(raw) {
       excluded++;
       return [];
     }
-    const scale = row[10] / 100;
-    const amount = (i) => (known(row[i]) ? row[i] * scale : null);
+    const nutrientsAt = (grams) => {
+      const scale = grams / 100;
+      const amount = (i) => (known(row[i]) ? row[i] * scale : null);
+      return {
+        calories: amount(2),
+        protein: amount(3),
+        fat: amount(4),
+        carbs: amount(5),
+        fiber: amount(6),
+        sugar: amount(7),
+        sodium: amount(8),
+        saturatedFat: amount(9),
+        netCarbs:
+          known(row[5]) && known(row[6])
+            ? Math.max(0, row[5] - row[6]) * scale
+            : null,
+      };
+    };
     return [
       {
         id: `usda-row-${index + 1}`,
@@ -80,20 +106,8 @@ export function normalizeDataset(raw) {
         categoryName: GROUPS[row[1]] || "Other",
         serving: { label: row[11], grams: row[10] },
         source: raw.src,
-        nutrients: {
-          calories: amount(2),
-          protein: amount(3),
-          fat: amount(4),
-          carbs: amount(5),
-          fiber: amount(6),
-          sugar: amount(7),
-          sodium: amount(8),
-          saturatedFat: amount(9),
-          netCarbs:
-            known(row[5]) && known(row[6])
-              ? Math.max(0, row[5] - row[6]) * scale
-              : null,
-        },
+        nutrients: nutrientsAt(row[10]),
+        per100g: nutrientsAt(100),
       },
     ];
   });
@@ -123,9 +137,18 @@ export function validateRanges(ranges = {}) {
 
 export function searchFoods(
   foods,
-  { query = "", category = "all", ranges = {}, sort = "protein" } = {},
+  {
+    query = "",
+    category = "all",
+    ranges = {},
+    sort = "protein",
+    basis = "serving",
+  } = {},
 ) {
   validateRanges(ranges);
+  if (!(basis in BASES)) throw new Error("Unknown nutrient basis.");
+  const valueOf = (food, key) =>
+    (basis === "100g" ? food.per100g : food.nutrients)[key];
   const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
   const found = foods.filter((food) => {
     if (category !== "all" && food.category !== category) return false;
@@ -133,7 +156,7 @@ export function searchFoods(
       return false;
     return Object.entries(ranges).every(([key, { min, max }]) => {
       if (min == null && max == null) return true;
-      const value = food.nutrients[key];
+      const value = valueOf(food, key);
       return (
         value != null &&
         (min == null || value >= min) &&
@@ -143,8 +166,8 @@ export function searchFoods(
   });
   return found.sort((a, b) => {
     if (sort === "name") return a.name.localeCompare(b.name);
-    const left = a.nutrients[sort];
-    const right = b.nutrients[sort];
+    const left = valueOf(a, sort);
+    const right = valueOf(b, sort);
     if (left == null) return right == null ? a.name.localeCompare(b.name) : 1;
     if (right == null) return -1;
     return (

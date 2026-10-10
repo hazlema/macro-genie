@@ -42,6 +42,31 @@ test("MCP exposes searchable serving values and retrievable food details", async
       arguments: { id: data.foods[0].id },
     });
     assert.deepEqual(JSON.parse(detail.content[0].text).food, data.foods[0]);
+    assert.equal(data.foods[0].per100g, undefined);
+    const per100 = await client.callTool({
+      name: "search_foods",
+      arguments: {
+        query: "chicken",
+        basis: "100g",
+        ranges: { protein: { min: 25 } },
+        limit: 3,
+      },
+    });
+    assert.ok(!per100.isError);
+    const per100Data = JSON.parse(per100.content[0].text);
+    assert.equal(per100Data.basis, "per 100 g");
+    for (const food of per100Data.foods) {
+      assert.ok(food.nutrients.protein >= 25);
+      assert.equal(food.per100g, undefined);
+    }
+    const per100Detail = await client.callTool({
+      name: "get_food_details",
+      arguments: { id: per100Data.foods[0].id, basis: "100g" },
+    });
+    assert.deepEqual(
+      JSON.parse(per100Detail.content[0].text).food,
+      per100Data.foods[0],
+    );
     const invalid = await client.callTool({
       name: "search_foods",
       arguments: { ranges: { protein: { min: 30, max: 2 } } },
