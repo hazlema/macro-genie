@@ -1,4 +1,5 @@
 import { UserFacingError, streamMethod } from "../../server/chef.js";
+import { addUsage, emptyUsage, logUsage } from "../../server/usage.js";
 import { fail } from "../../server/http.js";
 
 export const config = {
@@ -26,6 +27,7 @@ export default async function handler(request) {
               controller.enqueue(encoder.encode(event.delta.text));
           }
           const final = await stream.finalMessage();
+          logUsage("recipe", addUsage(emptyUsage(final.model), final));
           if (final.stop_reason === "refusal")
             controller.enqueue(
               encoder.encode("\n\n[Claude declined to write this recipe.]"),

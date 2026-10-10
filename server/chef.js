@@ -2,6 +2,7 @@
 // foods and rough amounts; the numbers always come from the USDA data and the
 // solver, never from the model.
 import Anthropic from "@anthropic-ai/sdk";
+import { MODELS, addUsage, emptyUsage, logUsage } from "./usage.js";
 import { z } from "zod";
 import raw from "../foods.json" with { type: "json" };
 import {
@@ -18,7 +19,12 @@ import {
   solveRecipe,
 } from "../src/lib/recipe.js";
 
-export const MODEL = "claude-opus-5-5";
+// Which model writes ideas and recipes. Set IDEA_MODEL / RECIPE_MODEL in
+// Netlify to switch; anything not in the price list falls back to Opus.
+const pick = (name) =>
+  MODELS.includes(process.env[name]) ? process.env[name] : "claude-opus-5-5";
+export const ideaModel = () => pick("IDEA_MODEL");
+export const recipeModel = () => pick("RECIPE_MODEL");
 const { foods } = normalizeDataset(raw);
 const byId = new Map(foods.map((f) => [f.id, f]));
 
@@ -274,10 +280,13 @@ function client() {
   return new Anthropic({ timeout: 55_000, maxRetries: 0 });
 }
 
-const request = (params) => ({
-  model: MODEL,
-  betas: ["server-side-fallback-2026-07-01"],
-  fallbacks: "default",
+// Haiku has no server-side fallback; the others retry a declined request on
+// another model before giving up.
+const request = (model, params) => ({
+  model,
+  ...(model.startsWith("claude-haiku")
+    ? {}
+    : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" }),
   output_config: { effort: "low" },
   ...params,
 });
@@ -292,17 +301,29 @@ function checkStop(response) {
     throw new UserFacingError("The idea ran too long. Try again.", 502);
 }
 
-export async function generateIdea(input, api = client()) {
+export async function generateIdea(input, api = client(), model = ideaModel()) {
   const req = ideaRequest.parse(input);
   const messages = [{ role: "user", content: ideaPrompt(req) }];
+  const usage = emptyUsage(model);
+  const started = Date.now();
   for (let turn = 0; turn < 4; turn++) {
     const response = await api.beta.messages.create(
-      request({ max_tokens: 8000, system: SYSTEM, tools: TOOLS, messages }),
+      request(model, {
+        max_tokens: 8000,
+        system: SYSTEM,
+        tools: TOOLS,
+        messages,
+      }),
     );
+    addUsage(usage, response);
     checkStop(response);
     const calls = response.content.filter((b) => b.type === "tool_use");
     const submit = calls.find((c) => c.name === "submit_idea");
-    if (submit) return finishIdea(submit.input, req);
+    if (submit) {
+      const idea = finishIdea(submit.input, req);
+      const line = logUsage("idea", usage, { ms: Date.now() - started });
+      return { ...idea, usage: { model: line.model, costUsd: line.costUsd } };
+    }
     messages.push({ role: "assistant", content: response.content });
     if (!calls.length) {
       messages.push({
@@ -323,6 +344,7 @@ export async function generateIdea(input, api = client()) {
       })),
     });
   }
+  logUsage("idea", usage, { ms: Date.now() - started, failed: true });
   throw new UserFacingError("This idea took too many steps. Try again.", 502);
 }
 
@@ -355,10 +377,14 @@ One sentence on making it taste even better without changing the numbers.`;
 }
 
 // Streams the method as plain text chunks.
-export async function streamMethod(input, api = client()) {
+export async function streamMethod(
+  input,
+  api = client(),
+  model = recipeModel(),
+) {
   const req = methodRequest.parse(input);
   const stream = api.beta.messages.stream(
-    request({
+    request(model, {
       max_tokens: 6000,
       system:
         "You are a precise, warm recipe writer for Macro Genie. Write recipes people can cook from without guessing.",

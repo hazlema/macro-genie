@@ -180,3 +180,49 @@ test("API errors map to messages a visitor or site owner can act on", async () =
     console.error = original;
   }
 });
+
+test("idea cost is logged per job and the model follows IDEA_MODEL", async () => {
+  const logged = [];
+  const original = console.log;
+  console.log = (line) => logged.push(JSON.parse(line));
+  const saved = process.env.IDEA_MODEL;
+  try {
+    const submit = toolUse("t1", "submit_idea", {
+      name: "Plain pumpkin",
+      description: "",
+      ingredients: [{ id: pumpkin.id, grams: 200, required: true }],
+      seasonings: [],
+    });
+    const search = toolUse("t0", "find_foods", { queries: ["pumpkin"] });
+    search.usage = { input_tokens: 1000, output_tokens: 200 };
+    submit.usage = { input_tokens: 3000, output_tokens: 300 };
+    submit.model = "claude-sonnet-5-5";
+
+    process.env.IDEA_MODEL = "claude-sonnet-5-5";
+    const api = fakeApi([search, submit]);
+    const idea = await generateIdea(base, api);
+    assert.equal(api.calls[0].model, "claude-sonnet-5-5");
+    // 4000 input at $2/M + 500 output at $10/M = $0.013
+    assert.deepEqual(idea.usage, {
+      model: "claude-sonnet-5-5",
+      costUsd: 0.013,
+    });
+    assert.equal(logged.at(-1).event, "ai_usage");
+    assert.equal(logged.at(-1).calls, 2);
+
+    process.env.IDEA_MODEL = "claude-haiku-5-5";
+    const haiku = fakeApi([submit]);
+    await generateIdea(base, haiku);
+    assert.equal(haiku.calls[0].model, "claude-haiku-5-5");
+    assert.equal(haiku.calls[0].fallbacks, undefined, "Haiku has no fallback");
+
+    process.env.IDEA_MODEL = "gpt-whatever";
+    const other = fakeApi([submit]);
+    await generateIdea(base, other);
+    assert.equal(other.calls[0].model, "claude-opus-5-5");
+  } finally {
+    console.log = original;
+    if (saved === undefined) delete process.env.IDEA_MODEL;
+    else process.env.IDEA_MODEL = saved;
+  }
+});

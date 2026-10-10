@@ -39,7 +39,10 @@ Set `ANTHROPIC_API_KEY` in Netlify under **Project configuration → Environment
 - **Cost:** you pay per request on your Anthropic account. Each idea is one or two short model calls; check real usage in the Anthropic Console and set a monthly spend limit there.
 - **Abuse limits:** Netlify rate limits per visitor IP: 20 idea requests and 6 recipe write-ups a minute. Requests are validated and capped in size.
 - **Refusals:** requests use Anthropic's server-side fallback (`fallbacks: "default"`), so a safety decline is retried on another model before the visitor sees an error.
-- Each request finishes inside Netlify's 60-second function limit. Ideas usually arrive in 10–30 seconds. Vite's local preview does not run Netlify Functions.
+- Each request finishes inside Netlify's 60-second function limit. Ideas usually arrive in 10–30 seconds.
+- **Choosing the model:** set `IDEA_MODEL` and/or `RECIPE_MODEL` in Netlify to `claude-opus-5-5` (the default), `claude-sonnet-5-5`, or `claude-haiku-5-5`, then redeploy.
+- **Cost per job:** every idea and written recipe logs one `ai_usage` line in the Netlify function logs with the model, tokens, time, and an estimated `costUsd` from the list prices in `server/usage.js`. The billing dashboard is the source of truth.
+- **Comparing models:** `npm run compare` sends three sample requests to Opus and Sonnet (two ideas and one written recipe each) and writes a side-by-side report to `reports/`. Pass model names to compare others, e.g. `npm run compare -- claude-opus-5-5 claude-haiku-5-5`. It needs `ANTHROPIC_API_KEY` in `.env` and costs roughly $0.50 a run. Vite's local preview does not run Netlify Functions.
 
 The configuration follows [Netlify's Vite deployment guidance](https://docs.netlify.com/build/frameworks/framework-setup-guides/vite/).
 
