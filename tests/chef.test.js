@@ -54,7 +54,6 @@ test("an idea is searched, checked against dislikes, and sized by the solver", a
         { id: pumpkin.id, grams: 300, required: false },
         { id: gruyere.id, grams: 120, required: false },
         { id: mushroom.id, grams: 100, required: false },
-        { id: "usda-row-999999", grams: 50, required: false },
       ],
       seasonings: ["sage", "nutmeg", "fresh mushrooms"],
     }),
@@ -80,7 +79,7 @@ test("an idea is searched, checked against dislikes, and sized by the solver", a
   assert.deepEqual(
     idea.ingredients.map((i) => i.id).sort(),
     [gruyere.id, pumpkin.id].sort(),
-    "disliked and unknown foods dropped",
+    "disliked foods dropped",
   );
   assert.equal(
     idea.ingredients.find((i) => i.id === pumpkin.id).required,
@@ -224,5 +223,65 @@ test("idea cost is logged per job and the model follows IDEA_MODEL", async () =>
     console.log = original;
     if (saved === undefined) delete process.env.IDEA_MODEL;
     else process.env.IDEA_MODEL = saved;
+  }
+});
+
+test("guessed ids are sent back for a retry; food names resolve as a last resort", async () => {
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    // Search and submit in the same turn, with an id the model made up.
+    const both = {
+      stop_reason: "tool_use",
+      content: [
+        {
+          type: "tool_use",
+          id: "s",
+          name: "find_foods",
+          input: { queries: ["pumpkin"] },
+        },
+        {
+          type: "tool_use",
+          id: "x",
+          name: "submit_idea",
+          input: {
+            name: "Guess",
+            description: "",
+            ingredients: [
+              { id: "usda-row-123456789", grams: 200, required: true },
+            ],
+            seasonings: [],
+          },
+        },
+      ],
+    };
+    const fixed = toolUse("y", "submit_idea", {
+      name: "Pumpkin bake",
+      description: "",
+      ingredients: [{ id: pumpkin.id, grams: 200, required: true }],
+      seasonings: [],
+    });
+    const api = fakeApi([both, fixed]);
+    const idea = await generateIdea(base, api);
+    assert.equal(idea.name, "Pumpkin bake");
+    const replies = api.calls[1].messages.at(-1).content;
+    assert.match(replies.find((r) => r.tool_use_id === "s").content, /Pumpkin/);
+    const rejected = replies.find((r) => r.tool_use_id === "x");
+    assert.equal(rejected.is_error, true);
+    assert.match(rejected.content, /usda-row-123456789 is not an id/);
+
+    // On the last turn, a name written in place of an id is looked up.
+    const names = toolUse("z", "submit_idea", {
+      name: "Cheese plate",
+      description: "",
+      ingredients: [{ id: "cheese gruyere", grams: 100, required: false }],
+      seasonings: [],
+    });
+    const stubborn = fakeApi([names, names, names, names]);
+    const last = await generateIdea({ ...base, want: [] }, stubborn);
+    assert.equal(stubborn.calls.length, 4);
+    assert.equal(last.ingredients[0].id, gruyere.id);
+  } finally {
+    console.log = quiet;
   }
 });

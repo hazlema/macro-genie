@@ -97,7 +97,7 @@ const SYSTEM = `You design dishes for Macro Genie, a site where people find food
 How to work:
 1. Call find_foods once with every ingredient you are considering. The food data is USDA SR Legacy, so search with plain words in its style: "pumpkin canned", "cheese gruyere", "chicken thigh roasted", "cream heavy whipping", "egg whole raw".
 2. Choose ingredients from the results by id. Give grams for the whole dish, not per serving.
-3. Call submit_idea with the dish. That is your final answer.
+3. After you have the find_foods results, call submit_idea with the dish. That is your final answer. Never guess ids: only use ids that find_foods returned.
 
 Rules:
 - Include every food the person asked for as an ingredient. Search for each one and pick the plainest match (for "eggs": "Egg, whole, raw, fresh").
@@ -211,6 +211,18 @@ export function ideaPrompt(request) {
     .join("\n\n");
 }
 
+// An ingredient id from find_foods. As a last resort, a model that wrote a
+// food name instead of an id gets the best match for that name.
+function resolveFood(ref, dislikes) {
+  const key = String(ref ?? "");
+  if (byId.has(key)) return byId.get(key);
+  if (/^usda-row-/.test(key) || key.length < 3) return null;
+  return (
+    findFoods(foods, key, { exclude: expandDislikes(dislikes), limit: 1 })[0] ??
+    null
+  );
+}
+
 // The foods asked for, minus any that are also on the dislike list.
 const wanted = (request) =>
   request.want.filter((w) => !isDisliked({ name: w }, request.dislikes));
@@ -222,7 +234,7 @@ export function finishIdea(submission, request) {
   const seen = new Set();
   const items = [];
   for (const ingredient of submission.ingredients ?? []) {
-    const food = byId.get(ingredient.id);
+    const food = resolveFood(ingredient.id, request.dislikes);
     const grams = Number(ingredient.grams);
     if (!food || seen.has(food.id) || !(grams > 0)) continue;
     if (isDisliked(food, request.dislikes)) continue;
@@ -319,10 +331,23 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
     checkStop(response);
     const calls = response.content.filter((b) => b.type === "tool_use");
     const submit = calls.find((c) => c.name === "submit_idea");
-    if (submit) {
-      const idea = finishIdea(submit.input, req);
-      const line = logUsage("idea", usage, { ms: Date.now() - started });
-      return { ...idea, usage: { model: line.model, costUsd: line.costUsd } };
+    // Ids that didn't come from find_foods, e.g. guessed in the same turn as the search.
+    const unknown = (submit?.input.ingredients ?? [])
+      .map((i) => String(i.id))
+      .filter((id) => !byId.has(id));
+    if (submit && (!unknown.length || turn === 3)) {
+      try {
+        const idea = finishIdea(submit.input, req);
+        const line = logUsage("idea", usage, { ms: Date.now() - started });
+        return { ...idea, usage: { model: line.model, costUsd: line.costUsd } };
+      } catch (error) {
+        logUsage("idea", usage, {
+          ms: Date.now() - started,
+          failed: error.message,
+          unknownIds: unknown.slice(0, 12),
+        });
+        throw error;
+      }
     }
     messages.push({ role: "assistant", content: response.content });
     if (!calls.length) {
@@ -334,17 +359,29 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
     }
     messages.push({
       role: "user",
-      content: calls.map((call) => ({
-        type: "tool_result",
-        tool_use_id: call.id,
-        content:
-          call.name === "find_foods"
-            ? findFoodsResult(call.input.queries ?? [], req.dislikes)
-            : "Unknown tool.",
-      })),
+      content: calls.map((call) =>
+        call.name === "find_foods"
+          ? {
+              type: "tool_result",
+              tool_use_id: call.id,
+              content: findFoodsResult(call.input.queries ?? [], req.dislikes),
+            }
+          : {
+              type: "tool_result",
+              tool_use_id: call.id,
+              is_error: true,
+              content:
+                call.name === "submit_idea"
+                  ? `Not accepted: ${unknown.join(", ")} ${unknown.length === 1 ? "is not an id" : "are not ids"} from find_foods. Use only ids that find_foods returned (they look like usda-row-1234). Search for anything missing, then call submit_idea again.`
+                  : "Unknown tool.",
+            },
+      ),
     });
   }
-  logUsage("idea", usage, { ms: Date.now() - started, failed: true });
+  logUsage("idea", usage, {
+    ms: Date.now() - started,
+    failed: "too many steps",
+  });
   throw new UserFacingError("This idea took too many steps. Try again.", 502);
 }
 
