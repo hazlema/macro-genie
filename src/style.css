@@ -2083,3 +2083,6 @@ dialog.dislikes[open] {
     padding: 14px 16px;
   }
 }
+.card-body.stale {
+  opacity: 0.45;
+}

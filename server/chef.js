@@ -448,7 +448,9 @@ Format, in plain text with no Markdown symbols other than these:
 ## Method
 1. numbered steps, each one or two sentences, with temperatures and times
 ## Tip
-One sentence on making it taste even better without changing the numbers.`;
+One sentence on making it taste even better without changing the numbers.
+
+If the dish name or description mentions a food that isn't in the ingredient list (for example after one was swapped), start with the line "Name: <a better name>" and then the line "Description: <one updated sentence>", before ## Ingredients. Otherwise leave both lines out.`;
 }
 
 // Streams the method as plain text chunks.

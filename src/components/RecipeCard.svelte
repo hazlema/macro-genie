@@ -3,7 +3,7 @@
   import { parseMethod } from '../lib/recipe.js';
 
   // recipe: { name, description, servings, perServing, gramsPerServing, method, savedAt? }
-  let { recipe, writing = false, children } = $props();
+  let { recipe, writing = false, stale = false, children } = $props();
   const blocks = $derived(parseMethod(recipe.method));
 </script>
 
@@ -20,7 +20,7 @@
     {/each}
   </dl>
 
-  <div class="card-body" aria-live={writing ? 'polite' : undefined}>
+  <div class="card-body" class:stale aria-live={writing ? 'polite' : undefined}>
     {#each blocks as block}
       {#if block.kind === 'h'}<h3>{block.text}</h3>
       {:else if block.kind === 'ul'}<ul>{#each block.items as item}<li>{item}</li>{/each}</ul>

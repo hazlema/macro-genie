@@ -74,6 +74,8 @@
   function swapTo(item, food) {
     item.id = food.id;
     swapping = null;
+    // A written recipe would now name the old food; rewrite it to match.
+    if (method && !writing) writeRecipe();
   }
   const focusOnMount = (node) => { node.focus(); node.select(); };
 
@@ -150,6 +152,13 @@
         if (done) break;
         method += decoder.decode(value, { stream: true });
       }
+      // A swap can make the name wrong ("…and Feta"); Claude suggests a new one first.
+      const renamed = method.match(/^\s*Name:\s*(.+)\n(?:\s*Description:\s*(.+)\n)?/);
+      if (renamed) {
+        chosen.name = renamed[1].trim().slice(0, 120);
+        if (renamed[2]) chosen.description = renamed[2].trim().slice(0, 400);
+        method = method.slice(renamed[0].length);
+      }
     } catch {
       methodError = 'The connection dropped while writing. Try again.';
     } finally { writing = false; }
@@ -166,7 +175,7 @@
     perServing: Object.fromEntries(NUTRIENTS.map(n => [n.key, recipe.solved.perServing[n.key]])),
     ingredients: recipe.solved.amounts.filter(a => a.grams > 0).map(a => ({ name: a.food.name, grams: a.grams })),
     seasonings: chosen.seasonings ?? [],
-    method,
+    method: method.replace(/^\s*Name:.*(\n|$)(\s*Description:.*(\n|$))?/, ''),
   } : null);
 
   async function copyRecipe() {
@@ -365,10 +374,10 @@
                 <button class="primary-button" onclick={writeRecipe}>Write the recipe</button>
               </div>
             {:else}
-              <RecipeCard recipe={card} {writing}>
+              <RecipeCard recipe={card} {writing} {stale}>
                 {#if !writing}
                   {#if stale}
-                    <p class="stale-note">You changed the amounts since this was written. Write it again so the steps match.</p>
+                    <p class="stale-note">You changed the recipe since this was written, so the steps below are out of date.</p>
                     <button class="primary-button" onclick={writeRecipe}>Write it again</button>
                   {:else}
                     {#if savedId}
