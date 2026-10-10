@@ -5,9 +5,11 @@ import { findFoods, normalizeDataset, searchFoods } from "../src/lib/foods.js";
 import {
   expandDislikes,
   isDisliked,
+  missingRequests,
   parseMethod,
   recipeText,
   solveRecipe,
+  splitFoodList,
 } from "../src/lib/recipe.js";
 
 const { foods } = normalizeDataset({
@@ -159,4 +161,33 @@ test("written recipes parse into headings, lists, and steps for the card", () =>
   });
   assert.match(text, /^Gratin\nServes 4\. Per serving: 20 g protein/);
   assert.match(text, /\n\nMethod\n1\. Bake\.$/);
+});
+
+test("requested foods are recognized despite periods and describing words", () => {
+  const wanted = splitFoodList(
+    "portabella mushrooms. mozzarella, tomato sauce, shaved steak, pepperoni",
+  );
+  assert.deepEqual(wanted, [
+    "portabella mushrooms",
+    "mozzarella",
+    "tomato sauce",
+    "shaved steak",
+    "pepperoni",
+  ]);
+  assert.deepEqual(splitFoodList("Eggs, pumpkin and onions\n1.5 oz feta"), [
+    "eggs",
+    "pumpkin",
+    "onions",
+    "1.5 oz feta",
+  ]);
+  const names = [
+    "Mushrooms, portabella, raw",
+    "Cheese, mozzarella, whole milk",
+    "Tomato products, canned, sauce",
+    'Beef, ribeye cap steak, boneless, separable lean only, trimmed to 0" fat, all grades, raw',
+    "Pepperoni, beef and pork, sliced",
+  ];
+  assert.deepEqual(missingRequests(names, wanted), []);
+  assert.deepEqual(missingRequests(names, ["onions", "steak"]), ["onions"]);
+  assert.deepEqual(missingRequests(["garlic"], ["garlic cloves"]), []);
 });

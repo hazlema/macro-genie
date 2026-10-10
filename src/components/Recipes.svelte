@@ -3,7 +3,7 @@
   import RecipeCard from './RecipeCard.svelte';
   import DislikeSummary from './DislikeSummary.svelte';
   import { NUTRIENTS, PRESETS, emptyRanges, formatAmount } from '../lib/foods.js';
-  import { solveRecipe, isDisliked, recipeText } from '../lib/recipe.js';
+  import { solveRecipe, isDisliked, recipeText, splitFoodList, missingRequests } from '../lib/recipe.js';
   import { prefs, save, saveRecipe } from '../lib/prefs.svelte.js';
   import { printRecipe } from '../lib/print.svelte.js';
 
@@ -38,8 +38,7 @@
   });
 
   const activeCount = $derived(Object.values(ranges).filter(r => r.min != null || r.max != null).length);
-  // "eggs, pumpkin and onions" -> ["eggs", "pumpkin", "onions"]
-  const want = $derived(wantText.split(/,|;|\n|\band\b|&/i).map(w => w.trim().replace(/\s+/g, ' ')).filter(Boolean).filter((w, i, all) => all.indexOf(w) === i).slice(0, 8).map(w => w.slice(0, 40)));
+  const want = $derived(splitFoodList(wantText));
   const wantDisliked = $derived(want.filter(w => isDisliked({ name: w }, prefs.dislikes)));
   const generating = $derived(ideas.some(i => i.status === 'pending'));
   const readyIdeas = $derived(ideas.filter(i => i.status === 'ready'));
@@ -80,18 +79,19 @@
     : 'Couldn’t reach the recipe service. Try again.';
 
   async function requestIdea(angle, token) {
+    const asked = want;
     ideas[angle] = { status: 'pending' };
     try {
       const res = await fetch('/api/idea', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ servings, ranges: activeRanges(), want, note: note.trim(), dislikes: $state.snapshot(prefs.dislikes), angle }),
+        body: JSON.stringify({ servings, ranges: activeRanges(), want: asked, note: note.trim(), dislikes: $state.snapshot(prefs.dislikes), angle }),
       });
       const body = await res.json().catch(() => null);
       if (token !== batch) return;
       ideas[angle] = !res.ok || !body || body.error
         ? { status: 'error', error: body?.error ?? unreachable(res.status) }
-        : { status: 'ready', idea: body };
+        : { status: 'ready', idea: body, want: asked };
     } catch {
       if (token === batch) ideas[angle] = { status: 'error', error: 'Couldn’t reach the recipe service. Check your connection and try again.' };
     }
@@ -242,7 +242,8 @@
                 <h3>{entry.idea.name}</h3>
                 <p class="idea-description">{entry.idea.description}</p>
                 {#if s}
-                  {#if entry.idea.missing?.length}<p class="idea-fit short">Leaves out {entry.idea.missing.join(', ')}</p>{/if}
+                  {@const missing = missingRequests([...entry.idea.ingredients.map(x => x.name), ...(entry.idea.seasonings ?? [])], (entry.want ?? want).filter(w => !isDisliked({ name: w }, prefs.dislikes)))}
+                  {#if missing.length}<p class="idea-fit short">Leaves out {missing.join(', ')}</p>{/if}
                   <p class="idea-fit" class:short={activeCount > 0 && !s.fits}>{!activeCount ? 'No targets set' : s.fits ? `Fits all ${activeCount} ${activeCount === 1 ? 'target' : 'targets'}` : `Close: ${s.misses.map(describe).join(', ')}`}</p>
                   <p class="idea-macros"><strong>{formatAmount(s.perServing.calories)}</strong> kcal<span class="separator">·</span><strong>{formatAmount(s.perServing.protein)}</strong> g protein<span class="separator">·</span><strong>{formatAmount(s.perServing.netCarbs)}</strong> g net carbs<span class="separator">·</span><strong>{formatAmount(s.perServing.fat)}</strong> g fat</p>
                   <ul class="idea-ingredients">

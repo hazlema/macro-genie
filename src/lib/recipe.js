@@ -38,6 +38,45 @@ export const nameMatches = (food, words) =>
   matchesAny(food, expandDislikes(words));
 export const isDisliked = nameMatches;
 
+// "eggs, pumpkin. onions and leeks" -> ["eggs", "pumpkin", "onions", "leeks"].
+// Periods split too, but not decimal points.
+export function splitFoodList(text = "") {
+  return [
+    ...new Set(
+      text
+        .split(/[,;\n&]|\.(?!\d)|\band\b/i)
+        .map((w) => w.trim().replace(/\s+/g, " ").toLocaleLowerCase())
+        .filter(Boolean),
+    ),
+  ]
+    .slice(0, 8)
+    .map((w) => w.slice(0, 40));
+}
+
+// Words that say how a food is prepared or sold, not what it is.
+const DESCRIBING = new Set(
+  "shaved sliced diced chopped minced grated shredded fresh frozen raw cooked canned dried smoked whole large small baby lean boneless skinless cloves clove slices pieces fillets".split(
+    " ",
+  ),
+);
+
+// Whether a food (or seasoning) answers a requested one. Any main word of
+// the request is enough: "shaved steak" -> "steak", "garlic cloves" -> "garlic".
+export function answersRequest(food, phrase) {
+  const main = phrase
+    .toLocaleLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((w) => w.length > 2 && !DESCRIBING.has(w));
+  return nameMatches(food, [phrase]) || nameMatches(food, main);
+}
+
+// Requested foods that none of the ingredients or seasonings answer.
+export function missingRequests(names, wanted) {
+  return wanted.filter(
+    (phrase) => !names.some((name) => answersRequest({ name }, phrase)),
+  );
+}
+
 // Nutrients shown for a dish, in order.
 export const DISH_NUTRIENTS = [
   ...NUTRIENTS,

@@ -13,7 +13,8 @@ import {
 import {
   expandDislikes,
   isDisliked,
-  nameMatches,
+  answersRequest,
+  missingRequests,
   solveRecipe,
 } from "../src/lib/recipe.js";
 
@@ -224,7 +225,8 @@ export function finishIdea(submission, request) {
       food,
       grams: Math.min(Math.round(grams), 5000),
       // Foods the person asked for must stay in the dish.
-      required: !!ingredient.required || nameMatches(food, asked),
+      required:
+        !!ingredient.required || asked.some((w) => answersRequest(food, w)),
     });
   }
   if (!items.length)
@@ -234,10 +236,9 @@ export function finishIdea(submission, request) {
     .filter((s) => !isDisliked({ name: s }, request.dislikes))
     .slice(0, 10);
   // Asked-for foods the idea doesn't use, so the card can say so.
-  const missing = asked.filter(
-    (w) =>
-      !items.some((i) => nameMatches(i.food, [w])) &&
-      !seasonings.some((s) => nameMatches({ name: s }, [w])),
+  const missing = missingRequests(
+    [...items.map((i) => i.food.name), ...seasonings],
+    asked,
   );
   const solved = solveRecipe(items, {
     servings: request.servings,
