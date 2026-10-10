@@ -98,3 +98,21 @@ test("per-100 g basis filters and sorts on source values", () => {
   );
   assert.throws(() => searchFoods(foods, { basis: "cup" }), /basis/);
 });
+
+test("search words match word starts and sort none keeps source order", () => {
+  const { foods } = normalizeDataset({
+    src: "Fixture source",
+    foods: [
+      ["Beef, sirloin steak", "1300", 200, 30, 8, 0, 0, 0, 60, 3, 85, "3 oz"],
+      ["Beverages, tea, brewed", "1400", 1, 0, 0, 0, 0, 0, 3, 0, 240, "1 cup"],
+      ["Tea biscuits", "1800", 400, 6, 12, 70, 2, 20, 300, 5, 10, "1 piece"],
+      ["Mr. (tea) blend", "1400", 2, 0, 0, 0, 0, 0, 3, 0, 240, "1 cup"],
+    ],
+  });
+  assert.deepEqual(
+    searchFoods(foods, { query: "tea", sort: "none" }).map((f) => f.name),
+    ["Beverages, tea, brewed", "Tea biscuits", "Mr. (tea) blend"],
+  );
+  assert.equal(searchFoods(foods, { query: "mr." }).length, 1);
+  assert.equal(searchFoods(foods, { query: "(" }).length, 1);
+});

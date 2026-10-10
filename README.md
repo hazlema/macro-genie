@@ -63,7 +63,7 @@ The server uses the [official MCP SDK](https://ts.sdk.modelcontextprotocol.io/se
 | `list_food_categories` | Get category codes, labels, and searchable counts                                |
 | `get_food_details`     | Retrieve serving and nutrient information using a search result ID               |
 
-`search_foods` accepts `query`, `category`, `ranges`, `sort`, `basis` (`serving` by default, or `100g`), `limit` (1–100, default 20), and `offset`. `get_food_details` also accepts `basis`. Range keys are `protein`, `netCarbs`, `calories`, `fat`, `sugar`, and `sodium`. Sort keys are `protein` (descending), `netCarbs`, `calories`, `sodium` (ascending), and `name`. Every returned nutrient is per the chosen basis (reported in `basis`); source, units, and missing-data rules are included.
+`search_foods` accepts `query`, `category`, `ranges`, `sort`, `basis` (`serving` by default, or `100g`), `limit` (1–100, default 20), and `offset`. `get_food_details` also accepts `basis`. Range keys are `protein`, `netCarbs`, `calories`, `fat`, `sugar`, and `sodium`. Sort keys are `none` (source order), `protein` (descending), `netCarbs`, `calories`, `sodium` (ascending), and `name`. Query words match the start of words in the food name. Every returned nutrient is per the chosen basis (reported in `basis`); source, units, and missing-data rules are included.
 
 Example tool arguments:
 

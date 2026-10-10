@@ -36,6 +36,7 @@ export const NUTRIENTS = [
 ];
 
 export const SORTS = {
+  none: "None",
   protein: "Most protein",
   netCarbs: "Fewest net carbs",
   calories: "Fewest calories",
@@ -149,10 +150,22 @@ export function searchFoods(
   if (!(basis in BASES)) throw new Error("Unknown nutrient basis.");
   const valueOf = (food, key) =>
     (basis === "100g" ? food.per100g : food.nutrients)[key];
-  const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  // Each word must start a word in the name, so "tea" finds tea, not steak.
+  const terms = query
+    .toLocaleLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(
+      (term) =>
+        new RegExp(
+          `(^|[^\\p{L}\\p{N}])${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+          "u",
+        ),
+    );
   const found = foods.filter((food) => {
     if (category !== "all" && food.category !== category) return false;
-    if (!terms.every((term) => food.name.toLocaleLowerCase().includes(term)))
+    if (!terms.every((term) => term.test(food.name.toLocaleLowerCase())))
       return false;
     return Object.entries(ranges).every(([key, { min, max }]) => {
       if (min == null && max == null) return true;
@@ -164,6 +177,7 @@ export function searchFoods(
       );
     });
   });
+  if (sort === "none") return found;
   return found.sort((a, b) => {
     if (sort === "name") return a.name.localeCompare(b.name);
     const left = valueOf(a, sort);
