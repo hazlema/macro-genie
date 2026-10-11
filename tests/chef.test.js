@@ -309,3 +309,35 @@ test("problem ideas go back for a retry; copied id lines and names still resolve
     console.log = quiet;
   }
 });
+
+test("Claude's note of which request an ingredient answers counts toward it", async () => {
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    const submit = toolUse("t", "submit_idea", {
+      name: "Smash bowl",
+      description: "",
+      ingredients: [
+        {
+          id: gruyere.id,
+          grams: 80,
+          required: false,
+          fulfills: "cheese please",
+        },
+        { id: pumpkin.id, grams: 200, required: false, fulfills: "Pumpkin" },
+      ],
+      seasonings: [],
+    });
+    const idea = await generateIdea(
+      { ...base, want: ["pumpkin", "cheese please", "onions"], dislikes: [] },
+      fakeApi([submit]),
+    );
+    assert.deepEqual(idea.missing, ["onions"]);
+    const byId = Object.fromEntries(idea.ingredients.map((i) => [i.id, i]));
+    assert.equal(byId[pumpkin.id].fulfills, "pumpkin");
+    assert.equal(byId[pumpkin.id].required, true);
+    assert.equal(byId[gruyere.id].fulfills, "cheese please");
+  } finally {
+    console.log = quiet;
+  }
+});

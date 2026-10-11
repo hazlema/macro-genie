@@ -101,7 +101,7 @@ How to work:
 3. After you have the find_foods results, call submit_idea with the dish. That is your final answer. Never guess ids: only use ids that find_foods returned.
 
 Rules:
-- Include every food the person asked for as an ingredient. Search for each one and pick the plainest match (for "eggs": "Egg, whole, raw, fresh").
+- Include every food the person asked for as an ingredient. Search for each one and pick the plainest match (for "eggs": "Egg, whole, raw, fresh"). Set fulfills on that ingredient to the food as they wrote it.
 - Never use a food they won't eat, or anything containing it.
 - Prefer plain, unprocessed entries. Watch for hidden carbs and sugar: pie mixes, breaded or battered items, sweetened products, sauces.
 - Seasonings are for things with negligible calories only: salt, pepper, dried or fresh herbs, spices, garlic, vinegar, citrus zest, water. Everything with real calories must be an ingredient from find_foods.
@@ -152,8 +152,13 @@ const TOOLS = [
                 description:
                   "True if the dish doesn't work without a good amount of it",
               },
+              fulfills: {
+                type: "string",
+                description:
+                  'Which requested food this is, written exactly as they asked (e.g. "strawberry" for Strawberries, raw), or "" if none',
+              },
             },
-            required: ["id", "grams", "required"],
+            required: ["id", "grams", "required", "fulfills"],
             additionalProperties: false,
           },
         },
@@ -272,12 +277,26 @@ export function finishIdea(submission, request) {
     if (!food || seen.has(food.id) || !(grams > 0)) continue;
     if (isDisliked(food, request.dislikes)) continue;
     seen.add(food.id);
+    // Claude's own note of which requested food this is ("strawberry" for
+    // "Strawberries, raw"), kept only if it names something they asked for.
+    const note = String(ingredient.fulfills ?? "")
+      .trim()
+      .slice(0, 40);
+    const fulfills =
+      asked.find(
+        (w) =>
+          note &&
+          (w === note.toLocaleLowerCase() || answersRequest({ name: note }, w)),
+      ) ?? "";
     items.push({
       food,
       grams: Math.min(Math.round(grams), 5000),
+      fulfills,
       // Foods the person asked for must stay in the dish.
       required:
-        !!ingredient.required || asked.some((w) => answersRequest(food, w)),
+        !!ingredient.required ||
+        !!fulfills ||
+        asked.some((w) => answersRequest(food, w)),
     });
   }
   if (!items.length)
@@ -288,7 +307,11 @@ export function finishIdea(submission, request) {
     .slice(0, 10);
   // Asked-for foods the idea doesn't use, so the card can say so.
   const missing = missingRequests(
-    [...items.map((i) => i.food.name), ...seasonings],
+    [
+      ...items.map((i) => i.food.name),
+      ...items.map((i) => i.fulfills).filter(Boolean),
+      ...seasonings,
+    ],
     asked,
   );
   const solved = solveRecipe(items, {
@@ -311,6 +334,7 @@ export function finishIdea(submission, request) {
       suggested: a.wanted,
       grams: a.grams,
       required: a.required,
+      fulfills: a.fulfills ?? "",
     })),
   };
 }

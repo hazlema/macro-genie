@@ -2040,10 +2040,17 @@ dialog.dislikes[open] {
   color: inherit;
   max-width: 480px;
 }
+.swap-heading {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 14px 0 0;
+}
 .swap-options {
   list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
+  margin: 8px 0 0;
+  padding: 2px 4px 2px 0;
+  max-height: 360px;
+  overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 6px;

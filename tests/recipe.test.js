@@ -1,7 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import raw from "../foods.json" with { type: "json" };
-import { findFoods, normalizeDataset, searchFoods } from "../src/lib/foods.js";
+import {
+  findFoods,
+  normalizeDataset,
+  searchFoods,
+  swapOptions,
+} from "../src/lib/foods.js";
 import {
   expandDislikes,
   isDisliked,
@@ -201,4 +206,42 @@ test("everyday names count as the USDA food they mean", () => {
     ["onions"],
   );
   assert.deepEqual(usdaNamesFor("Hamburgers"), ["beef, ground"]);
+});
+
+test("singular words find plural spellings: strawberry, cherry, leaf", () => {
+  const { foods: all } = normalizeDataset(raw);
+  const first = (q) => findFoods(all, q, { limit: 1 })[0].name;
+  assert.equal(first("strawberry"), "Strawberries, raw");
+  assert.match(first("cherry"), /^Cherries/);
+  assert.deepEqual(missingRequests(["Strawberries, raw"], ["strawberry"]), []);
+  assert.ok(searchFoods(all, { query: "strawberry" }).length > 10);
+});
+
+test("swap offers the same kind of food first, and searches when typed", () => {
+  const { foods: all } = normalizeDataset(raw);
+  const by = (name) => all.find((f) => f.name === name);
+  const beef = swapOptions(
+    all,
+    by("Beef, ground, 85% lean meat / 15% fat, raw"),
+  );
+  assert.ok(
+    beef.slice(0, 6).every((f) => /^Beef, ground, .*raw$/.test(f.name)),
+  );
+  const cheese = swapOptions(all, by("Cheese, feta"));
+  assert.ok(
+    cheese.length >= 30 && cheese.every((f) => /^Cheese, /.test(f.name)),
+  );
+  assert.equal(
+    swapOptions(all, by("Broccoli raab, raw"))[0].name,
+    "Broccoli, raw",
+  );
+  assert.ok(
+    swapOptions(all, by("Cheese, feta"), "", { exclude: ["brie"] }).every(
+      (f) => !/brie/i.test(f.name),
+    ),
+  );
+  assert.equal(
+    swapOptions(all, by("Cheese, feta"), "broccoli")[0].name,
+    "Broccoli, raw",
+  );
 });

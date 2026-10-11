@@ -2,7 +2,7 @@
   import RangeTable from './RangeTable.svelte';
   import RecipeCard from './RecipeCard.svelte';
   import DislikeSummary from './DislikeSummary.svelte';
-  import { NUTRIENTS, PRESETS, emptyRanges, findFoods, formatAmount } from '../lib/foods.js';
+  import { NUTRIENTS, PRESETS, emptyRanges, formatAmount, swapOptions } from '../lib/foods.js';
   import { solveRecipe, isDisliked, expandDislikes, recipeText, splitFoodList, missingRequests } from '../lib/recipe.js';
   import { prefs, save, saveRecipe } from '../lib/prefs.svelte.js';
   import { printRecipe } from '../lib/print.svelte.js';
@@ -63,13 +63,13 @@
       return { solved: solveRecipe(items, { servings, ranges }), error: '' };
     } catch (error) { return { solved: null, error: error.message }; }
   });
-  const swapMatches = $derived(!swapping || swapQuery.trim().length < 2 ? [] :
-    findFoods(foods, swapQuery, { exclude: expandDislikes(prefs.dislikes), limit: 16 })
-      .filter(f => !chosen?.items.some(i => i.id === f.id)).slice(0, 8));
-  function startSwap(item, food) {
+  // Similar foods first ("Beef, ground, …" for ground beef); typing searches everything.
+  const swapMatches = $derived(!swapping || !byId.get(swapping) ? [] :
+    swapOptions(foods, byId.get(swapping), swapQuery, { exclude: expandDislikes(prefs.dislikes), limit: 48 })
+      .filter(f => !chosen?.items.some(i => i.id === f.id)).slice(0, 40));
+  function startSwap(item) {
     swapping = item.id;
-    // Start from the food's main word: "Cheese, feta" -> "cheese".
-    swapQuery = food.name.split(/[,\s]/)[0].toLocaleLowerCase();
+    swapQuery = '';
   }
   function swapTo(item, food) {
     item.id = food.id;
@@ -268,7 +268,7 @@
                 <h3>{entry.idea.name}</h3>
                 <p class="idea-description">{entry.idea.description}</p>
                 {#if s}
-                  {@const missing = missingRequests([...entry.idea.ingredients.map(x => x.name), ...(entry.idea.seasonings ?? [])], (entry.want ?? want).filter(w => !isDisliked({ name: w }, prefs.dislikes)))}
+                  {@const missing = missingRequests([...entry.idea.ingredients.map(x => x.name), ...entry.idea.ingredients.map(x => x.fulfills).filter(Boolean), ...(entry.idea.seasonings ?? [])], (entry.want ?? want).filter(w => !isDisliked({ name: w }, prefs.dislikes)))}
                   {#if missing.length}<p class="idea-fit short">Leaves out {missing.join(', ')}</p>{/if}
                   <p class="idea-fit" class:short={activeCount > 0 && !s.fits}>{!activeCount ? 'No targets set' : s.fits ? `Fits all ${activeCount} ${activeCount === 1 ? 'target' : 'targets'}` : `Close: ${s.misses.map(describe).join(', ')}`}</p>
                   <p class="idea-macros"><strong>{formatAmount(s.perServing.calories)}</strong> kcal<span class="separator">·</span><strong>{formatAmount(s.perServing.protein)}</strong> g protein<span class="separator">·</span><strong>{formatAmount(s.perServing.netCarbs)}</strong> g net carbs<span class="separator">·</span><strong>{formatAmount(s.perServing.fat)}</strong> g fat</p>
@@ -298,7 +298,7 @@
               <li class="ingredient" class:dropped={solved?.grams === 0} class:blocked={isDisliked(food, prefs.dislikes)}>
                 <div class="ingredient-name">
                   <h3>{food.name}</h3>
-                  <p>{isDisliked(food, prefs.dislikes) ? 'On your list of foods you won’t eat. Left out.' : food.categoryName}<button class="swap-link" aria-expanded={swapping === item.id} onclick={() => swapping === item.id ? swapping = null : startSwap(item, food)}>{swapping === item.id ? 'Cancel swap' : 'Swap'}</button></p>
+                  <p>{isDisliked(food, prefs.dislikes) ? 'On your list of foods you won’t eat. Left out.' : food.categoryName}<button class="swap-link" aria-expanded={swapping === item.id} onclick={() => swapping === item.id ? swapping = null : startSwap(item)}>{swapping === item.id ? 'Cancel swap' : 'Swap'}</button></p>
                 </div>
                 <label class="want"><span>You’d like</span><span class="gram-input"><input type="number" min="1" max="5000" step="1" inputmode="numeric" bind:value={item.grams} aria-label={`Grams of ${food.name} you'd like`} />g</span></label>
                 <label class="must"><input type="checkbox" bind:checked={item.required} /> Must use</label>
@@ -315,8 +315,9 @@
               </li>
               {#if swapping === item.id}
                 <li class="swap-panel">
-                  <label><span>Swap {food.name} for</span><input use:focusOnMount bind:value={swapQuery} placeholder="cheddar, broccoli, chicken thigh" onkeydown={(e) => { if (e.key === 'Escape') swapping = null; if (e.key === 'Enter' && swapMatches.length) swapTo(item, swapMatches[0]); }} /></label>
+                  <label><span>Swap {food.name} for</span><input use:focusOnMount bind:value={swapQuery} placeholder="Pick a similar food below, or search all foods" onkeydown={(e) => { if (e.key === 'Escape') swapping = null; if (e.key === 'Enter' && swapMatches.length) swapTo(item, swapMatches[0]); }} /></label>
                   {#if swapMatches.length}
+                    <p class="swap-heading">{swapQuery.trim().length >= 2 ? `Foods matching “${swapQuery.trim()}”` : 'Similar foods'}</p>
                     <ul class="swap-options" aria-label="Foods to swap in">
                       {#each swapMatches as option (option.id)}
                         <li><button onclick={() => swapTo(item, option)}>

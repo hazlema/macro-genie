@@ -157,13 +157,19 @@ export function queryMatchers(query) {
     .trim()
     .split(/\s+/)
     .filter(Boolean)
-    .map(
-      (term) =>
-        new RegExp(
-          `(^|[^\\p{L}\\p{N}])${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
-          "u",
-        ),
-    );
+    .map((term) => new RegExp(`(^|[^\\p{L}\\p{N}])${wordPattern(term)}`, "u"));
+}
+
+// A search word as a pattern that also matches its plural spelling:
+// "strawberry" finds "strawberries", "leaf" finds "leaves". (Plain plurals
+// like "tomato" -> "tomatoes" already match because the word is a prefix.)
+function wordPattern(term) {
+  const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (/[^aeiou]y$/.test(term) && term.length > 3)
+    return `${escape(term.slice(0, -1))}(?:y|ies)`;
+  if (/[^f]fe?$/.test(term) && term.length > 3)
+    return `${escape(term.replace(/fe?$/, ""))}(?:fe?|ves)`;
+  return escape(term);
 }
 
 // True when every word of any phrase starts a word in the food's name.
@@ -235,7 +241,7 @@ export function singular(word) {
 const PREPARED =
   /^(fast foods|restaurant|babyfood|baby food|cereals|soup|sauce|snacks|candies|cookies|crackers|bread|pizza|fruit-flavored|beverages, .*(drink|mix))/i;
 const PROCESSED =
-  /\b(breaded|battered|fried|mix|sweetened|condensed|frozen mixture|with added|imitation)\b/i;
+  /\b(breaded|battered|fried|mix|sweetened|condensed|frozen mixture|with added|imitation|cured|sausage|spread|loaf|stew|entree|sticks|jerky|luncheon|bologna|salami|pastrami|frankfurter|pre-cooked|nuggets?|patty|patties|sauce|soup|dip)\b/i;
 const BRAND = /\b[A-Z][A-Z'.&-]{2,}\b/;
 
 // How plain and on-topic a food is for a search word: lower is better. USDA
@@ -245,7 +251,7 @@ function plainness(food, word) {
   const parts = food.name.toLocaleLowerCase().split(",");
   const words = (part) => part.trim().split(/[^\p{L}\p{N}]+/u);
   const index = parts.findIndex((part) =>
-    words(part).some((w) => w.startsWith(word)),
+    words(part).some((w) => w.startsWith(word) || singular(w).startsWith(word)),
   );
   // "egg" should prefer "Egg, whole" over "Eggplant".
   const whole = parts.some((part) =>
@@ -276,6 +282,51 @@ export function findFoods(foods, query, { exclude = [], limit = 8 } = {}) {
     .sort((a, b) => a.score - b.score)
     .slice(0, limit)
     .map(({ food }) => food);
+}
+
+// Foods to offer in place of one in a recipe. With no search, it's the same
+// kind of food (names starting "Beef," for ground beef), the closest variety
+// first ("Beef, ground, …"), raw kept with raw and cooked with cooked.
+// A search looks across all foods.
+export function swapOptions(
+  foods,
+  current,
+  query = "",
+  { exclude = [], limit = 40 } = {},
+) {
+  if (query.trim().length >= 2)
+    return findFoods(foods, query, { exclude, limit: limit + 1 })
+      .filter((f) => f.id !== current.id)
+      .slice(0, limit);
+  const parts = (food) =>
+    food.name
+      .toLocaleLowerCase()
+      .split(",")
+      .map((p) => p.trim());
+  const [kind, variety] = parts(current);
+  const raw = /\braw\b/i.test(current.name);
+  const candidates = foods
+    .filter((f) => f.id !== current.id && !matchesAny(f, exclude))
+    .map((f) => ({ f, p: parts(f) }));
+  let same = candidates.filter(({ p }) => p[0] === kind && p.length > 1);
+  // A narrow kind like "Broccoli raab" widens to its first word, "broccoli".
+  if (same.length < 8) {
+    const word = kind.split(" ")[0];
+    same = candidates.filter(({ p }) => p[0].split(" ")[0] === word);
+  }
+  return same
+    .map(({ f, p }) => ({
+      f,
+      score:
+        (variety && p[1] === variety ? 0 : 20) +
+        (/\braw\b/i.test(f.name) === raw ? 0 : 6) +
+        (PROCESSED.test(f.name) ? 8 : 0) +
+        (BRAND.test(f.name) ? 30 : 0) +
+        f.name.length / 25,
+    }))
+    .sort((a, b) => a.score - b.score)
+    .slice(0, limit)
+    .map(({ f }) => f);
 }
 
 export function formatAmount(value) {
