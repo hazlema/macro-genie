@@ -1,4 +1,5 @@
 import { untrack } from "svelte";
+import { isSavedRecipe } from "./recipe.js";
 
 // Browser-only settings: dislikes, the recipe in progress, and saved recipes.
 // Nothing leaves the device.
@@ -15,13 +16,7 @@ function load() {
       draft:
         saved.draft && typeof saved.draft === "object" ? saved.draft : null,
       recipes: Array.isArray(saved.recipes)
-        ? saved.recipes.filter(
-            (r) =>
-              r &&
-              typeof r.id === "string" &&
-              typeof r.name === "string" &&
-              typeof r.method === "string",
-          )
+        ? saved.recipes.filter(isSavedRecipe)
         : [],
     };
   } catch {
@@ -74,4 +69,12 @@ export function saveRecipe(recipe) {
 export function deleteRecipe(id) {
   prefs.recipes = prefs.recipes.filter((r) => r.id !== id);
   save();
+}
+
+// Replaces a saved recipe's content (e.g. a rewrite), keeping its id and date.
+export function updateRecipe(id, recipe) {
+  prefs.recipes = prefs.recipes.map((r) =>
+    r.id === id ? { ...recipe, id: r.id, savedAt: r.savedAt } : r,
+  );
+  return save();
 }

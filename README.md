@@ -27,7 +27,7 @@ Connect this GitHub repository to Netlify. The included `netlify.toml` supplies:
 - Publish directory: `dist`
 - Node version: 24
 - A stateless function exposed at `/mcp`
-- `/api/idea` and `/api/recipe-method`, which call Claude for the Recipe Builder tab
+- `/api/idea` and `/api/recipe`, which call Claude for the Recipe Builder tab
 
 Push changes to the branch connected to Netlify to rebuild both the website and MCP data. The static website works independently of the functions.
 
@@ -35,7 +35,7 @@ Push changes to the branch connected to Netlify to rebuild both the website and 
 
 Set `ANTHROPIC_API_KEY` in Netlify under **Project configuration → Environment variables**, scoped to **Functions**, then redeploy. Without it, the Recipe Builder explains that ideas aren't set up.
 
-- **How it works:** "Get 5 ideas" sends five requests at once, each asking `claude-opus-5-5` (low effort) for one dish with a different lean (a bake, a skillet dish, a soup, a bowl, something unexpected). Claude searches the USDA data through a `find_foods` tool and submits food IDs with rough grams. Visitors type the foods they want as plain text ("eggs, pumpkin, onions"). The server drops anything unknown or disliked (seasonings too), keeps the asked-for foods from being cut below a quarter, notes any the idea left out, and sizes the amounts with the same solver the page uses. "Write the recipe" streams the method for the chosen dish with the amounts fixed. Claude never supplies nutrition numbers.
+- **How it works:** "Get 5 ideas" sends five requests at once, each asking `claude-opus-5-5` (low effort) for one dish with a different lean (a bake, a skillet dish, a soup, a bowl, something unexpected). Claude searches the USDA data through a `find_foods` tool and submits food IDs with rough grams. Visitors type the foods they want as plain text ("eggs, pumpkin, onions"). The server drops anything unknown or disliked (seasonings too), keeps the asked-for foods from being cut below a quarter, notes any the idea left out, and sizes the amounts with the same solver the page uses. "Write the recipe" returns a structured recipe (ingredients with kitchen measures, steps with amount placeholders) for the chosen dish with the amounts fixed, so it can be shown for any number of servings. Claude never supplies nutrition numbers.
 - **Cost:** you pay per request on your Anthropic account. Each idea is one or two short model calls; check real usage in the Anthropic Console and set a monthly spend limit there.
 - **Abuse limits:** Netlify rate limits per visitor IP: 20 idea requests and 6 recipe write-ups a minute. Requests are validated and capped in size.
 - **Refusals:** requests use Anthropic's server-side fallback (`fallbacks: "default"`), so a safety decline is retried on another model before the visitor sees an error.
@@ -133,7 +133,8 @@ Run `npm ci` in that checkout first. Local MCP reads the local checkout's food f
 - `src/lib/recipe.js`: ingredient solver (linear programming via `javascript-lp-solver`) and dislike matching
 - `src/lib/prefs.svelte.js`: browser-stored dislikes and the recipe in progress
 - `server/chef.js`: Claude calls for ideas and recipe methods, plus the checks and sizing applied to what comes back
-- `netlify/functions/idea.js`, `netlify/functions/recipe-method.js`: the `/api` endpoints, rate limited
+- `netlify/functions/idea.js`, `netlify/functions/recipe.js`: the `/api` endpoints, rate limited
+- `src/lib/scale.js`: renders a structured recipe at any number of servings (kitchen fractions, unit changes, amounts in steps)
 - `src/components/FoodCard.svelte`: serving-based cards and expandable details
 - `src/lib/foods.js`: data normalization and shared range search
 - `mcp/server.js`: MCP tools shared by the HTTP and stdio entry points

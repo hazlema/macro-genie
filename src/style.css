@@ -2093,3 +2093,47 @@ dialog.dislikes[open] {
 .card-body.stale {
   opacity: 0.45;
 }
+
+/* Structured recipe cards: scaling */
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+.card-servings {
+  font-size: 12px;
+}
+.scaled-note {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--amber);
+}
+.card-grams {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.rewrite-note {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 14px 16px;
+  margin-bottom: 6px;
+  border: 1px solid #e9bd6540;
+  background: #e9bd650a;
+  border-radius: 12px;
+}
+.rewrite-note p {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 14px;
+}
+@media print {
+  .print-only .card-grams,
+  .print-only .scaled-note {
+    color: #444;
+  }
+}

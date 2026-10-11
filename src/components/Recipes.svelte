@@ -3,7 +3,8 @@
   import RecipeCard from './RecipeCard.svelte';
   import DislikeSummary from './DislikeSummary.svelte';
   import { NUTRIENTS, PRESETS, emptyRanges, formatAmount, swapOptions } from '../lib/foods.js';
-  import { solveRecipe, isDisliked, expandDislikes, recipeText, splitFoodList, missingRequests } from '../lib/recipe.js';
+  import { solveRecipe, isDisliked, expandDislikes, splitFoodList, missingRequests } from '../lib/recipe.js';
+  import { structuredText } from '../lib/scale.js';
   import { prefs, save, saveRecipe } from '../lib/prefs.svelte.js';
   import { printRecipe } from '../lib/print.svelte.js';
 
@@ -20,7 +21,9 @@
   let note = $state(typeof draft.note === 'string' ? draft.note : '');
   let ideas = $state(Array.isArray(draft.ideas) ? draft.ideas.filter(i => i?.status === 'ready' && Array.isArray(i.idea?.ingredients)) : []);
   let chosen = $state(Array.isArray(draft.chosen?.items) ? draft.chosen : null);
-  let method = $state(typeof draft.method === 'string' ? draft.method : '');
+  // The written recipe: structured (version 2), so it can be shown for any servings.
+  let written = $state(draft.written?.version === 2 ? draft.written : null);
+  let viewServings = $state(draft.written?.version === 2 ? (draft.viewServings ?? draft.written.servings) : 4);
   // Which amounts the written recipe was for, and whether it's been saved.
   let methodFor = $state(typeof draft.methodFor === 'string' ? draft.methodFor : '');
   let savedId = $state(typeof draft.savedId === 'string' ? draft.savedId : null);
@@ -36,7 +39,7 @@
   let batch = 0;
 
   $effect(() => {
-    prefs.draft = $state.snapshot({ servings, ranges, wantText, note, ideas: ideas.filter(i => i.status === 'ready'), chosen, method, methodFor, savedId });
+    prefs.draft = $state.snapshot({ servings, ranges, wantText, note, ideas: ideas.filter(i => i.status === 'ready'), chosen, written, viewServings, methodFor, savedId });
     save();
   });
 
@@ -75,14 +78,14 @@
     item.id = food.id;
     swapping = null;
     // A written recipe would now name the old food; rewrite it to match.
-    if (method && !writing) writeRecipe();
+    if (written && !writing) writeRecipe();
   }
   const focusOnMount = (node) => { node.focus(); node.select(); };
 
   const solvedById = $derived(new Map((recipe.solved?.amounts ?? []).map(a => [a.food.id, a])));
 
   function applyPreset(preset) { ranges = { ...emptyRanges(), ...structuredClone(preset.ranges) }; activePreset = preset.name; }
-  function startOver() { batch++; wantText = ''; note = ''; ideas = []; chosen = null; method = ''; savedId = null; ranges = emptyRanges(); servings = 4; activePreset = ''; }
+  function startOver() { batch++; wantText = ''; note = ''; ideas = []; chosen = null; written = null; savedId = null; ranges = emptyRanges(); servings = 4; activePreset = ''; }
 
   function activeRanges() {
     return Object.fromEntries(Object.entries($state.snapshot(ranges)).flatMap(([k, r]) => {
@@ -127,7 +130,7 @@
 
   function choose(idea) {
     chosen = { name: idea.name, description: idea.description, seasonings: idea.seasonings, items: idea.ingredients.map(i => ({ id: i.id, grams: i.suggested, required: i.required })) };
-    method = '';
+    written = null;
     methodError = '';
     savedId = null;
     requestAnimationFrame(() => document.getElementById('your-recipe')?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
@@ -136,33 +139,26 @@
   async function writeRecipe() {
     const s = recipe.solved;
     if (!s || writing) return;
-    writing = true; method = ''; methodError = ''; savedId = null; saveError = '';
-    methodFor = amountsKey;
+    writing = true; methodError = ''; savedId = null; saveError = '';
+    const key = amountsKey;
     try {
-      const res = await fetch('/api/recipe-method', {
+      const res = await fetch('/api/recipe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: chosen.name, description: chosen.description ?? '', servings, seasonings: chosen.seasonings ?? [], dislikes: $state.snapshot(prefs.dislikes), ingredients: s.amounts.filter(a => a.grams > 0).map(a => ({ id: a.food.id, grams: a.grams })) }),
       });
-      if (!res.ok || !res.body) {
-        const body = await res.json().catch(() => null);
+      const body = await res.json().catch(() => null);
+      if (!res.ok || body?.version !== 2) {
         methodError = body?.error ?? unreachable(res.status);
         return;
       }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        method += decoder.decode(value, { stream: true });
-      }
-      // A swap can make the name wrong ("…and Feta"); Claude suggests a new one first.
-      const renamed = method.match(/^\s*Name:\s*(.+)\n(?:\s*Description:\s*(.+)\n)?/);
-      if (renamed) {
-        chosen.name = renamed[1].trim().slice(0, 120);
-        if (renamed[2]) chosen.description = renamed[2].trim().slice(0, 400);
-        method = method.slice(renamed[0].length);
-      }
+      const { usage, ...fresh } = body;
+      written = fresh;
+      viewServings = fresh.servings;
+      methodFor = key;
+      // A swap can make the old name wrong ("…and Feta"); Claude renames it then.
+      chosen.name = fresh.name;
+      chosen.description = fresh.description;
     } catch {
       methodError = 'The connection dropped while writing. Try again.';
     } finally { writing = false; }
@@ -170,23 +166,27 @@
 
   // The amounts the recipe would be written for; a change makes a written recipe stale.
   const amountsKey = $derived(recipe.solved ? JSON.stringify([servings, recipe.solved.amounts.filter(a => a.grams > 0).map(a => [a.food.id, a.grams])]) : '');
-  const stale = $derived(!!method && !writing && methodFor !== amountsKey);
-  const card = $derived(chosen && recipe.solved ? {
+  const stale = $derived(!!written && !writing && methodFor !== amountsKey);
+  // While the steps are being written, the card shows the ingredients by weight.
+  const draftCard = $derived(chosen && recipe.solved ? {
+    version: 2,
     name: chosen.name,
     description: chosen.description ?? '',
     servings,
     gramsPerServing: recipe.solved.totalGrams / servings,
-    perServing: Object.fromEntries(NUTRIENTS.map(n => [n.key, recipe.solved.perServing[n.key]])),
-    ingredients: recipe.solved.amounts.filter(a => a.grams > 0).map(a => ({ name: a.food.name, grams: a.grams })),
+    perServing: recipe.solved.perServing,
+    ingredients: recipe.solved.amounts.filter(a => a.grams > 0).map(a => ({ id: a.food.id, name: a.food.name, label: a.food.name, grams: a.grams, qty: null, unit: '', prep: '' })),
     seasonings: chosen.seasonings ?? [],
-    method: method.replace(/^\s*Name:.*(\n|$)(\s*Description:.*(\n|$))?/, ''),
+    steps: [],
+    tip: '',
   } : null);
+  const card = $derived(writing || !written ? draftCard : written);
 
   async function copyRecipe() {
-    try { await navigator.clipboard.writeText(recipeText(card)); copied = true; setTimeout(() => copied = false, 2000); } catch { copied = false; }
+    try { await navigator.clipboard.writeText(structuredText(written, viewServings, NUTRIENTS)); copied = true; setTimeout(() => copied = false, 2000); } catch { copied = false; }
   }
   function saveCard() {
-    savedId = saveRecipe($state.snapshot(card));
+    savedId = saveRecipe({ ...$state.snapshot(written), shownServings: viewServings });
     saveError = savedId ? '' : 'This browser wouldn’t store the recipe. Private browsing can block saving; copy or print it instead.';
   }
 
@@ -370,7 +370,7 @@
           </div>
 
           <div class="method">
-            {#if !method && !writing}
+            {#if !written && !writing}
               <div class="write-recipe">
                 <div>
                   <h3>Write the full recipe</h3>
@@ -379,7 +379,7 @@
                 <button class="primary-button" onclick={writeRecipe}>Write the recipe</button>
               </div>
             {:else}
-              <RecipeCard recipe={card} {writing} {stale}>
+              <RecipeCard recipe={card} bind:servings={viewServings} {writing} {stale} scalable={!stale}>
                 {#if !writing}
                   {#if stale}
                     <p class="stale-note">You changed the recipe since this was written, so the steps below are out of date.</p>
@@ -390,7 +390,7 @@
                     {:else}
                       <button class="primary-button" onclick={saveCard}>Save recipe</button>
                     {/if}
-                    <button class="outline-button" onclick={() => printRecipe($state.snapshot(card))}>Print</button>
+                    <button class="outline-button" onclick={() => printRecipe($state.snapshot(written), viewServings)}>Print</button>
                     <button class="outline-button" onclick={copyRecipe}>{copied ? 'Copied' : 'Copy'}</button>
                     <button class="text-button" onclick={writeRecipe}>Write it again</button>
                   {/if}

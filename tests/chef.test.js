@@ -6,7 +6,9 @@ import {
   UserFacingError,
   findFoodsResult,
   generateIdea,
-  methodPrompt,
+  buildRecipe,
+  recipePrompt,
+  writeRecipe,
 } from "../server/chef.js";
 import handler from "../netlify/functions/idea.js";
 
@@ -121,18 +123,104 @@ test("food search falls back to fewer words and respects dislikes", () => {
   assert.match(text, /"qqqq":\nno matches/);
 });
 
-test("the method prompt fixes the amounts and lists the macros", () => {
-  const prompt = methodPrompt({
-    name: "Gratin",
-    description: "",
-    servings: 2,
-    ingredients: [{ id: gruyere.id, grams: 100 }],
-    seasonings: ["thyme"],
-    dislikes: ["cilantro"],
-  });
-  assert.match(prompt, /- 100 g Cheese, gruyere/);
-  assert.match(prompt, /Never use: cilantro/);
-  assert.match(prompt, /protein/);
+test("a written recipe keeps the request's foods and grams, whatever the model says", async () => {
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    const request = {
+      name: "Gratin with Feta",
+      description: "Salty feta on top.",
+      servings: 2,
+      ingredients: [
+        { id: pumpkin.id, grams: 230 },
+        { id: gruyere.id, grams: 100 },
+      ],
+      seasonings: ["thyme"],
+      dislikes: ["cilantro"],
+    };
+    const api = fakeApi([
+      toolUse("r", "submit_recipe", {
+        name: "Pumpkin Gruyère Gratin",
+        description: "Nutty Gruyère over silky pumpkin.",
+        ingredients: [
+          { n: 1, label: "canned pumpkin", qty: 1, unit: "cup", prep: "" },
+          { n: 2, label: "Gruyère", qty: 0, unit: "g", prep: "shredded" },
+          { n: 9, label: "made-up food", qty: 5, unit: "cup", prep: "" },
+        ],
+        seasonings: ["thyme", "fresh cilantro"],
+        steps: [
+          "1. Heat the oven to 375°F.",
+          "Mix {1} pumpkin with {2:3/4} Gruyère.",
+          "  ",
+        ],
+        tip: "Brown it well.",
+      }),
+    ]);
+    const recipe = await writeRecipe(request, api);
+    const prompt = api.calls[0].messages[0].content;
+    assert.match(
+      prompt,
+      /1\. 230 g Pumpkin, canned, without salt\n2\. 100 g Cheese, gruyere/,
+    );
+    assert.match(prompt, /Never use: cilantro/);
+    assert.equal(api.calls[0].tools[0].name, "submit_recipe");
+
+    assert.equal(recipe.version, 2);
+    assert.equal(
+      recipe.name,
+      "Pumpkin Gruyère Gratin",
+      "renamed after the swap",
+    );
+    assert.equal(recipe.servings, 2);
+    assert.deepEqual(
+      recipe.ingredients.map((i) => [i.id, i.grams, i.qty, i.unit]),
+      [
+        [pumpkin.id, 230, 1, "cup"],
+        [gruyere.id, 100, null, ""],
+      ],
+    );
+    assert.deepEqual(
+      recipe.seasonings,
+      ["thyme"],
+      "disliked seasoning dropped",
+    );
+    assert.deepEqual(recipe.steps, [
+      "Heat the oven to 375°F.",
+      "Mix {1} pumpkin with {2:3/4} Gruyère.",
+    ]);
+    assert.ok(recipe.perServing.protein > 0 && recipe.gramsPerServing === 165);
+  } finally {
+    console.log = quiet;
+  }
+});
+
+test("a recipe without steps is asked for again, then fails clearly", async () => {
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    const empty = toolUse("r", "submit_recipe", {
+      name: "x",
+      description: "",
+      ingredients: [],
+      seasonings: [],
+      steps: [],
+      tip: "",
+    });
+    const request = {
+      name: "Gratin",
+      servings: 2,
+      ingredients: [{ id: pumpkin.id, grams: 230 }],
+    };
+    const api = fakeApi([empty, empty]);
+    await assert.rejects(
+      writeRecipe(request, api),
+      /didn't come back complete/,
+    );
+    assert.equal(api.calls.length, 2);
+    assert.equal(api.calls[1].messages.at(-1).content[0].is_error, true);
+  } finally {
+    console.log = quiet;
+  }
 });
 
 test("without an API key the endpoint says so instead of failing vaguely", async () => {

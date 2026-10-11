@@ -280,3 +280,14 @@ export function recipeText(recipe) {
     .filter((line, i) => line !== undefined && (line !== "" || i === 3))
     .join("\n");
 }
+
+// A saved recipe is either structured (version 2: ingredients + steps) or an
+// older text recipe (method).
+export const isSavedRecipe = (r) =>
+  !!r &&
+  typeof r.id === "string" &&
+  typeof r.name === "string" &&
+  ((r.version === 2 &&
+    Array.isArray(r.ingredients) &&
+    Array.isArray(r.steps)) ||
+    typeof r.method === "string");

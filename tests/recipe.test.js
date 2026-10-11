@@ -10,6 +10,7 @@ import {
 import {
   expandDislikes,
   isDisliked,
+  isSavedRecipe,
   missingRequests,
   parseMethod,
   recipeText,
@@ -244,4 +245,20 @@ test("swap offers the same kind of food first, and searches when typed", () => {
     swapOptions(all, by("Cheese, feta"), "broccoli")[0].name,
     "Broccoli, raw",
   );
+});
+
+test("saved recipes survive a reload whether structured or text", () => {
+  const structured = {
+    id: "a",
+    name: "Gratin",
+    version: 2,
+    ingredients: [],
+    steps: ["Bake."],
+  };
+  const text = { id: "b", name: "Old", method: "## Method\n1. Bake." };
+  assert.equal(isSavedRecipe(structured), true);
+  assert.equal(isSavedRecipe(text), true);
+  assert.equal(isSavedRecipe({ id: "c", name: "Broken", version: 2 }), false);
+  assert.equal(isSavedRecipe({ name: "No id", method: "x" }), false);
+  assert.equal(isSavedRecipe(null), false);
 });

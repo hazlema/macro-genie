@@ -6,8 +6,10 @@
 //   npm run compare                       # Opus 5.5 vs Sonnet 5.5
 //   npm run compare -- claude-haiku-5-5   # any models from server/usage.js
 import { mkdirSync, writeFileSync } from "node:fs";
-import { generateIdea, streamMethod } from "../server/chef.js";
-import { MODELS, addUsage, costOf, emptyUsage } from "../server/usage.js";
+import { generateIdea, writeRecipe } from "../server/chef.js";
+import { NUTRIENTS } from "../src/lib/foods.js";
+import { structuredText } from "../src/lib/scale.js";
+import { MODELS } from "../server/usage.js";
 
 if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_BASE_URL) {
   console.error(
@@ -77,7 +79,7 @@ async function runIdea(brief, angle, model) {
 async function runRecipe(brief, idea, model) {
   const started = Date.now();
   try {
-    const stream = await streamMethod(
+    const recipe = await writeRecipe(
       {
         name: idea.name,
         description: idea.description,
@@ -91,14 +93,10 @@ async function runRecipe(brief, idea, model) {
       undefined,
       model,
     );
-    const final = await stream.finalMessage();
-    const text = final.content
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("");
+    // Shown at the requested servings and at double, to check the scaling reads well.
     return {
-      text,
-      costUsd: costOf(addUsage(emptyUsage(final.model), final)),
+      text: `${structuredText(recipe, brief.servings, NUTRIENTS)}\n\n---\nScaled to ${brief.servings * 2} servings:\n\n${structuredText(recipe, brief.servings * 2, NUTRIENTS)}`,
+      costUsd: recipe.usage.costUsd,
       seconds: (Date.now() - started) / 1000,
     };
   } catch (error) {

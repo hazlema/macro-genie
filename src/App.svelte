@@ -122,7 +122,7 @@
     </main>
   </div>
 {:else if tab === 'saved'}
-  <SavedRecipes bind:selectedId={savedSelected} onmakeone={() => tab = 'recipes'} />
+  <SavedRecipes bind:selectedId={savedSelected} onmakeone={() => tab = 'recipes'} foods={dataset?.foods ?? []} />
 {:else if dataset}
   <Recipes foods={dataset.foods} oneditdislikes={() => dislikesOpen = true} onviewsaved={() => { savedSelected = prefs.recipes[0]?.id ?? null; tab = 'saved'; }} />
 {:else}
@@ -131,4 +131,4 @@
 
 <DislikesModal bind:open={dislikesOpen} foods={dataset?.foods ?? []} />
 
-<div class="print-only">{#if printJob.recipe}<RecipeCard recipe={printJob.recipe} />{/if}</div>
+<div class="print-only">{#if printJob.recipe}<RecipeCard recipe={printJob.recipe} servings={printJob.servings ?? printJob.recipe.servings} scalable={false} />{/if}</div>

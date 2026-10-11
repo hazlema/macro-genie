@@ -476,13 +476,71 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
   );
 }
 
-export function methodPrompt(req) {
-  const items = req.ingredients
-    .map(({ id, grams }) => ({ food: byId.get(id), grams: Math.round(grams) }))
-    .filter((i) => i.food);
-  if (!items.length)
-    throw new UserFacingError("No known foods in this recipe.");
-  const solved = solveRecipe(items, { servings: req.servings });
+const RECIPE_TOOL = {
+  name: "submit_recipe",
+  description: "Submit the finished recipe.",
+  strict: true,
+  input_schema: {
+    type: "object",
+    properties: {
+      name: { type: "string" },
+      description: { type: "string" },
+      ingredients: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            n: {
+              type: "integer",
+              description: "The ingredient's number from the list",
+            },
+            label: {
+              type: "string",
+              description:
+                'What a cook calls it: "canned pumpkin", "large eggs", "Gruyère"',
+            },
+            qty: {
+              type: "number",
+              description:
+                "Kitchen measure for the listed grams; 0 when grams is the best measure",
+            },
+            unit: {
+              type: "string",
+              description:
+                'tsp, tbsp, cup, oz, lb, or a counted thing such as "egg", "clove", "medium onion", "fillet"; "g" when grams is best',
+            },
+            prep: {
+              type: "string",
+              description: 'Short prep note such as "finely diced", or ""',
+            },
+          },
+          required: ["n", "label", "qty", "unit", "prep"],
+          additionalProperties: false,
+        },
+      },
+      seasonings: { type: "array", items: { type: "string" } },
+      steps: { type: "array", items: { type: "string" } },
+      tip: { type: "string" },
+    },
+    required: [
+      "name",
+      "description",
+      "ingredients",
+      "seasonings",
+      "steps",
+      "tip",
+    ],
+    additionalProperties: false,
+  },
+};
+
+const RECIPE_SYSTEM = `You are a precise, warm recipe writer for Macro Genie. Write recipes people can cook from without guessing, and submit them with submit_recipe.
+
+How amounts work: the site shows the recipe for any number of servings by scaling every amount. So you never write an amount yourself. In steps, refer to an ingredient's amount only with a placeholder: {3} means all of ingredient 3, {3:1/2} means half of it, {3:1/4} a quarter. Write the food's name after the placeholder: "Heat {2:1/2} olive oil", "Whisk {3} with {1} pumpkin". Temperatures, times, and pan sizes are written normally.
+
+For each ingredient give: its number n, a label a cook would use, a kitchen measure (qty + unit) for exactly the listed grams, and a short prep note. Counted foods use the thing as the unit ("egg", "clove", "medium onion", "fillet") with a label like "large eggs". Use unit "g" and qty 0 when grams is the clearest measure (cheese by weight, meat).`;
+
+export function recipePrompt(req, items, solved) {
   const per = NUTRIENTS.map(
     (n) =>
       `${formatAmount(solved.perServing[n.key])} ${n.unit} ${n.label.toLocaleLowerCase()}`,
@@ -490,36 +548,123 @@ export function methodPrompt(req) {
   return `Write the recipe for "${req.name}"${req.description ? ` (${req.description})` : ""}, ${req.servings} ${req.servings === 1 ? "serving" : "servings"}.
 
 Use exactly these ingredients and amounts for the whole dish. They were sized to hit nutrition targets, so don't change them or add anything with real calories:
-${items.map((i) => `- ${i.grams} g ${i.food.name}`).join("\n")}
-${req.seasonings.length ? `Seasonings you may use freely: ${req.seasonings.join(", ")}.` : ""}
+${items.map((item, i) => `${i + 1}. ${item.grams} g ${item.food.name}`).join("\n")}
+${req.seasonings.length ? `Seasonings with negligible calories you may use freely: ${req.seasonings.join(", ")}.` : ""}
 ${req.dislikes.length ? `Never use: ${req.dislikes.join(", ")}.` : ""}
 Per serving: ${per}.
 
-Format, in plain text with no Markdown symbols other than these:
-## Ingredients
-- one line each: kitchen measure first, grams in brackets, short prep note
-## Method
-1. numbered steps, each one or two sentences, with temperatures and times
-## Tip
-One sentence on making it taste even better without changing the numbers.
+Steps: numbered actions of one or two sentences each, in order, with temperatures and times, and no numbering in the text itself. Never mention the number of servings in steps (the recipe can be scaled); describe pans by size alone. Tip: one sentence on making it taste even better without changing the numbers.
 
-If the dish name or description mentions a food that isn't in the ingredient list (for example after one was swapped), start with the line "Name: <a better name>" and then the line "Description: <one updated sentence>", before ## Ingredients. Otherwise leave both lines out.`;
+Keep the name and description exactly as given, unless they mention a food that isn't in the list (for example after one was swapped); then write a better name and a one-sentence description.`;
 }
 
-// Streams the method as plain text chunks.
-export async function streamMethod(
+const clean = (value, max) =>
+  String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+
+// Turns Claude's submission into a recipe the page can render at any servings.
+// Grams and foods always come from the request, never from the model.
+export function buildRecipe(submission, req, items, solved) {
+  const byN = new Map(
+    (submission.ingredients ?? []).map((i) => [Number(i.n), i]),
+  );
+  const ingredients = items.map((item, index) => {
+    const c = byN.get(index + 1) ?? {};
+    const unit = clean(c.unit, 30);
+    const qty =
+      Number(c.qty) > 0 && unit && !/^g(rams?)?$/i.test(unit)
+        ? Number(c.qty)
+        : null;
+    return {
+      id: item.food.id,
+      name: item.food.name,
+      label: clean(c.label, 60) || item.food.name,
+      grams: item.grams,
+      qty,
+      unit: qty ? unit : "",
+      prep: clean(c.prep, 80),
+    };
+  });
+  return {
+    version: 2,
+    name: clean(submission.name, 120) || req.name,
+    description: clean(submission.description, 400) || req.description,
+    servings: req.servings,
+    perServing: solved.perServing,
+    gramsPerServing: solved.totalGrams / req.servings,
+    ingredients,
+    seasonings: (submission.seasonings ?? [])
+      .map((s) => clean(s, 60))
+      .filter((s) => s && !isDisliked({ name: s }, req.dislikes))
+      .slice(0, 10),
+    steps: (submission.steps ?? [])
+      .map((s) => clean(s, 500).replace(/^\d+[.)]\s*/, ""))
+      .filter(Boolean)
+      .slice(0, 20),
+    tip: clean(submission.tip, 300),
+  };
+}
+
+// Writes a structured recipe for fixed ingredients and amounts.
+export async function writeRecipe(
   input,
   api = client(),
   model = recipeModel(),
 ) {
   const req = methodRequest.parse(input);
-  const stream = api.beta.messages.stream(
-    request(model, {
-      max_tokens: 6000,
-      system:
-        "You are a precise, warm recipe writer for Macro Genie. Write recipes people can cook from without guessing.",
-      messages: [{ role: "user", content: methodPrompt(req) }],
-    }),
+  const items = req.ingredients
+    .map(({ id, grams }) => ({ food: byId.get(id), grams: Math.round(grams) }))
+    .filter((i) => i.food);
+  if (!items.length)
+    throw new UserFacingError("No known foods in this recipe.");
+  const solved = solveRecipe(items, { servings: req.servings });
+  const messages = [
+    { role: "user", content: recipePrompt(req, items, solved) },
+  ];
+  const usage = emptyUsage(model);
+  const started = Date.now();
+  for (let turn = 0; turn < 2; turn++) {
+    const timeout = BUDGET_MS - (Date.now() - started);
+    if (timeout < 5_000) break;
+    const response = await api.beta.messages.create(
+      request(model, {
+        max_tokens: 6000,
+        system: RECIPE_SYSTEM,
+        tools: [RECIPE_TOOL],
+        messages,
+      }),
+      { timeout },
+    );
+    addUsage(usage, response);
+    checkStop(response);
+    const submit = response.content.find(
+      (b) => b.type === "tool_use" && b.name === "submit_recipe",
+    );
+    if (submit?.input?.steps?.length) {
+      const recipe = buildRecipe(submit.input, req, items, solved);
+      const line = logUsage("recipe", usage, { ms: Date.now() - started });
+      return { ...recipe, usage: { model: line.model, costUsd: line.costUsd } };
+    }
+    messages.push({ role: "assistant", content: response.content });
+    messages.push({
+      role: "user",
+      content: submit
+        ? [
+            {
+              type: "tool_result",
+              tool_use_id: submit.id,
+              is_error: true,
+              content: "The steps are missing. Submit the full recipe again.",
+            },
+          ]
+        : "Please submit the recipe with submit_recipe now.",
+    });
+  }
+  logUsage("recipe", usage, { ms: Date.now() - started, failed: "no recipe" });
+  throw new UserFacingError(
+    "The recipe didn't come back complete. Try again.",
+    502,
   );
-  return stream;
 }
