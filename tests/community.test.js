@@ -400,3 +400,33 @@ test("display names are checked and can be changed", async () => {
   await removeOwnPost(jo.id, post.id);
   assert.ok(!(await listPosts()).posts.some((p) => p.id === post.id));
 });
+
+test("the community endpoints: public browsing, sign-in to take part, moderators only for the queue", async () => {
+  const { default: handler } =
+    await import("../netlify/functions/community.js");
+  const { sessionCookie } = await import("../server/session.js");
+  const call = (path, init = {}) =>
+    handler(new Request(`https://example.com${path}`, init));
+
+  const browse = await call(
+    `/api/community?meal=all&sort=liked&ranges=${encodeURIComponent(JSON.stringify({ calories: { max: 2000 } }))}`,
+  );
+  assert.equal(browse.status, 200);
+  assert.ok(Array.isArray((await browse.json()).posts));
+  assert.equal((await call("/api/community?ranges=%7Bbad")).status, 400);
+
+  const like = await call("/api/community/posts/1/like", { method: "POST" });
+  assert.equal(like.status, 401);
+  assert.match((await like.json()).error, /Browsing is free/);
+  assert.equal((await call("/api/community/nope")).status, 404);
+
+  const kim = await person("Kim");
+  const cookie = sessionCookie(
+    kim.id,
+    new Request("https://example.com/"),
+  ).split(";")[0];
+  const queue = await call("/api/admin/queue", { headers: { cookie } });
+  assert.equal(queue.status, 403, "signed in but not a moderator");
+  const comments = await call("/api/community/posts/1/comments");
+  assert.equal(comments.status, 200);
+});

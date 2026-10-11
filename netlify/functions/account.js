@@ -1,4 +1,6 @@
 import { findOrCreateAccount, getAccount } from "../../server/accounts.js";
+import { isAdmin } from "../../server/admin.js";
+import { setDisplayName } from "../../server/community.js";
 import { UserFacingError } from "../../server/chef.js";
 import { fail } from "../../server/http.js";
 import {
@@ -11,9 +13,10 @@ import {
 // /api/me: who's signed in and their credits, plus the Google client id the
 //   page needs to show the sign-in button.
 // /api/auth/google: sign in (or create an account) with a Google ID token.
+// /api/me/name: change the display name shown on community posts.
 // /api/auth/logout: sign out.
 export const config = {
-  path: ["/api/me", "/api/auth/google", "/api/auth/logout"],
+  path: ["/api/me", "/api/me/name", "/api/auth/google", "/api/auth/logout"],
   rateLimit: { windowLimit: 60, windowSize: 60, aggregateBy: ["ip", "domain"] },
 };
 
@@ -32,7 +35,10 @@ export default async function handler(request) {
       return Response.json(
         {
           signedIn: !!account,
-          account: account && publicAccount(account),
+          account: account && {
+            ...publicAccount(account),
+            isAdmin: await isAdmin(account.id),
+          },
           googleClientId,
         },
         { headers: { "Cache-Control": "no-store" } },
@@ -43,6 +49,14 @@ export default async function handler(request) {
         status: 405,
         headers: { Allow: "POST" },
       });
+    if (pathname === "/api/me/name") {
+      const id = readSession(request);
+      if (!id) throw new UserFacingError("Sign in to change your name.", 401);
+      const body = await request.json().catch(() => ({}));
+      return Response.json({
+        displayName: await setDisplayName(id, body.displayName),
+      });
+    }
     if (pathname === "/api/auth/logout")
       return Response.json(
         { signedIn: false },

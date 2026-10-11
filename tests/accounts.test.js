@@ -131,7 +131,7 @@ test("signing in with Google creates the account and a session; only a first nam
   ).json();
   assert.deepEqual(me, {
     signedIn: true,
-    account: { displayName: "Matthew", credits: 10 },
+    account: { displayName: "Matthew", credits: 10, isAdmin: false },
     googleClientId: CLIENT_ID,
   });
   const anon = await (await account(req("/api/me"))).json();
