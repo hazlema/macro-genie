@@ -5,6 +5,7 @@ export const account = $state({
   signedIn: false,
   displayName: "",
   credits: 0,
+  isAdmin: false,
   googleClientId: null,
   loginOpen: false,
 });
@@ -13,6 +14,7 @@ function apply(body) {
   account.signedIn = !!body?.signedIn;
   account.displayName = body?.account?.displayName ?? "";
   account.credits = body?.account?.credits ?? 0;
+  account.isAdmin = !!body?.account?.isAdmin;
   if (body && "googleClientId" in body)
     account.googleClientId = body.googleClientId;
 }
@@ -63,4 +65,56 @@ export function noteResponse(res, body) {
     account.signedIn = false;
     account.loginOpen = true;
   } else if (!res.ok) refreshAccount();
+}
+
+// Changes the name shown on community posts. Returns an error message or "".
+export async function changeDisplayName(name) {
+  try {
+    const res = await fetch("/api/me/name", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ displayName: name }),
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) return body?.error ?? "Couldn't change your name. Try again.";
+    account.displayName = body.displayName;
+    return "";
+  } catch {
+    return "Couldn't reach the site. Check your connection and try again.";
+  }
+}
+
+// A JSON request to the community API. Returns { ok, status, body }, and
+// opens the sign-in dialog when the server asks for an account.
+export async function api(path, { method = "GET", body } = {}) {
+  try {
+    const res = await fetch(path, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => null);
+    if (res.status === 401) {
+      account.signedIn = false;
+      account.loginOpen = true;
+    }
+    return {
+      ok: res.ok,
+      status: res.status,
+      body: data,
+      error: res.ok
+        ? ""
+        : (data?.error ??
+          (res.status === 429
+            ? "You're doing that faster than the site allows. Wait a minute, then try again."
+            : "Something went wrong. Try again.")),
+    };
+  } catch {
+    return {
+      ok: false,
+      status: 0,
+      body: null,
+      error: "Couldn't reach the site. Check your connection and try again.",
+    };
+  }
 }

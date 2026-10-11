@@ -1,5 +1,6 @@
 <script>
   import RecipeCard from './RecipeCard.svelte';
+  import PostDialog from './PostDialog.svelte';
   import { NUTRIENTS, formatAmount } from '../lib/foods.js';
   import { recipeText } from '../lib/recipe.js';
   import { structuredText } from '../lib/scale.js';
@@ -14,6 +15,7 @@
   let confirming = $state(false);
   let copied = $state(false);
   let mobileOpen = $state(false);
+  let posting = $state(null);
 
   const selected = $derived(prefs.recipes.find(r => r.id === selectedId) ?? prefs.recipes[0] ?? null);
   const savedOn = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -113,6 +115,10 @@
             </div>
           {/if}
           {#if rewriteError}<p class="method-error" role="alert">{rewriteError}</p>{/if}
+          {#if selected.version === 2 && !selected.communityId}
+            {#if selected.postedId}<span class="post-saved">Posted to the community</span>
+            {:else}<button class="outline-button" onclick={() => posting = $state.snapshot(selected)}>Post to community</button>{/if}
+          {/if}
           <button class="primary-button" onclick={() => printRecipe($state.snapshot(selected), selected.version === 2 ? servings : selected.servings)}>Print</button>
           <button class="outline-button" onclick={copy}>{copied ? 'Copied' : 'Copy'}</button>
           {#if confirming}
@@ -129,3 +135,5 @@
     </main>
   </div>
 {/if}
+
+<PostDialog bind:recipe={posting} onposted={(id) => updateRecipe(selected.id, { ...$state.snapshot(selected), postedId: id })} />

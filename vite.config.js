@@ -14,6 +14,7 @@ export default defineConfig(({ command }) => {
     const auth = loadEnv("development", process.cwd(), [
       "GOOGLE_CLIENT_ID",
       "SESSION_SECRET",
+      "ADMIN_SUBS",
     ]);
     for (const [key, value] of Object.entries(auth)) process.env[key] ??= value;
     process.env.MACRO_GENIE_LOCAL = "1";

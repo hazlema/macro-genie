@@ -8,6 +8,7 @@
   import { account, refreshAccount, signOut } from './lib/account.svelte.js';
   import Recipes from './components/Recipes.svelte';
   import SavedRecipes from './components/SavedRecipes.svelte';
+  import Community from './components/Community.svelte';
   import RecipeCard from './components/RecipeCard.svelte';
   import { printJob } from './lib/print.svelte.js';
   import { BASES, GROUPS, PRESETS, SORTS, emptyRanges, normalizeDataset, searchFoods } from './lib/foods.js';
@@ -69,6 +70,7 @@
   <nav class="tabs" aria-label="Browse">
     <button class:current={tab === 'foods'} aria-current={tab === 'foods' ? 'page' : undefined} onclick={() => tab = 'foods'}>Foods <span>{dataset ? dataset.foods.length.toLocaleString() : '…'}</span></button>
     <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => tab = 'recipes'}>Recipe Builder</button>
+    <button class:current={tab === 'community'} aria-current={tab === 'community' ? 'page' : undefined} onclick={() => tab = 'community'}>Community</button>
     <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => tab = 'saved'}>My recipes{#if prefs.recipes.length}<span>{prefs.recipes.length}</span>{/if}</button>
   </nav>
   {#if tab === 'foods'}
@@ -132,6 +134,8 @@
       <footer><p>Food by your numbers. <span>Food search is free, no account needed.</span></p><p>USDA SR Legacy · {dataset?.total.toLocaleString() ?? '…'} food records. {dataset?.excluded ?? '…'} without serving sizes excluded.</p><p>Missing nutrients appear as — and won’t match an active range. Values are rounded for display; filters use full precision.</p></footer>
     </main>
   </div>
+{:else if tab === 'community'}
+  <Community />
 {:else if tab === 'saved'}
   <SavedRecipes bind:selectedId={savedSelected} onmakeone={() => tab = 'recipes'} foods={dataset?.foods ?? []} />
 {:else if dataset}
