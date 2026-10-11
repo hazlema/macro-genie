@@ -370,8 +370,11 @@ function checkStop(response) {
     throw new UserFacingError("The idea ran too long. Try again.", 502);
 }
 
-// Each turn is one model call; five fit comfortably in the 60-second limit.
+// Each turn is one model call. Netlify stops a function at 60 seconds, so an
+// idea gets 50: no new turn starts after 35, and each call gets what's left.
 const MAX_TURNS = 5;
+const BUDGET_MS = 50_000;
+const LAST_START_MS = 35_000;
 
 export async function generateIdea(input, api = client(), model = ideaModel()) {
   const req = ideaRequest.parse(input);
@@ -379,6 +382,8 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
   const usage = emptyUsage(model);
   const started = Date.now();
   for (let turn = 0; turn < MAX_TURNS; turn++) {
+    const timeout = BUDGET_MS - (Date.now() - started);
+    if (timeout < 5_000) break;
     const response = await api.beta.messages.create(
       request(model, {
         max_tokens: 8000,
@@ -386,6 +391,7 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
         tools: TOOLS,
         messages,
       }),
+      { timeout },
     );
     addUsage(usage, response);
     checkStop(response);
@@ -396,7 +402,8 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
     const review = submit
       ? reviewSubmission(submit.input, req)
       : { problems: [], usable: 0 };
-    const lastTurn = turn === MAX_TURNS - 1;
+    const lastTurn =
+      turn === MAX_TURNS - 1 || Date.now() - started > LAST_START_MS;
     if (submit && (!review.problems.length || (lastTurn && review.usable))) {
       try {
         const idea = finishIdea(submit.input, req);
@@ -440,11 +447,17 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
       ),
     });
   }
+  const outOfTime = Date.now() - started > LAST_START_MS;
   logUsage("idea", usage, {
     ms: Date.now() - started,
-    failed: "too many steps",
+    failed: outOfTime ? "out of time" : "too many steps",
   });
-  throw new UserFacingError("This idea took too many steps. Try again.", 502);
+  throw new UserFacingError(
+    outOfTime
+      ? "This idea took too long. Try again."
+      : "This idea took too many steps. Try again.",
+    outOfTime ? 504 : 502,
+  );
 }
 
 export function methodPrompt(req) {

@@ -93,9 +93,13 @@
     }));
   }
 
-  const unreachable = (status) => status === 404
-    ? 'The recipe service isn’t running here. Use netlify dev to try it locally.'
-    : 'Couldn’t reach the recipe service. Try again.';
+  // For replies without our own error message: Netlify's rate limit page,
+  // a function cut off at its time limit, or the service missing locally.
+  const unreachable = (status) =>
+    status === 404 ? 'The recipe service isn’t running here. Use npm run dev with a key in .env to try it locally.'
+    : status === 429 ? 'You’re making requests faster than the site allows. Wait a minute, then try again.'
+    : status === 502 || status === 504 ? 'This took too long. Try again.'
+    : 'The recipe service had a problem. Try again.';
 
   async function requestIdea(angle, token) {
     const asked = want;

@@ -5,7 +5,7 @@ import { fail } from "../../server/http.js";
 export const config = {
   path: "/api/idea",
   method: "POST",
-  rateLimit: { windowLimit: 20, windowSize: 60, aggregateBy: ["ip", "domain"] },
+  rateLimit: { windowLimit: 40, windowSize: 60, aggregateBy: ["ip", "domain"] },
 };
 
 export default async function handler(request) {

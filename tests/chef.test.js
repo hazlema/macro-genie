@@ -341,3 +341,36 @@ test("Claude's note of which request an ingredient answers counts toward it", as
     console.log = quiet;
   }
 });
+
+test("each model call gets the time left, and timeouts read as 'took too long'", async () => {
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    const options = [];
+    const api = {
+      beta: {
+        messages: {
+          create: async (params, opts) => {
+            options.push(opts);
+            return toolUse("t", "submit_idea", {
+              name: "Quick",
+              description: "",
+              ingredients: [{ id: pumpkin.id, grams: 200, required: true }],
+              seasonings: [],
+            });
+          },
+        },
+      },
+    };
+    await generateIdea(base, api);
+    assert.ok(options[0].timeout > 45_000 && options[0].timeout <= 50_000);
+
+    const { fail } = await import("../server/http.js");
+    const Anthropic = (await import("@anthropic-ai/sdk")).default;
+    const res = fail(new Anthropic.APIConnectionTimeoutError());
+    assert.equal(res.status, 504);
+    assert.match((await res.json()).error, /took too long/);
+  } finally {
+    console.log = quiet;
+  }
+});

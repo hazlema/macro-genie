@@ -5,7 +5,7 @@ import { fail } from "../../server/http.js";
 export const config = {
   path: "/api/recipe-method",
   method: "POST",
-  rateLimit: { windowLimit: 6, windowSize: 60, aggregateBy: ["ip", "domain"] },
+  rateLimit: { windowLimit: 12, windowSize: 60, aggregateBy: ["ip", "domain"] },
 };
 
 // Streams plain text so the recipe appears as it's written.
