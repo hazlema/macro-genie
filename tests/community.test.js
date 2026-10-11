@@ -430,3 +430,21 @@ test("the community endpoints: public browsing, sign-in to take part, moderators
   const comments = await call("/api/community/posts/1/comments");
   assert.equal(comments.status, 200);
 });
+
+test("the moderation rules hold swearing for review but allow harsh, clean criticism", async () => {
+  const api = haiku("fine");
+  await moderate("comment", "anything", api);
+  const rules = api.calls[0].system;
+  assert.match(
+    rules,
+    /unsure: any swearing or obscene word, including misspelled or masked forms/,
+  );
+  assert.match(
+    rules,
+    /fine: .*harsh or negative opinions about a recipe without swearing/,
+  );
+  assert.match(
+    rules,
+    /"sucks", "gross", "too salty"\)\. Those words are not swearing\./,
+  );
+});
