@@ -133,7 +133,8 @@
       {:else}
         {#each comments as c (c.id)}
           <div class="comment" class:waiting={c.status !== 'live'}>
-            <p class="comment-meta"><strong>{c.author}</strong> {day(c.createdAt)}{#if c.status !== 'live'} · waiting for a moderator{/if}</p>
+            <p class="comment-meta"><strong>{c.author}</strong> {day(c.createdAt)}</p>
+            {#if c.status !== 'live'}<p class="comment-waiting">Waiting for a moderator. Only you can see this until it’s approved.</p>{/if}
             <p class="comment-body">{c.body}</p>
             {#if c.mine}<button class="text-button" onclick={() => removeComment(c)}>Delete</button>
             {:else}<button class="text-button" onclick={() => reportItem('comment', c.id)}>Report</button>{/if}
