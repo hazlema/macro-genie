@@ -8,7 +8,8 @@
   import { printRecipe } from '../lib/print.svelte.js';
   import { account, noteResponse } from '../lib/account.svelte.js';
 
-  let { selectedId = $bindable(null), onmakeone, foods = [] } = $props();
+  // selectedId comes from the address (/recipes/<id>); onselect changes it.
+  let { selectedId = null, onselect, onmakeone, foods = [] } = $props();
   let servings = $state(4);
   let rewriting = $state(false);
   let rewriteError = $state('');
@@ -30,7 +31,7 @@
     }
   });
 
-  function pick(id) { selectedId = id; confirming = false; mobileOpen = false; }
+  function pick(id) { onselect?.(id); confirming = false; mobileOpen = false; }
 
   // Older recipes are text, so they can't scale. A rewrite turns one into a
   // structured recipe for the chosen servings and replaces it in place.
@@ -67,7 +68,7 @@
   function remove() {
     const index = prefs.recipes.findIndex(r => r.id === selected.id);
     deleteRecipe(selected.id);
-    selectedId = prefs.recipes[Math.min(index, prefs.recipes.length - 1)]?.id ?? null;
+    onselect?.(prefs.recipes[Math.min(index, prefs.recipes.length - 1)]?.id ?? null, true);
     confirming = false;
   }
   async function copy() {

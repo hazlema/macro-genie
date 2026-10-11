@@ -11,6 +11,7 @@ import {
   addComment,
   checkPost,
   createPost,
+  getPost,
   listComments,
   listPosts,
   normalizeRecipe,
@@ -509,4 +510,38 @@ test("moderators see waiting items in place, and can narrow to what needs review
       (p) => p.id === waitingPost.id,
     ),
   );
+});
+
+test("a single post opens by id, with the same visibility as the list", async () => {
+  const author = await person("Oz");
+  const live = await createPost(
+    author.id,
+    recipe({ name: "Linkable" }),
+    { mealType: "lunch" },
+    haiku("fine"),
+  );
+  const held = await createPost(
+    author.id,
+    recipe({ name: "Linked but waiting" }),
+    { mealType: "lunch" },
+    haiku("unsure"),
+  );
+  const other = await person("Pia");
+  assert.equal(
+    (await getPost(live.id)).name,
+    "Linkable",
+    "anyone, signed in or not",
+  );
+  await assert.rejects(getPost(held.id, other.id), /isn't in the community/);
+  assert.equal(
+    (await getPost(held.id, author.id)).status,
+    "held",
+    "its author",
+  );
+  assert.equal(
+    (await getPost(held.id, other.id, true)).status,
+    "held",
+    "a moderator",
+  );
+  await assert.rejects(getPost(999999), /isn't in the community/);
 });

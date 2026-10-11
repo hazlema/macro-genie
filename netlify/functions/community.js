@@ -9,6 +9,7 @@ import {
   addComment,
   checkPost,
   createPost,
+  getPost,
   listComments,
   listPosts,
   removeOwnComment,
@@ -95,6 +96,13 @@ export default async function handler(request) {
             mealType: body.mealType,
             token: body.token,
           }),
+        );
+      }
+      case "GET community/posts/:id": {
+        const viewer = viewerOf(request);
+        return Response.json(
+          { post: await getPost(idFrom(id), viewer, await isAdmin(viewer)) },
+          { headers: { "Cache-Control": "no-store" } },
         );
       }
       case "DELETE community/posts/:id":

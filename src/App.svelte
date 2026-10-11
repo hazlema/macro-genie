@@ -11,6 +11,7 @@
   import Community from './components/Community.svelte';
   import RecipeCard from './components/RecipeCard.svelte';
   import { printJob } from './lib/print.svelte.js';
+  import { route, navigate } from './lib/route.svelte.js';
   import { BASES, GROUPS, PRESETS, SORTS, emptyRanges, normalizeDataset, searchFoods } from './lib/foods.js';
   import { expandDislikes } from './lib/recipe.js';
   import { prefs } from './lib/prefs.svelte.js';
@@ -23,12 +24,12 @@
   let sort = $state('protein');
   let basis = $state('serving');
   let ranges = $state(emptyRanges());
-  let tab = $state('foods');
+  // Which tab shows comes from the address (see lib/route.svelte.js).
+  const tab = $derived(route.tab);
   let visible = $state(20);
   let activePreset = $state('');
   let mobileFilters = $state(false);
   let dislikesOpen = $state(false);
-  let savedSelected = $state(null);
 
   const activeCount = $derived(Object.values(ranges).filter(r => r.min != null || r.max != null).length);
   const result = $derived.by(() => {
@@ -68,10 +69,10 @@
 <header class="topbar">
   <a class="wordmark" href="/" aria-label="Macro Genie home">Macro Genie<span class="brand-dot"></span></a>
   <nav class="tabs" aria-label="Browse">
-    <button class:current={tab === 'foods'} aria-current={tab === 'foods' ? 'page' : undefined} onclick={() => tab = 'foods'}>Foods <span>{dataset ? dataset.foods.length.toLocaleString() : '…'}</span></button>
-    <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => tab = 'recipes'}>Recipe Builder</button>
-    <button class:current={tab === 'community'} aria-current={tab === 'community' ? 'page' : undefined} onclick={() => tab = 'community'}>Community</button>
-    <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => tab = 'saved'}>My recipes{#if prefs.recipes.length}<span>{prefs.recipes.length}</span>{/if}</button>
+    <button class:current={tab === 'foods'} aria-current={tab === 'foods' ? 'page' : undefined} onclick={() => navigate({ tab: 'foods' })}>Foods <span>{dataset ? dataset.foods.length.toLocaleString() : '…'}</span></button>
+    <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => navigate({ tab: 'recipes' })}>Recipe Builder</button>
+    <button class:current={tab === 'community'} aria-current={tab === 'community' ? 'page' : undefined} onclick={() => navigate({ tab: 'community' })}>Community</button>
+    <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => navigate({ tab: 'saved' })}>My recipes{#if prefs.recipes.length}<span>{prefs.recipes.length}</span>{/if}</button>
   </nav>
   {#if tab === 'foods'}
     <div class="search-box">
@@ -135,11 +136,11 @@
     </main>
   </div>
 {:else if tab === 'community'}
-  <Community />
+  <Community postId={route.postId} />
 {:else if tab === 'saved'}
-  <SavedRecipes bind:selectedId={savedSelected} onmakeone={() => tab = 'recipes'} foods={dataset?.foods ?? []} />
+  <SavedRecipes selectedId={route.recipeId} onselect={(id, replace) => navigate({ tab: 'saved', recipeId: id }, { replace })} onmakeone={() => navigate({ tab: 'recipes' })} foods={dataset?.foods ?? []} />
 {:else if dataset}
-  <Recipes foods={dataset.foods} oneditdislikes={() => dislikesOpen = true} onviewsaved={() => { savedSelected = prefs.recipes[0]?.id ?? null; tab = 'saved'; }} />
+  <Recipes foods={dataset.foods} oneditdislikes={() => dislikesOpen = true} onviewsaved={() => navigate({ tab: 'saved', recipeId: prefs.recipes[0]?.id ?? null })} />
 {:else}
   <main class="coming-soon" id="results" tabindex="-1"><h1>{loading ? 'Loading foods…' : 'Food data unavailable'}</h1><p>{loading ? 'Recipes need the food library. One moment.' : loadError}</p>{#if !loading}<button class="outline-button" onclick={loadFoods}>Try again</button>{/if}</main>
 {/if}

@@ -4,6 +4,22 @@
   import ReviewQueue from './ReviewQueue.svelte';
   import { emptyRanges } from '../lib/foods.js';
   import { account, api } from '../lib/account.svelte.js';
+  import { navigate } from '../lib/route.svelte.js';
+
+  // postId: set when the address is /community/<id>, showing that one recipe.
+  let { postId = null } = $props();
+  let single = $state(null);
+  let singleError = $state('');
+  $effect(() => {
+    if (!postId) { single = null; return; }
+    single = null; singleError = '';
+    const id = postId;
+    account.signedIn;
+    api(`/api/community/posts/${id}`).then((res) => {
+      if (id !== postId) return;
+      if (res.ok) single = res.body.post; else singleError = res.error;
+    });
+  });
 
   const MEALS = ['all', 'breakfast', 'lunch', 'dinner', 'snack', 'dessert'];
   let meal = $state('all');
@@ -75,6 +91,16 @@
       </div>
     </aside>
     <main id="results" tabindex="-1" class="dish">
+      {#if postId}
+        <a class="back-link" href="/community" onclick={(e) => { e.preventDefault(); navigate({ tab: 'community' }); }}>← All community recipes</a>
+        {#if singleError}
+          <div class="empty-state" role="alert"><h2>Recipe not found</h2><p>{singleError} It may have been removed.</p></div>
+        {:else if !single}
+          <p class="comments-empty">Loading the recipe…</p>
+        {:else}
+          {#key single.id}<ul class="post-list single"><PostCard post={single} startOpen onremoved={() => navigate({ tab: 'community' })} /></ul>{/key}
+        {/if}
+      {:else}
       <div class="results-top">
         <div class="result-count" aria-live="polite" aria-atomic="true"><strong>{loading && !posts.length ? '…' : posts.length}{more ? '+' : ''}</strong><span>{posts.length === 1 ? 'recipe' : 'recipes'} shared</span></div>
       </div>
@@ -87,6 +113,7 @@
           {#each posts as post (post.id)}<PostCard {post} onremoved={(id) => posts = posts.filter((p) => p.id !== id)} />{/each}
         </ul>
         {#if more}<div class="pagination"><button class="outline-button" disabled={loading} onclick={() => load(true)}>{loading ? 'Loading…' : 'Show more'}</button></div>{/if}
+      {/if}
       {/if}
       <footer><p>Food by your numbers. <span>Browsing is free; posting, liking, and commenting need an account.</span></p><p>Posts and comments are checked automatically and by a person when unsure. Report anything that doesn’t belong.</p></footer>
     </main>

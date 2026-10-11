@@ -283,6 +283,27 @@ export async function listPosts({
   return { posts: rows.slice(0, 20).map(shapePost), more: rows.length > 20 };
 }
 
+// One post by id, with the same visibility rules as the list: live posts
+// for everyone, waiting ones for their author and moderators.
+export async function getPost(postId, viewer = null, moderator = false) {
+  const { rows } = await database().pool.query(
+    `SELECT p.id, p.name, p.meal_type, p.recipe, p.like_count, p.comment_count,
+            p.status, p.moderation_note, p.created_at, a.display_name AS author,
+            (p.account_id = $2) AS mine, $3::boolean AS moderator,
+            EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.account_id = $2) AS liked,
+            (SELECT count(*) FROM comments c WHERE c.post_id = p.id AND c.status IN ('held', 'blocked')) AS waiting_comments,
+            (SELECT count(*) FROM reports r WHERE r.target_type = 'post' AND r.target_id = p.id) AS reports
+       FROM posts p JOIN accounts a ON a.id = p.account_id
+      WHERE p.id = $1
+        AND (p.status = 'live'
+          OR (p.status IN ('held', 'blocked') AND ($3 OR p.account_id = $2)))`,
+    [postId, viewer ?? 0, !!moderator],
+  );
+  if (!rows[0])
+    throw new UserFacingError("That recipe isn't in the community.", 404);
+  return shapePost(rows[0]);
+}
+
 export async function removeOwnPost(accountId, postId) {
   const rows = await database()
     .sql`UPDATE posts SET status = 'removed' WHERE id = ${postId} AND account_id = ${accountId} AND status <> 'removed' RETURNING id`;

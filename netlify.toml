@@ -23,3 +23,30 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# The app's own addresses all load the single page; the page reads the path.
+# Listed explicitly (no catch-all) so /api, /mcp, and data files are untouched.
+[[redirects]]
+  from = "/foods"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/builder"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/community"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/community/*"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/recipes"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/recipes/*"
+  to = "/index.html"
+  status = 200

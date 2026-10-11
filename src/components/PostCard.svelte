@@ -4,10 +4,12 @@
   import { formatAmount } from '../lib/foods.js';
   import { account, api } from '../lib/account.svelte.js';
   import { prefs, saveRecipe } from '../lib/prefs.svelte.js';
+  import { navigate } from '../lib/route.svelte.js';
 
   // post: { id, name, mealType, author, createdAt, recipe, likes, comments,
   //         likedByMe, mine, status, reason }
-  let { post, onremoved } = $props();
+  // startOpen: shown on its own page (/community/<id>), recipe expanded.
+  let { post, onremoved, startOpen = false } = $props();
 
   // Starting values from the post; the card keeps its own from then on.
   const start = untrack(() => ({ likes: post.likes, liked: post.likedByMe, comments: post.comments, servings: post.recipe.servings, id: post.id }));
@@ -15,7 +17,7 @@
   let liked = $state(start.liked);
   let commentCount = $state(start.comments);
   let status = $state(untrack(() => post.status));
-  let open = $state(false);
+  let open = $state(untrack(() => startOpen));
   let servings = $state(start.servings);
   let comments = $state(null);
   let commentsOpen = $state(false);
@@ -24,7 +26,8 @@
   let note = $state('');
   let confirm = $state(''); // 'report' | 'remove' | ''
   let reportReason = $state('Spam or advertising');
-  let saved = $state(prefs.recipes.some((r) => r.communityId === start.id));
+  let saved = $state(prefs.recipes.some((r) => r.communityId === start.id || r.postedId === start.id));
+  let linkCopied = $state(false);
 
   const day = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const per = $derived(post.recipe.perServing ?? {});
@@ -92,10 +95,18 @@
     else comments = comments.filter((x) => x.id !== id);
   }
 
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(new URL(`/community/${post.id}`, location.origin).href);
+      linkCopied = true;
+      setTimeout(() => linkCopied = false, 2000);
+    } catch { note = 'Couldn’t copy. The link is this page’s address once you open the recipe.'; }
+  }
+
   function save() {
     const { perServing, gramsPerServing, ...rest } = $state.snapshot(post.recipe);
     saved = !!saveRecipe({ ...rest, perServing, gramsPerServing, shownServings: servings, communityId: post.id });
-    note = saved ? 'Saved to My recipes.' : 'This browser wouldn’t store the recipe.';
+    note = saved ? 'Saved to your recipe book (My recipes).' : 'This browser wouldn’t store the recipe.';
   }
 </script>
 
@@ -112,7 +123,7 @@
   {/if}
   <div class="post-head">
     <div>
-      <h3><button class="post-title" aria-expanded={open} onclick={() => open = !open}>{post.name}</button></h3>
+      <h3><a class="post-title" href={`/community/${post.id}`} onclick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); navigate({ tab: 'community', postId: post.id }); }}>{post.name}</a></h3>
       <p class="post-meta"><span class="meal-tag">{post.mealType}</span> by {post.author}, {day(post.createdAt)}</p>
     </div>
     <button class="like" class:liked aria-pressed={liked} aria-label={`${liked ? 'Unlike' : 'Like'} ${post.name}`} onclick={like} disabled={status !== 'live'}>
@@ -127,9 +138,9 @@
     {#if status === 'live'}
       <button class="text-button" aria-expanded={commentsOpen} onclick={loadComments}>{commentsOpen ? 'Hide comments' : `Comments (${commentCount})`}</button>
     {/if}
-    {#if !post.mine}
-      {#if saved}<span class="post-saved">In My recipes</span>{:else}<button class="text-button" onclick={save}>Save to My recipes</button>{/if}
-    {/if}
+    {#if saved}<span class="post-saved">In your recipe book</span>
+    {:else}<button class="outline-button" onclick={save}>Save to my recipe book</button>{/if}
+    {#if status === 'live'}<button class="text-button" onclick={copyLink}>{linkCopied ? 'Link copied' : 'Copy link'}</button>{/if}
     {#if confirm === 'remove'}
       <span class="confirm-delete">Remove your post for everyone? <button class="danger-button" onclick={removePost}>Remove</button><button class="text-button" onclick={() => confirm = ''}>Keep it</button></span>
     {:else if confirm === 'report'}
