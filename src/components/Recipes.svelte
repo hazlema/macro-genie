@@ -10,8 +10,14 @@
 
   let { foods, oneditdislikes, onviewsaved } = $props();
 
-  // Matches the five variations the server asks for, in order.
-  const ANGLES = ['A bake or gratin', 'A skillet dish', 'A soup or stew', 'A bowl or plate', 'Something unexpected'];
+  // Matches the four variations the server asks for, in order.
+  const ANGLES = ['A bake or gratin', 'A skillet dish', 'A soup or stew', 'Something unexpected'];
+  // How well the ingredients go together, as Claude judged the idea.
+  const PAIRING = {
+    great: 'Sounds delicious!',
+    mixed: 'Warning: Some ingredients might not work well together',
+    clashes: 'Warning: These ingredients don’t typically work well together',
+  };
 
   const draft = prefs.draft ?? {};
   const byId = $derived(new Map(foods.map(f => [f.id, f])));
@@ -244,7 +250,7 @@
       {#if wantDisliked.length}<p class="want-warning">{wantDisliked.join(', ')} {wantDisliked.length === 1 ? 'is' : 'are'} on your list of foods you won’t eat, so {wantDisliked.length === 1 ? 'it' : 'they'} won’t be used.</p>{/if}
       <label class="note-field"><span>Anything else? <small>Optional</small></span><input bind:value={note} maxlength="300" placeholder="Comfort food, ready in 30 minutes, no oven" /></label>
       <div class="brief-actions">
-        <button class="primary-button" onclick={getIdeas} disabled={generating || !!recipe.error}>{generating ? 'Thinking up ideas…' : readyIdeas.length ? 'Get 5 new ideas' : 'Get 5 ideas'}</button>
+        <button class="primary-button" onclick={getIdeas} disabled={generating || !!recipe.error}>{generating ? 'Thinking up ideas…' : readyIdeas.length ? 'Get 4 new ideas' : 'Get 4 ideas'}</button>
         <span>Ideas appear one by one, usually within half a minute.</span>
       </div>
     </section>
@@ -269,12 +275,18 @@
                 <p class="idea-error">{entry.error}</p>
                 <button class="outline-button" onclick={() => requestIdea(i, batch)}>Try again</button>
               {:else}
+                {#if entry.idea.pairing}
+                  <div class="pairing {entry.idea.pairing}">
+                    <p class="pairing-label"><span class="pairing-dot" aria-hidden="true"></span>{PAIRING[entry.idea.pairing]}</p>
+                    {#if entry.idea.pairingNote}<p class="pairing-note">{entry.idea.pairingNote}</p>{/if}
+                  </div>
+                {/if}
                 <h3>{entry.idea.name}</h3>
                 <p class="idea-description">{entry.idea.description}</p>
                 {#if s}
                   {@const missing = missingRequests([...entry.idea.ingredients.map(x => x.name), ...entry.idea.ingredients.map(x => x.fulfills).filter(Boolean), ...(entry.idea.seasonings ?? [])], (entry.want ?? want).filter(w => !isDisliked({ name: w }, prefs.dislikes)))}
                   {#if missing.length}<p class="idea-fit short">Leaves out {missing.join(', ')}</p>{/if}
-                  <p class="idea-fit" class:short={activeCount > 0 && !s.fits}>{!activeCount ? 'No targets set' : s.fits ? `Fits all ${activeCount} ${activeCount === 1 ? 'target' : 'targets'}` : `Close: ${s.misses.map(describe).join(', ')}`}</p>
+                  <p class="idea-fit" class:short={activeCount > 0 && !s.fits}>{!activeCount ? 'No targets set' : s.fits ? (activeCount === 1 ? 'Fits your target' : `Fits all ${activeCount} targets`) : `Close: ${s.misses.map(describe).join(', ')}`}</p>
                   <p class="idea-macros"><strong>{formatAmount(s.perServing.calories)}</strong> kcal<span class="separator">·</span><strong>{formatAmount(s.perServing.protein)}</strong> g protein<span class="separator">·</span><strong>{formatAmount(s.perServing.netCarbs)}</strong> g net carbs<span class="separator">·</span><strong>{formatAmount(s.perServing.fat)}</strong> g fat</p>
                   <ul class="idea-ingredients">
                     {#each s.amounts.filter(a => a.grams > 0) as a}<li><span>{a.grams} g</span> {a.food.name}</li>{/each}

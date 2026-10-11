@@ -487,3 +487,47 @@ test("local dev uses only the .env key, straight to Anthropic, never the gateway
       else process.env[key] = saved[key];
   }
 });
+
+test("each idea carries an honest pairing rating; there are four variations", async () => {
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    const submit = (pairing, note) =>
+      toolUse("t", "submit_idea", {
+        name: "Strawberry Pumpkin Bake",
+        description: "",
+        ingredients: [{ id: pumpkin.id, grams: 200, required: true }],
+        seasonings: [],
+        pairing,
+        pairing_note: note,
+      });
+    const clash = await generateIdea(
+      base,
+      fakeApi([
+        submit("clashes", "  Strawberries and   pumpkin rarely share a dish. "),
+      ]),
+    );
+    assert.equal(clash.pairing, "clashes");
+    assert.equal(
+      clash.pairingNote,
+      "Strawberries and pumpkin rarely share a dish.",
+    );
+    const odd = await generateIdea(base, fakeApi([submit("amazing", "")]));
+    assert.equal(odd.pairing, null, "unknown ratings aren't shown");
+
+    const api = fakeApi([submit("great", "")]);
+    await generateIdea(base, api);
+    const tool = api.calls[0].tools.find((t) => t.name === "submit_idea");
+    assert.deepEqual(tool.input_schema.properties.pairing.enum, [
+      "great",
+      "mixed",
+      "clashes",
+    ]);
+    assert.match(api.calls[0].system, /Rate the pairing honestly/);
+
+    await assert.rejects(generateIdea({ ...base, angle: 4 }, fakeApi([])));
+    await generateIdea({ ...base, angle: 3 }, fakeApi([submit("great", "")]));
+  } finally {
+    console.log = quiet;
+  }
+});

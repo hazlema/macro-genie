@@ -2137,3 +2137,49 @@ dialog.dislikes[open] {
     color: #444;
   }
 }
+
+/* Pairing rating on idea cards */
+.pairing {
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 2px;
+}
+.pairing.great {
+  background: #71d5a514;
+}
+.pairing.mixed {
+  background: #e9bd6514;
+}
+.pairing.clashes {
+  background: #ffab9617;
+}
+.pairing-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 650;
+}
+.great .pairing-label {
+  color: var(--green);
+}
+.mixed .pairing-label {
+  color: var(--amber);
+}
+.clashes .pairing-label {
+  color: var(--coral);
+}
+.pairing-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+}
+.pairing-note {
+  margin: 4px 0 0 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #c8d0c8;
+}

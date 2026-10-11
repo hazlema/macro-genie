@@ -35,7 +35,7 @@ Push changes to the branch connected to Netlify to rebuild both the website and 
 
 Set `ANTHROPIC_API_KEY` in Netlify under **Project configuration → Environment variables**, scoped to **Functions**, then redeploy. Without it, the Recipe Builder explains that ideas aren't set up.
 
-- **How it works:** "Get 5 ideas" sends five requests at once, each asking `claude-opus-5-5` (low effort) for one dish with a different lean (a bake, a skillet dish, a soup, a bowl, something unexpected). Claude searches the USDA data through a `find_foods` tool and submits food IDs with rough grams. Visitors type the foods they want as plain text ("eggs, pumpkin, onions"). The server drops anything unknown or disliked (seasonings too), keeps the asked-for foods from being cut below a quarter, notes any the idea left out, and sizes the amounts with the same solver the page uses. "Write the recipe" returns a structured recipe (ingredients with kitchen measures, steps with amount placeholders) for the chosen dish with the amounts fixed, so it can be shown for any number of servings. Claude never supplies nutrition numbers.
+- **How it works:** "Get 4 ideas" sends four requests at once, each asking Claude (`IDEA_MODEL`, low effort) for one dish with a different lean (a bake, a skillet dish, a soup or stew, something unexpected), plus an honest rating of how well its ingredients go together (great / mixed / clashes) shown on the idea card. Claude searches the USDA data through a `find_foods` tool and submits food IDs with rough grams. Visitors type the foods they want as plain text ("eggs, pumpkin, onions"). The server drops anything unknown or disliked (seasonings too), keeps the asked-for foods from being cut below a quarter, notes any the idea left out, and sizes the amounts with the same solver the page uses. "Write the recipe" returns a structured recipe (ingredients with kitchen measures, steps with amount placeholders) for the chosen dish with the amounts fixed, so it can be shown for any number of servings. Claude never supplies nutrition numbers.
 - **Cost:** you pay per request on your Anthropic account. Each idea is one or two short model calls; check real usage in the Anthropic Console and set a monthly spend limit there.
 - **Abuse limits:** Netlify rate limits per visitor IP: 20 idea requests and 6 recipe write-ups a minute. Requests are validated and capped in size.
 - **Refusals:** requests use Anthropic's server-side fallback (`fallbacks: "default"`), so a safety decline is retried on another model before the visitor sees an error.
@@ -126,7 +126,7 @@ Run `npm ci` in that checkout first. Local MCP reads the local checkout's food f
 ## Project layout
 
 - `src/App.svelte`: filters, search state, results, and tab switching
-- `src/components/Recipes.svelte`: targets and wanted foods, five Claude ideas, then an editable recipe sized to the targets with a written method
+- `src/components/Recipes.svelte`: targets and wanted foods, four Claude ideas with a pairing rating, then an editable recipe sized to the targets with a written method
 - `src/components/RecipeCard.svelte`: the written recipe as a card with per-serving nutrition, used on screen and for printing
 - `src/components/SavedRecipes.svelte`: the My recipes tab (saved in localStorage; print, copy, delete)
 - `src/components/DislikesModal.svelte`: foods you won't eat, saved in the browser's localStorage

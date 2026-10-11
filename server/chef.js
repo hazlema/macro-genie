@@ -29,12 +29,11 @@ export const recipeModel = () => pick("RECIPE_MODEL");
 const { foods } = normalizeDataset(raw);
 const byId = new Map(foods.map((f) => [f.id, f]));
 
-// Each of the five parallel requests leans a different way so the ideas differ.
+// Each of the four parallel requests leans a different way so the ideas differ.
 export const ANGLES = [
   "a bake, casserole, or gratin",
   "a skillet, stir-fry, or sauté",
   "a soup, stew, or curry",
-  "a salad, bowl, or composed plate",
   "something from a cuisine people might not expect",
 ];
 
@@ -107,7 +106,8 @@ Rules:
 - Seasonings are for things with negligible calories only: salt, pepper, dried or fresh herbs, spices, garlic, vinegar, citrus zest, water. Everything with real calories must be an ingredient from find_foods.
 - Aim for amounts that roughly fit the targets. The site adjusts the grams afterwards to hit the numbers exactly, so don't do precise arithmetic.
 - It must taste great. Think about fat, acid, salt, texture, and browning.
-- Name the dish the way a good menu would. The description is one sentence a hungry person would want to read.`;
+- Name the dish the way a good menu would. The description is one sentence a hungry person would want to read.
+- Rate the pairing honestly, as a chef would, not to please them: "great" when cooks would recognize these flavors, seasons, and textures together; "mixed" when some parts are unusual but can work (say how); "clashes" when these foods rarely belong in one dish (for example summer fruit with fall squash). If the clash comes from foods they asked for, still rate it and name those foods.`;
 
 const TOOLS = [
   {
@@ -163,8 +163,26 @@ const TOOLS = [
           },
         },
         seasonings: { type: "array", items: { type: "string" } },
+        pairing: {
+          type: "string",
+          enum: ["great", "mixed", "clashes"],
+          description:
+            "How well these ingredients go together as one dish, judged honestly",
+        },
+        pairing_note: {
+          type: "string",
+          description:
+            "One short sentence on why; for mixed or clashes, name the foods that fight",
+        },
       },
-      required: ["name", "description", "ingredients", "seasonings"],
+      required: [
+        "name",
+        "description",
+        "ingredients",
+        "seasonings",
+        "pairing",
+        "pairing_note",
+      ],
       additionalProperties: false,
     },
   },
@@ -323,6 +341,13 @@ export function finishIdea(submission, request) {
     description: String(submission.description ?? "").slice(0, 400),
     seasonings,
     missing,
+    pairing: ["great", "mixed", "clashes"].includes(submission.pairing)
+      ? submission.pairing
+      : null,
+    pairingNote: String(submission.pairing_note ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 200),
     servings: request.servings,
     fits: solved.fits,
     misses: solved.misses,
