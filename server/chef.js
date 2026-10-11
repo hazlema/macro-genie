@@ -339,7 +339,23 @@ export function finishIdea(submission, request) {
   };
 }
 
-function client() {
+export function client() {
+  // Under `npm run dev`: only the .env key, straight to Anthropic, never
+  // Netlify's AI Gateway (which bills Netlify credits).
+  if (process.env.MACRO_GENIE_LOCAL) {
+    if (!process.env.MACRO_GENIE_LOCAL_KEY)
+      throw new UserFacingError(
+        "AI is off locally: add ANTHROPIC_API_KEY to .env and restart npm run dev.",
+        503,
+      );
+    return new Anthropic({
+      apiKey: process.env.MACRO_GENIE_LOCAL_KEY,
+      authToken: null,
+      baseURL: "https://api.anthropic.com",
+      timeout: 55_000,
+      maxRetries: 0,
+    });
+  }
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_BASE_URL)
     throw new UserFacingError(
       "Recipe ideas aren't set up yet: the site needs an ANTHROPIC_API_KEY.",

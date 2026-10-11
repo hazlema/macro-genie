@@ -3,21 +3,33 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 import netlify from "@netlify/vite-plugin";
 import { copyFileSync } from "node:fs";
 
-// Local `.env` secrets (ANTHROPIC_API_KEY) for the functions under `npm run dev`.
-// Netlify supplies them itself in production.
-Object.assign(process.env, loadEnv("development", process.cwd(), "ANTHROPIC_"));
-
-// Keep the manually maintained dataset at the repository root as a single source.
-export default defineConfig({
-  plugins: [
-    svelte(),
-    // Runs the /api and /mcp functions inside `npm run dev`.
-    netlify({ edgeFunctions: { enabled: false } }),
-    {
-      name: "static-food-data",
-      closeBundle() {
-        copyFileSync("foods.json", "dist/foods.json");
+export default defineConfig(({ command }) => {
+  if (command === "serve") {
+    // Local AI calls use only the ANTHROPIC_API_KEY in .env, sent straight to
+    // Anthropic (server/chef.js). Netlify's AI Gateway can't be switched off
+    // in this plugin, so its credentials are ignored here; no local test ever
+    // spends Netlify credits.
+    const local = loadEnv("development", process.cwd(), "ANTHROPIC_");
+    process.env.MACRO_GENIE_LOCAL = "1";
+    process.env.MACRO_GENIE_LOCAL_KEY = local.ANTHROPIC_API_KEY ?? "";
+    console.log(
+      local.ANTHROPIC_API_KEY
+        ? "AI calls: your ANTHROPIC_API_KEY from .env (billed to Anthropic, not Netlify credits)"
+        : "AI calls: off locally. Add ANTHROPIC_API_KEY to .env to try ideas and recipes.",
+    );
+  }
+  return {
+    plugins: [
+      svelte(),
+      // Runs the /api and /mcp functions inside `npm run dev`.
+      netlify({ edgeFunctions: { enabled: false } }),
+      // Keep the manually maintained dataset at the repository root as a single source.
+      {
+        name: "static-food-data",
+        closeBundle() {
+          copyFileSync("foods.json", "dist/foods.json");
+        },
       },
-    },
-  ],
+    ],
+  };
 });

@@ -374,3 +374,28 @@ test("each model call gets the time left, and timeouts read as 'took too long'",
     console.log = quiet;
   }
 });
+
+test("local dev uses only the .env key, straight to Anthropic, never the gateway", async () => {
+  const { client } = await import("../server/chef.js");
+  const saved = { ...process.env };
+  try {
+    process.env.MACRO_GENIE_LOCAL = "1";
+    process.env.ANTHROPIC_API_KEY = "gateway-token";
+    process.env.ANTHROPIC_BASE_URL = "https://gateway.example";
+    process.env.MACRO_GENIE_LOCAL_KEY = "";
+    assert.throws(() => client(), /AI is off locally/);
+    process.env.MACRO_GENIE_LOCAL_KEY = "sk-ant-local";
+    const api = client();
+    assert.equal(api.apiKey, "sk-ant-local");
+    assert.equal(api.baseURL, "https://api.anthropic.com");
+  } finally {
+    for (const key of [
+      "MACRO_GENIE_LOCAL",
+      "MACRO_GENIE_LOCAL_KEY",
+      "ANTHROPIC_API_KEY",
+      "ANTHROPIC_BASE_URL",
+    ])
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+  }
+});
