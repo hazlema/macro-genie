@@ -24,7 +24,7 @@ export async function requireAdmin(accountId) {
 export async function reviewQueue() {
   const db = database();
   const posts = await db.sql`
-    SELECT p.id, p.name, p.recipe, p.status, p.moderation_note, p.created_at,
+    SELECT p.id, p.name, p.recipe, p.kind, p.board, p.body, p.status, p.moderation_note, p.created_at,
            a.display_name AS author, a.banned,
            (SELECT count(*)::int FROM reports r WHERE r.target_type = 'post' AND r.target_id = p.id) AS reports
       FROM posts p JOIN accounts a ON a.id = p.account_id
@@ -49,7 +49,13 @@ export async function reviewQueue() {
     authorBanned: r.banned,
     createdAt: r.created_at,
     ...(type === "post"
-      ? { name: r.name, recipe: r.recipe }
+      ? {
+          name: r.name,
+          recipe: r.recipe,
+          kind: r.kind,
+          board: r.board,
+          body: r.body,
+        }
       : { body: r.body, postId: Number(r.post_id), postName: r.post_name }),
   });
   return [...posts.map(item("post")), ...comments.map(item("comment"))];
@@ -101,4 +107,9 @@ export async function decide(type, id, action) {
       ]);
     return { status: next };
   });
+}
+
+// How many items wait for a decision, for the badge on the queue button.
+export async function queueCount() {
+  return (await reviewQueue()).length;
 }

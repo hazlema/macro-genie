@@ -206,6 +206,9 @@ const shapePost = (row) => ({
   author: row.author,
   createdAt: row.created_at,
   recipe: row.recipe,
+  kind: row.kind,
+  board: row.board,
+  body: row.body,
   likes: Number(row.like_count),
   comments: Number(row.comment_count),
   likedByMe: !!row.liked,
@@ -222,6 +225,7 @@ const shapePost = (row) => ({
 export async function listPosts({
   viewer = null,
   meal = "all",
+  board = null,
   ranges = {},
   sort = "new",
   offset = 0,
@@ -241,7 +245,14 @@ export async function listPosts({
       OR EXISTS (SELECT 1 FROM comments c WHERE c.post_id = p.id AND c.status IN ('held', 'blocked'))
       OR EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'post' AND r.target_id = p.id))`);
   const params = [viewer ?? 0];
-  if (meal !== "all") {
+  // A forum board lists its threads; otherwise recipes, by meal and macros.
+  if (board) {
+    if (!BOARDS.includes(board)) throw new UserFacingError("Unknown board.");
+    params.push(board);
+    where.push(`p.kind = 'thread' AND p.board = $${params.length}`);
+    ranges = {};
+  } else where.push(`p.kind = 'recipe'`);
+  if (!board && meal !== "all") {
     if (!MEAL_TYPES.includes(meal))
       throw new UserFacingError("Unknown meal type.");
     params.push(meal);
@@ -268,7 +279,7 @@ export async function listPosts({
       ? "p.like_count DESC, p.created_at DESC"
       : "p.created_at DESC";
   const { rows } = await database().pool.query(
-    `SELECT p.id, p.name, p.meal_type, p.recipe, p.like_count, p.comment_count,
+    `SELECT p.id, p.name, p.meal_type, p.recipe, p.kind, p.board, p.body, p.like_count, p.comment_count,
             p.status, p.moderation_note, p.created_at, a.display_name AS author,
             (p.account_id = $1) AS mine, ${moderator ? "true" : "false"} AS moderator,
             EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.account_id = $1) AS liked,
@@ -287,7 +298,7 @@ export async function listPosts({
 // for everyone, waiting ones for their author and moderators.
 export async function getPost(postId, viewer = null, moderator = false) {
   const { rows } = await database().pool.query(
-    `SELECT p.id, p.name, p.meal_type, p.recipe, p.like_count, p.comment_count,
+    `SELECT p.id, p.name, p.meal_type, p.recipe, p.kind, p.board, p.body, p.like_count, p.comment_count,
             p.status, p.moderation_note, p.created_at, a.display_name AS author,
             (p.account_id = $2) AS mine, $3::boolean AS moderator,
             EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.account_id = $2) AS liked,
@@ -302,6 +313,68 @@ export async function getPost(postId, viewer = null, moderator = false) {
   if (!rows[0])
     throw new UserFacingError("That recipe isn't in the community.", 404);
   return shapePost(rows[0]);
+}
+
+export const BOARDS = ["general", "support"];
+const THREADS_PER_DAY = 20;
+
+// Starts a forum thread: a title and a message, moderated like a recipe.
+export async function createThread(
+  accountId,
+  { board, title, body } = {},
+  api,
+) {
+  await poster(accountId);
+  if (!BOARDS.includes(board)) throw new UserFacingError("Pick a board.");
+  const cleanTitle = String(title ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const cleanBody = String(body ?? "").trim();
+  if (cleanTitle.length < 3 || cleanTitle.length > 120)
+    throw new UserFacingError("Titles are 3 to 120 characters.");
+  if (!cleanBody || cleanBody.length > 5000)
+    throw new UserFacingError("Messages are 1 to 5,000 characters.");
+  const recent = await database()
+    .sql`SELECT count(*)::int AS n FROM posts WHERE account_id = ${accountId} AND kind = 'thread' AND created_at > now() - interval '1 day'`;
+  if (recent[0].n >= THREADS_PER_DAY)
+    throw new UserFacingError(
+      "That's the most threads for one day. Try again tomorrow.",
+      429,
+    );
+  const review = await moderate(
+    "thread",
+    `Title: ${cleanTitle}\n\n${cleanBody}`,
+    api,
+  );
+  const rows = await database().sql`
+    INSERT INTO posts (account_id, kind, board, name, body, status, moderation_note)
+    VALUES (${accountId}, 'thread', ${board}, ${cleanTitle}, ${cleanBody},
+      ${STATUS[review.verdict]}, ${review.reason})
+    RETURNING id, status`;
+  return {
+    id: Number(rows[0].id),
+    status: rows[0].status,
+    reason: review.reason,
+  };
+}
+
+// Live items on each board, for the counts on the filter chips.
+export async function boardCounts() {
+  const rows = await database().sql`
+    SELECT kind, board, meal_type, count(*)::int AS n
+      FROM posts WHERE status = 'live'
+     GROUP BY kind, board, meal_type`;
+  const counts = Object.fromEntries(
+    [...BOARDS, "all", ...MEAL_TYPES].map((k) => [k, 0]),
+  );
+  for (const r of rows) {
+    if (r.kind === "thread") counts[r.board] += r.n;
+    else {
+      counts.all += r.n;
+      counts[r.meal_type] += r.n;
+    }
+  }
+  return counts;
 }
 
 export async function removeOwnPost(accountId, postId) {

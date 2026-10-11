@@ -1,6 +1,7 @@
 import {
   decide,
   isAdmin,
+  queueCount,
   requireAdmin,
   reviewQueue,
 } from "../../server/admin.js";
@@ -8,7 +9,9 @@ import { UserFacingError } from "../../server/chef.js";
 import {
   addComment,
   checkPost,
+  boardCounts,
   createPost,
+  createThread,
   getPost,
   listComments,
   listPosts,
@@ -76,6 +79,7 @@ export default async function handler(request) {
             viewer,
             moderator,
             needsReview: moderator && url.searchParams.get("review") === "1",
+            board: url.searchParams.get("board") || null,
             meal: url.searchParams.get("meal") || "all",
             sort: url.searchParams.get("sort") || "new",
             offset: url.searchParams.get("offset") || 0,
@@ -83,6 +87,21 @@ export default async function handler(request) {
           }),
           { headers: { "Cache-Control": "no-store" } },
         );
+      }
+      case "GET community/counts": {
+        const viewer = viewerOf(request);
+        const moderator = await isAdmin(viewer);
+        return Response.json(
+          {
+            counts: await boardCounts(),
+            ...(moderator ? { queue: await queueCount() } : {}),
+          },
+          { headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      case "POST community/threads": {
+        const viewer = signedIn(request);
+        return Response.json(await createThread(viewer, await json(request)));
       }
       case "POST community/check": {
         signedIn(request);

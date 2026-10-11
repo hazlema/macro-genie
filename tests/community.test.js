@@ -10,7 +10,9 @@ import { moderate } from "../server/moderate.js";
 import {
   addComment,
   checkPost,
+  boardCounts,
   createPost,
+  createThread,
   getPost,
   listComments,
   listPosts,
@@ -544,4 +546,92 @@ test("a single post opens by id, with the same visibility as the list", async ()
     "a moderator",
   );
   await assert.rejects(getPost(999999), /isn't in the community/);
+});
+
+test("forum threads: started on a board, replied to, counted, and kept apart from recipes", async () => {
+  const qi = await person("Qi");
+  const general = await createThread(
+    qi.id,
+    {
+      board: "general",
+      title: "  Best  pan for searing? ",
+      body: "Cast iron or carbon steel?",
+    },
+    haiku("fine"),
+  );
+  const support = await createThread(
+    qi.id,
+    {
+      board: "support",
+      title: "Credits question",
+      body: "How do credits work?",
+    },
+    haiku("fine"),
+  );
+  const held = await createThread(
+    qi.id,
+    { board: "general", title: "Buy my course", body: "link in bio" },
+    haiku("unsure"),
+  );
+  assert.deepEqual(
+    [general.status, support.status, held.status],
+    ["live", "live", "held"],
+  );
+  await assert.rejects(
+    createThread(
+      qi.id,
+      { board: "nope", title: "Hi there", body: "x" },
+      haiku("fine"),
+    ),
+    /Pick a board/,
+  );
+  await assert.rejects(
+    createThread(
+      qi.id,
+      { board: "general", title: "Hi", body: "x" },
+      haiku("fine"),
+    ),
+    /3 to 120/,
+  );
+
+  const generalList = (await listPosts({ board: "general" })).posts;
+  assert.ok(
+    generalList.every((p) => p.kind === "thread" && p.board === "general"),
+  );
+  const thread = generalList.find((p) => p.id === general.id);
+  assert.equal(thread.name, "Best pan for searing?");
+  assert.equal(thread.body, "Cast iron or carbon steel?");
+  assert.ok(
+    !generalList.some((p) => p.id === held.id),
+    "held threads wait like recipes",
+  );
+  assert.ok(
+    !(await listPosts()).posts.some((p) => p.kind === "thread"),
+    "recipe boards show recipes only",
+  );
+  await assert.rejects(listPosts({ board: "secret" }), /Unknown board/);
+
+  const reply = await addComment(
+    (await person("Rey")).id,
+    general.id,
+    "Carbon steel, lighter.",
+    haiku("fine"),
+  );
+  assert.equal(reply.status, "live");
+  assert.equal((await getPost(general.id)).comments, 1);
+
+  const counts = await boardCounts();
+  assert.ok(counts.general >= 1 && counts.support >= 1);
+  assert.equal(
+    counts.all,
+    Object.entries(counts)
+      .filter(([k]) =>
+        ["breakfast", "lunch", "dinner", "snack", "dessert"].includes(k),
+      )
+      .reduce((a, [, n]) => a + n, 0),
+  );
+
+  const queued = (await reviewQueue()).find((i) => i.id === held.id);
+  assert.equal(queued.kind, "thread");
+  assert.equal(queued.body, "link in bio");
 });
