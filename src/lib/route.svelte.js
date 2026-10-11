@@ -4,8 +4,18 @@
 //   /builder           Recipe Builder
 //   /community         Community;  /community/42  one shared recipe
 //   /recipes           My recipes; /recipes/<id>  one saved recipe (this browser)
-const TABS = { foods: "foods", builder: "recipes", community: "community", recipes: "saved" };
-const PATHS = { foods: "/foods", recipes: "/builder", community: "/community", saved: "/recipes" };
+const TABS = {
+  foods: "foods",
+  builder: "recipes",
+  community: "community",
+  recipes: "saved",
+};
+const PATHS = {
+  foods: "/foods",
+  recipes: "/builder",
+  community: "/community",
+  saved: "/recipes",
+};
 
 export function parse(pathname) {
   const [section = "", id = ""] = pathname.split("/").filter(Boolean);
@@ -19,7 +29,8 @@ export function parse(pathname) {
 
 export function pathFor({ tab, postId = null, recipeId = null }) {
   if (tab === "community" && postId) return `/community/${postId}`;
-  if (tab === "saved" && recipeId) return `/recipes/${encodeURIComponent(recipeId)}`;
+  if (tab === "saved" && recipeId)
+    return `/recipes/${encodeURIComponent(recipeId)}`;
   return PATHS[tab] ?? "/foods";
 }
 
@@ -34,4 +45,6 @@ export function navigate(to, { replace = false } = {}) {
   Object.assign(route, parse(path));
 }
 
-addEventListener("popstate", () => Object.assign(route, parse(location.pathname)));
+addEventListener("popstate", () =>
+  Object.assign(route, parse(location.pathname)),
+);
