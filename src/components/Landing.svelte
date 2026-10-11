@@ -59,7 +59,7 @@
       <p class="lede">Say what you want to eat and the numbers it has to hit. Macro Genie finds the foods and sizes every gram of the recipe so each serving lands in range.</p>
 
       <div class="hero-actions">
-        <a class="wish-button" href="/builder" onclick={(e) => go(e, 'recipes')}>Make a wish</a>
+        <a class="wish-button" href="/community" onclick={(e) => go(e, 'community')}>Get started</a>
         <a class="quiet-link" href="/foods" onclick={(e) => go(e, 'foods')}>Search {foods} foods</a>
       </div>
     </div>
@@ -130,7 +130,7 @@
   <section class="closing">
     <p>The lamp is warm.</p>
     {#if account.signedIn}
-      <a class="wish-button" href="/builder" onclick={(e) => go(e, 'recipes')}>Make a wish</a>
+      <a class="wish-button" href="/community" onclick={(e) => go(e, 'community')}>Get started</a>
     {:else}
       <button class="wish-button" onclick={() => account.loginOpen = true}>Sign in and get 10 credits</button>
     {/if}
