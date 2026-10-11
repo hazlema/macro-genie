@@ -1,6 +1,7 @@
 // The address bar is the source of truth for where you are, so any page can
 // be bookmarked, shared, refreshed, and reached with Back/Forward.
-//   /community         Community (also /); /community/42  one post or thread
+//   /                  Home, the landing page
+//   /community         Community; /community/42  one post or thread
 //   /foods             Food Macros
 //   /builder           Recipe Builder
 //   /recipes           Recipe Book; /recipes/<id>  one saved recipe (this browser)
@@ -19,7 +20,7 @@ const PATHS = {
 
 export function parse(pathname) {
   const [section = "", id = ""] = pathname.split("/").filter(Boolean);
-  const tab = TABS[section] ?? "community";
+  const tab = section ? (TABS[section] ?? "community") : "home";
   return {
     tab,
     postId: tab === "community" && /^\d+$/.test(id) ? Number(id) : null,
@@ -31,7 +32,7 @@ export function pathFor({ tab, postId = null, recipeId = null }) {
   if (tab === "community" && postId) return `/community/${postId}`;
   if (tab === "saved" && recipeId)
     return `/recipes/${encodeURIComponent(recipeId)}`;
-  return PATHS[tab] ?? "/community";
+  return PATHS[tab] ?? "/";
 }
 
 export const route = $state(parse(location.pathname));

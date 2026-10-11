@@ -9,6 +9,7 @@
   import Recipes from './components/Recipes.svelte';
   import SavedRecipes from './components/SavedRecipes.svelte';
   import Community from './components/Community.svelte';
+  import Landing from './components/Landing.svelte';
   import RecipeCard from './components/RecipeCard.svelte';
   import { printJob } from './lib/print.svelte.js';
   import { route, navigate } from './lib/route.svelte.js';
@@ -67,7 +68,7 @@
 
 <a class="skip-link" href="#results">{tab === 'foods' ? 'Skip to foods' : 'Skip to content'}</a>
 <header class="topbar">
-  <a class="wordmark" href="/community" onclick={(e) => { e.preventDefault(); navigate({ tab: 'community' }); }} aria-label="Macro Genie home">Macro Genie<span class="brand-dot"></span></a>
+  <a class="wordmark" href="/" onclick={(e) => { e.preventDefault(); navigate({ tab: 'home' }); }} aria-label="Macro Genie home">Macro Genie<span class="brand-dot"></span></a>
   <nav class="tabs" aria-label="Browse">
     <button class:current={tab === 'community'} aria-current={tab === 'community' ? 'page' : undefined} onclick={() => navigate({ tab: 'community' })}>Community</button>
     <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => navigate({ tab: 'saved' })}>Recipe Book{#if prefs.recipes.length}<span>{prefs.recipes.length}</span>{/if}</button>
@@ -135,6 +136,8 @@
       <footer><p>Food by your numbers. <span>Food search is free, no account needed.</span></p><p>USDA SR Legacy · {dataset?.total.toLocaleString() ?? '…'} food records. {dataset?.excluded ?? '…'} without serving sizes excluded.</p><p>Missing nutrients appear as — and won’t match an active range. Values are rounded for display; filters use full precision.</p></footer>
     </main>
   </div>
+{:else if tab === 'home'}
+  <Landing foodCount={dataset?.foods.length} />
 {:else if tab === 'community'}
   <Community postId={route.postId} />
 {:else if tab === 'saved'}
