@@ -2549,3 +2549,28 @@ dialog.dislikes[open] {
   color: var(--amber);
   background: #e9bd6514;
 }
+.post-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 14px;
+}
+.post-status p {
+  margin: 0;
+}
+.mod-actions {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 6px;
+}
+.mod-actions .text-button {
+  padding: 2px 6px;
+  font-size: 12px;
+}
+.mod-actions .approve {
+  color: var(--green);
+}
+.mod-filter {
+  margin-top: 22px;
+}

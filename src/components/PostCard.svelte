@@ -14,6 +14,7 @@
   let likes = $state(start.likes);
   let liked = $state(start.liked);
   let commentCount = $state(start.comments);
+  let status = $state(untrack(() => post.status));
   let open = $state(false);
   let servings = $state(start.servings);
   let comments = $state(null);
@@ -77,6 +78,20 @@
     else note = res.error;
   }
 
+  // Moderators decide on waiting posts and comments right where they are.
+  async function moderate(type, id, action) {
+    const res = await api('/api/admin/decide', { method: 'POST', body: { type, id, action } });
+    if (!res.ok) { note = res.error; return; }
+    if (type === 'post') {
+      status = res.body.status;
+      if (status === 'removed') onremoved?.(post.id);
+      return;
+    }
+    const c = comments.find((x) => x.id === id);
+    if (res.body.status === 'live') { c.status = 'live'; commentCount += 1; }
+    else comments = comments.filter((x) => x.id !== id);
+  }
+
   function save() {
     const { perServing, gramsPerServing, ...rest } = $state.snapshot(post.recipe);
     saved = !!saveRecipe({ ...rest, perServing, gramsPerServing, shownServings: servings, communityId: post.id });
@@ -84,15 +99,23 @@
   }
 </script>
 
-<li class="post" class:waiting={post.status !== 'live'}>
-  {#if post.status === 'held'}<p class="post-status">Waiting for a moderator. {post.reason}</p>
-  {:else if post.status === 'blocked'}<p class="post-status blocked">Not posted: {post.reason}</p>{/if}
+<li class="post" class:waiting={status !== 'live'}>
+  {#if status === 'held' || status === 'blocked'}
+    <div class="post-status" class:blocked={status === 'blocked'}>
+      <p>{status === 'held' ? 'Waiting for a moderator' : 'Blocked by the automatic check'}{post.reason ? `: ${post.reason}` : ''}</p>
+      {#if account.isAdmin}
+        <span class="mod-actions"><button class="text-button approve" onclick={() => moderate('post', post.id, 'approve')}>Approve</button><button class="text-button" onclick={() => moderate('post', post.id, 'remove')}>Remove</button></span>
+      {/if}
+    </div>
+  {:else if account.isAdmin && (post.waitingComments || post.reports)}
+    <p class="post-status">{[post.waitingComments ? `${post.waitingComments} ${post.waitingComments === 1 ? 'comment' : 'comments'} waiting` : '', post.reports ? `${post.reports} ${post.reports === 1 ? 'report' : 'reports'}` : ''].filter(Boolean).join(', ')}</p>
+  {/if}
   <div class="post-head">
     <div>
       <h3><button class="post-title" aria-expanded={open} onclick={() => open = !open}>{post.name}</button></h3>
       <p class="post-meta"><span class="meal-tag">{post.mealType}</span> by {post.author}, {day(post.createdAt)}</p>
     </div>
-    <button class="like" class:liked aria-pressed={liked} aria-label={`${liked ? 'Unlike' : 'Like'} ${post.name}`} onclick={like} disabled={post.status !== 'live'}>
+    <button class="like" class:liked aria-pressed={liked} aria-label={`${liked ? 'Unlike' : 'Like'} ${post.name}`} onclick={like} disabled={status !== 'live'}>
       <span aria-hidden="true">{liked ? '♥' : '♡'}</span> {likes}
     </button>
   </div>
@@ -101,7 +124,7 @@
 
   <div class="post-actions">
     <button class="outline-button" aria-expanded={open} onclick={() => open = !open}>{open ? 'Hide recipe' : 'Show recipe'}</button>
-    {#if post.status === 'live'}
+    {#if status === 'live'}
       <button class="text-button" aria-expanded={commentsOpen} onclick={loadComments}>{commentsOpen ? 'Hide comments' : `Comments (${commentCount})`}</button>
     {/if}
     {#if !post.mine}
@@ -116,7 +139,7 @@
       </span>
     {:else if post.mine}
       <button class="text-button" onclick={() => confirm = 'remove'}>Remove my post</button>
-    {:else if post.status === 'live'}
+    {:else if status === 'live'}
       <button class="text-button" onclick={() => confirm = 'report'}>Report</button>
     {/if}
   </div>
@@ -134,7 +157,11 @@
         {#each comments as c (c.id)}
           <div class="comment" class:waiting={c.status !== 'live'}>
             <p class="comment-meta"><strong>{c.author}</strong> {day(c.createdAt)}</p>
-            {#if c.status !== 'live'}<p class="comment-waiting">Waiting for a moderator. Only you can see this until it’s approved.</p>{/if}
+            {#if c.status !== 'live' && account.isAdmin}
+              <p class="comment-waiting">{c.status === 'held' ? 'Waiting for a moderator' : 'Blocked'}{c.reason ? `: ${c.reason}` : ''}
+                <span class="mod-actions"><button class="text-button approve" onclick={() => moderate('comment', c.id, 'approve')}>Approve</button><button class="text-button" onclick={() => moderate('comment', c.id, 'remove')}>Remove</button></span>
+              </p>
+            {:else if c.status !== 'live'}<p class="comment-waiting">Waiting for a moderator. Only you can see this until it’s approved.</p>{/if}
             <p class="comment-body">{c.body}</p>
             {#if c.mine}<button class="text-button" onclick={() => removeComment(c)}>Delete</button>
             {:else}<button class="text-button" onclick={() => reportItem('comment', c.id)}>Report</button>{/if}

@@ -448,3 +448,65 @@ test("the moderation rules hold swearing for review but allow harsh, clean criti
     /"sucks", "gross", "too salty"\)\. Those words are not swearing\./,
   );
 });
+
+test("moderators see waiting items in place, and can narrow to what needs review", async () => {
+  const poster1 = await person("Lu");
+  const waitingPost = await createPost(
+    poster1.id,
+    recipe({ name: "Waiting post" }),
+    { mealType: "dinner" },
+    haiku("unsure", { reason: "Health claim" }),
+  );
+  const livePost = await createPost(
+    poster1.id,
+    recipe({ name: "Live post, waiting comment" }),
+    { mealType: "dinner" },
+    haiku("fine"),
+  );
+  const quietPost = await createPost(
+    poster1.id,
+    recipe({ name: "Quiet live post" }),
+    { mealType: "dinner" },
+    haiku("fine"),
+  );
+  const commenter = await person("Mo");
+  const held = await addComment(
+    commenter.id,
+    livePost.id,
+    "This f*cking rocks",
+    haiku("unsure", { reason: "Swearing" }),
+  );
+  const stranger = await person("Ned");
+
+  // A regular viewer sees neither the waiting post nor the waiting comment.
+  const seen = (await listPosts({ viewer: stranger.id })).posts.map(
+    (p) => p.name,
+  );
+  assert.ok(!seen.includes("Waiting post"));
+  assert.deepEqual(await listComments(livePost.id, stranger.id), []);
+
+  // A moderator sees both, with the reason and counts.
+  const mod = (await listPosts({ viewer: stranger.id, moderator: true })).posts;
+  const waiting = mod.find((p) => p.id === waitingPost.id);
+  assert.equal(waiting.status, "held");
+  assert.equal(waiting.reason, "Health claim");
+  assert.equal(mod.find((p) => p.id === livePost.id).waitingComments, 1);
+  const comments = await listComments(livePost.id, stranger.id, true);
+  assert.deepEqual(
+    comments.map((c) => [c.id, c.status, c.reason]),
+    [[held.id, "held", "Swearing"]],
+  );
+
+  // "Needs review" keeps the waiting post and the post with a waiting comment.
+  const review = (
+    await listPosts({ viewer: stranger.id, moderator: true, needsReview: true })
+  ).posts.map((p) => p.id);
+  assert.ok(review.includes(waitingPost.id) && review.includes(livePost.id));
+  assert.ok(!review.includes(quietPost.id));
+  // Without moderator rights the review flag changes nothing.
+  assert.ok(
+    !(await listPosts({ viewer: stranger.id, needsReview: true })).posts.some(
+      (p) => p.id === waitingPost.id,
+    ),
+  );
+});

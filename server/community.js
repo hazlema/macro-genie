@@ -211,7 +211,10 @@ const shapePost = (row) => ({
   likedByMe: !!row.liked,
   mine: !!row.mine,
   status: row.status,
-  reason: row.mine ? row.moderation_note : undefined,
+  reason: row.mine || row.moderator ? row.moderation_note : undefined,
+  // Moderators: comments waiting on this post, and reports against it.
+  waitingComments: row.moderator ? Number(row.waiting_comments) : undefined,
+  reports: row.moderator ? Number(row.reports) : undefined,
 });
 
 // Live posts, filtered by meal type and per-serving ranges. A signed-in
@@ -222,10 +225,21 @@ export async function listPosts({
   ranges = {},
   sort = "new",
   offset = 0,
+  moderator = false,
+  needsReview = false,
 } = {}) {
+  // Moderators see everyone's waiting and blocked posts, marked; others see
+  // only their own. "Needs review" narrows a moderator's list to posts that
+  // are waiting, blocked, reported, or have comments waiting.
   const where = [
-    `(p.status = 'live' OR (p.account_id = $1 AND p.status IN ('held', 'blocked')))`,
+    moderator
+      ? `p.status <> 'removed'`
+      : `(p.status = 'live' OR (p.account_id = $1 AND p.status IN ('held', 'blocked')))`,
   ];
+  if (moderator && needsReview)
+    where.push(`(p.status IN ('held', 'blocked')
+      OR EXISTS (SELECT 1 FROM comments c WHERE c.post_id = p.id AND c.status IN ('held', 'blocked'))
+      OR EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'post' AND r.target_id = p.id))`);
   const params = [viewer ?? 0];
   if (meal !== "all") {
     if (!MEAL_TYPES.includes(meal))
@@ -256,8 +270,10 @@ export async function listPosts({
   const { rows } = await database().pool.query(
     `SELECT p.id, p.name, p.meal_type, p.recipe, p.like_count, p.comment_count,
             p.status, p.moderation_note, p.created_at, a.display_name AS author,
-            (p.account_id = $1) AS mine,
-            EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.account_id = $1) AS liked
+            (p.account_id = $1) AS mine, ${moderator ? "true" : "false"} AS moderator,
+            EXISTS (SELECT 1 FROM post_likes l WHERE l.post_id = p.id AND l.account_id = $1) AS liked,
+            (SELECT count(*) FROM comments c WHERE c.post_id = p.id AND c.status IN ('held', 'blocked')) AS waiting_comments,
+            (SELECT count(*) FROM reports r WHERE r.target_type = 'post' AND r.target_id = p.id) AS reports
        FROM posts p JOIN accounts a ON a.id = p.account_id
       WHERE ${where.join(" AND ")}
       ORDER BY ${order}
@@ -305,13 +321,17 @@ export async function toggleLike(accountId, postId) {
 
 // -------------------------------------------------------------- comments
 
-export async function listComments(postId, viewer = null) {
+// Live comments; their authors also see their own waiting ones, and
+// moderators see everyone's waiting and blocked ones with the reason.
+export async function listComments(postId, viewer = null, moderator = false) {
   const rows = await database().sql`
-    SELECT c.id, c.body, c.status, c.created_at, a.display_name AS author,
-           (c.account_id = ${viewer ?? 0}) AS mine
+    SELECT c.id, c.body, c.status, c.moderation_note, c.created_at,
+           a.display_name AS author, (c.account_id = ${viewer ?? 0}) AS mine,
+           (SELECT count(*) FROM reports r WHERE r.target_type = 'comment' AND r.target_id = c.id) AS reports
       FROM comments c JOIN accounts a ON a.id = c.account_id
      WHERE c.post_id = ${postId}
-       AND (c.status = 'live' OR (c.account_id = ${viewer ?? 0} AND c.status IN ('held', 'blocked')))
+       AND (c.status = 'live'
+         OR (c.status IN ('held', 'blocked') AND (${moderator} OR c.account_id = ${viewer ?? 0})))
      ORDER BY c.created_at`;
   return rows.map((r) => ({
     id: Number(r.id),
@@ -320,6 +340,9 @@ export async function listComments(postId, viewer = null) {
     createdAt: r.created_at,
     mine: !!r.mine,
     status: r.status,
+    ...(moderator
+      ? { reason: r.moderation_note, reports: Number(r.reports) }
+      : {}),
   }));
 }
 

@@ -15,6 +15,7 @@
   let error = $state('');
   let mobileOpen = $state(false);
   let reviewing = $state(false);
+  let needsReview = $state(false);
   let request = 0;
 
   const activeRanges = () =>
@@ -29,6 +30,7 @@
     const token = ++request;
     loading = true; error = '';
     const params = new URLSearchParams({ meal, sort, offset: String(append ? posts.length : 0), ranges: JSON.stringify(activeRanges()) });
+    if (needsReview) params.set('review', '1');
     const res = await api(`/api/community?${params}`);
     if (token !== request) return;
     loading = false;
@@ -41,7 +43,7 @@
   // ranges waits a moment so each keystroke isn't a request.
   let timer;
   $effect(() => {
-    meal; sort; JSON.stringify(ranges); account.signedIn;
+    meal; sort; JSON.stringify(ranges); account.signedIn; needsReview;
     clearTimeout(timer);
     timer = setTimeout(() => load(), 250);
     return () => clearTimeout(timer);
@@ -67,6 +69,7 @@
         <select id="community-sort" bind:value={sort}><option value="new">Newest first</option><option value="liked">Most liked</option></select>
         <button class="clear-button" onclick={() => { ranges = emptyRanges(); meal = 'all'; sort = 'new'; }}>↺ <span>Clear filters</span></button>
         {#if account.isAdmin}
+          <label class="dislike-toggle mod-filter"><input type="checkbox" bind:checked={needsReview} /> Needs review only</label>
           <button class="outline-button review-button" onclick={() => reviewing = true}>Review queue</button>
         {/if}
       </div>

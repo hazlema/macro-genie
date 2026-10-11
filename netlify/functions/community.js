@@ -1,4 +1,9 @@
-import { decide, requireAdmin, reviewQueue } from "../../server/admin.js";
+import {
+  decide,
+  isAdmin,
+  requireAdmin,
+  reviewQueue,
+} from "../../server/admin.js";
 import { UserFacingError } from "../../server/chef.js";
 import {
   addComment,
@@ -63,9 +68,13 @@ export default async function handler(request) {
         } catch {
           throw new UserFacingError("Ranges weren't readable.");
         }
+        const viewer = viewerOf(request);
+        const moderator = await isAdmin(viewer);
         return Response.json(
           await listPosts({
-            viewer: viewerOf(request),
+            viewer,
+            moderator,
+            needsReview: moderator && url.searchParams.get("review") === "1",
             meal: url.searchParams.get("meal") || "all",
             sort: url.searchParams.get("sort") || "new",
             offset: url.searchParams.get("offset") || 0,
@@ -95,7 +104,13 @@ export default async function handler(request) {
         return Response.json(await toggleLike(signedIn(request), idFrom(id)));
       case "GET community/posts/:id/comments":
         return Response.json(
-          { comments: await listComments(idFrom(id), viewerOf(request)) },
+          {
+            comments: await listComments(
+              idFrom(id),
+              viewerOf(request),
+              await isAdmin(viewerOf(request)),
+            ),
+          },
           { headers: { "Cache-Control": "no-store" } },
         );
       case "POST community/posts/:id/comments": {
