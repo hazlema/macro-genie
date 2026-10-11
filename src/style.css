@@ -2664,7 +2664,7 @@ dialog.dislikes[open] {
   text-transform: uppercase;
   color: var(--lime);
 }
-.board-group:first-child .board-label {
+.board-group.forums .board-label {
   color: #8fb1e8;
 }
 .board-chips {

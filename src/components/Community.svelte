@@ -135,15 +135,15 @@
 
       <div class="board-bar">
         <div class="board-group">
-          <p class="board-label">Forums</p>
-          <div class="board-chips forum" role="group" aria-label="Forums">
-            {#each FORUMS as [id, label]}<button class:chosen={board === id} aria-pressed={board === id} onclick={() => pickForum(id)}>{label}<span>{counts[id] ?? 0}</span></button>{/each}
-          </div>
-        </div>
-        <div class="board-group">
           <p class="board-label">Recipe boards</p>
           <div class="board-chips" role="group" aria-label="Recipe boards">
             {#each MEALS as [id, label]}<button class:chosen={!board && meal === id} aria-pressed={!board && meal === id} onclick={() => pickMeal(id)}>{label}<span>{counts[id] ?? 0}</span></button>{/each}
+          </div>
+        </div>
+        <div class="board-group forums">
+          <p class="board-label">Forums</p>
+          <div class="board-chips forum" role="group" aria-label="Forums">
+            {#each FORUMS as [id, label]}<button class:chosen={board === id} aria-pressed={board === id} onclick={() => pickForum(id)}>{label}<span>{counts[id] ?? 0}</span></button>{/each}
           </div>
         </div>
       </div>
