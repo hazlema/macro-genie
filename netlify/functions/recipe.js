@@ -1,4 +1,9 @@
-import { UserFacingError, writeRecipe } from "../../server/chef.js";
+import {
+  UserFacingError,
+  methodRequest,
+  writeRecipe,
+} from "../../server/chef.js";
+import { withCredit } from "../../server/credits.js";
 import { fail } from "../../server/http.js";
 
 // Writes a structured recipe (version 2) for fixed ingredients and amounts.
@@ -13,7 +18,10 @@ export default async function handler(request) {
     const body = await request.json().catch(() => {
       throw new UserFacingError("Send the request as JSON.");
     });
-    return Response.json(await writeRecipe(body));
+    methodRequest.parse(body);
+    return Response.json(
+      await withCredit(request, "recipe", () => writeRecipe(body)),
+    );
   } catch (error) {
     return fail(error);
   }

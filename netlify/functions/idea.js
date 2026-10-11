@@ -1,4 +1,9 @@
-import { UserFacingError, generateIdea } from "../../server/chef.js";
+import {
+  UserFacingError,
+  generateIdea,
+  ideaRequest,
+} from "../../server/chef.js";
+import { withCredit } from "../../server/credits.js";
 import { fail } from "../../server/http.js";
 
 // Five of these run in parallel per "Get ideas" click, one idea each.
@@ -13,7 +18,11 @@ export default async function handler(request) {
     const body = await request.json().catch(() => {
       throw new UserFacingError("Send the request as JSON.");
     });
-    return Response.json(await generateIdea(body));
+    // Check the request before taking a credit for it.
+    ideaRequest.parse(body);
+    return Response.json(
+      await withCredit(request, "idea", () => generateIdea(body)),
+    );
   } catch (error) {
     return fail(error);
   }

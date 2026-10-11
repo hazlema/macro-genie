@@ -223,22 +223,26 @@ test("a recipe without steps is asked for again, then fails clearly", async () =
   }
 });
 
-test("without an API key the endpoint says so instead of failing vaguely", async () => {
+test("the idea endpoint asks for sign-in, and a missing API key is named clearly", async () => {
+  const { client } = await import("../server/chef.js");
   const saved = {
     key: process.env.ANTHROPIC_API_KEY,
     url: process.env.ANTHROPIC_BASE_URL,
+    secret: process.env.SESSION_SECRET,
   };
   delete process.env.ANTHROPIC_API_KEY;
   delete process.env.ANTHROPIC_BASE_URL;
+  process.env.SESSION_SECRET = "s".repeat(40);
   try {
-    const res = await handler(
+    assert.throws(() => client(), /ANTHROPIC_API_KEY/);
+    const signedOut = await handler(
       new Request("https://example.com/api/idea", {
         method: "POST",
         body: JSON.stringify(base),
       }),
     );
-    assert.equal(res.status, 503);
-    assert.match((await res.json()).error, /ANTHROPIC_API_KEY/);
+    assert.equal(signedOut.status, 401);
+    assert.match((await signedOut.json()).error, /Sign in/);
     const bad = await handler(
       new Request("https://example.com/api/idea", {
         method: "POST",
@@ -247,8 +251,13 @@ test("without an API key the endpoint says so instead of failing vaguely", async
     );
     assert.equal(bad.status, 400);
   } finally {
-    if (saved.key !== undefined) process.env.ANTHROPIC_API_KEY = saved.key;
-    if (saved.url !== undefined) process.env.ANTHROPIC_BASE_URL = saved.url;
+    for (const [name, value] of [
+      ["ANTHROPIC_API_KEY", saved.key],
+      ["ANTHROPIC_BASE_URL", saved.url],
+      ["SESSION_SECRET", saved.secret],
+    ])
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
   }
 });
 
