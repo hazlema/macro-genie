@@ -29,6 +29,7 @@ export const ideaModel = () => pick("IDEA_MODEL");
 export const recipeModel = () => pick("RECIPE_MODEL");
 const { foods } = normalizeDataset(raw);
 const byId = new Map(foods.map((f) => [f.id, f]));
+export const foodById = (id) => byId.get(id) ?? null;
 
 // Each of the four parallel requests leans a different way so the ideas differ.
 export const ANGLES = [
