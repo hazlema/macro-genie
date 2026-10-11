@@ -275,14 +275,14 @@
                 <p class="idea-error">{entry.error}</p>
                 <button class="outline-button" onclick={() => requestIdea(i, batch)}>Try again</button>
               {:else}
+                <h3>{entry.idea.name}</h3>
+                <p class="idea-description">{entry.idea.description}</p>
                 {#if entry.idea.pairing}
                   <div class="pairing {entry.idea.pairing}">
                     <p class="pairing-label"><span class="pairing-dot" aria-hidden="true"></span>{PAIRING[entry.idea.pairing]}</p>
                     {#if entry.idea.pairingNote}<p class="pairing-note">{entry.idea.pairingNote}</p>{/if}
                   </div>
                 {/if}
-                <h3>{entry.idea.name}</h3>
-                <p class="idea-description">{entry.idea.description}</p>
                 {#if s}
                   {@const missing = missingRequests([...entry.idea.ingredients.map(x => x.name), ...entry.idea.ingredients.map(x => x.fulfills).filter(Boolean), ...(entry.idea.seasonings ?? [])], (entry.want ?? want).filter(w => !isDisliked({ name: w }, prefs.dislikes)))}
                   {#if missing.length}<p class="idea-fit short">Leaves out {missing.join(', ')}</p>{/if}
