@@ -1,9 +1,8 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { NetlifyDB } from "@netlify/database-dev";
-import { getDatabase } from "@netlify/database";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from "jose";
-import { useDatabase } from "../server/db.js";
+import { connect, useDatabase } from "../server/db.js";
 import {
   addCredits,
   findOrCreateAccount,
@@ -26,8 +25,8 @@ let signer;
 before(async () => {
   server = new NetlifyDB();
   const connectionString = await server.start();
-  await server.applyMigrations("./netlify/database/migrations");
-  db = getDatabase({ connectionString });
+  await server.applyMigrations("./db/migrations");
+  db = connect(connectionString);
   useDatabase(db);
   process.env.SESSION_SECRET = "x".repeat(40);
   process.env.GOOGLE_CLIENT_ID = CLIENT_ID;

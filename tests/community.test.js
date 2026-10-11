@@ -1,10 +1,9 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { NetlifyDB } from "@netlify/database-dev";
-import { getDatabase } from "@netlify/database";
 import raw from "../foods.json" with { type: "json" };
 import { findFoods, normalizeDataset } from "../src/lib/foods.js";
-import { useDatabase } from "../server/db.js";
+import { connect, useDatabase } from "../server/db.js";
 import { findOrCreateAccount } from "../server/accounts.js";
 import { moderate } from "../server/moderate.js";
 import {
@@ -34,8 +33,8 @@ let db;
 before(async () => {
   server = new NetlifyDB();
   const connectionString = await server.start();
-  await server.applyMigrations("./netlify/database/migrations");
-  db = getDatabase({ connectionString });
+  await server.applyMigrations("./db/migrations");
+  db = connect(connectionString);
   useDatabase(db);
   process.env.SESSION_SECRET = "y".repeat(40);
 });

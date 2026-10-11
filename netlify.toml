@@ -1,5 +1,6 @@
 [build]
-  command = "npm run build"
+  # Production deploys apply new db/migrations to Neon first (see scripts/migrate.js).
+  command = "npm run db:migrate && npm run build"
   publish = "dist"
 
 [build.environment]
