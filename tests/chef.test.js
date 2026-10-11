@@ -531,3 +531,49 @@ test("each idea carries an honest pairing rating; there are four variations", as
     console.log = quiet;
   }
 });
+
+test("written recipes get their kitchen measures checked against real weights", async () => {
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    const apple = findFoods(foods, "apples granny smith")[0];
+    const recipe = await writeRecipe(
+      {
+        name: "Apple bake",
+        servings: 1,
+        ingredients: [
+          { id: apple.id, grams: 35 },
+          { id: pumpkin.id, grams: 230 },
+        ],
+      },
+      fakeApi([
+        toolUse("r", "submit_recipe", {
+          name: "Apple bake",
+          description: "",
+          ingredients: [
+            {
+              n: 1,
+              label: "Granny Smith apple",
+              qty: 0.5,
+              unit: "Granny Smith apple",
+              prep: "sliced",
+            },
+            { n: 2, label: "canned pumpkin", qty: 3, unit: "cup", prep: "" },
+          ],
+          seasonings: [],
+          steps: ["Bake {1} apple with {2} pumpkin."],
+          tip: "",
+        }),
+      ]),
+    );
+    assert.deepEqual(
+      recipe.ingredients.map((i) => [i.qty, i.unit]),
+      [
+        [null, ""],
+        [0.94, "cup"],
+      ],
+    );
+  } finally {
+    console.log = quiet;
+  }
+});

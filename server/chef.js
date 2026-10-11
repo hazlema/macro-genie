@@ -3,6 +3,7 @@
 // solver, never from the model.
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS, addUsage, emptyUsage, logUsage } from "./usage.js";
+import { checkMeasure } from "../src/lib/measures.js";
 import { z } from "zod";
 import raw from "../foods.json" with { type: "json" };
 import {
@@ -598,17 +599,22 @@ export function buildRecipe(submission, req, items, solved) {
   const ingredients = items.map((item, index) => {
     const c = byN.get(index + 1) ?? {};
     const unit = clean(c.unit, 30);
-    const qty =
+    // The model's kitchen measure, checked against the food's real weight.
+    const measure = checkMeasure(
+      item.food,
+      item.grams,
       Number(c.qty) > 0 && unit && !/^g(rams?)?$/i.test(unit)
         ? Number(c.qty)
-        : null;
+        : null,
+      unit,
+    );
     return {
       id: item.food.id,
       name: item.food.name,
       label: clean(c.label, 60) || item.food.name,
       grams: item.grams,
-      qty,
-      unit: qty ? unit : "",
+      qty: measure.qty,
+      unit: measure.qty ? measure.unit : "",
       prep: clean(c.prep, 80),
     };
   });
