@@ -46,7 +46,11 @@
         <li class="review-item">
           <p class="review-meta"><span class="meal-tag">{item.type}</span> <strong>{label[item.status] ?? item.status}</strong> · by {item.author}{item.authorBanned ? ' (banned)' : ''} · {day(item.createdAt)}{item.reports ? ` · ${item.reports} ${item.reports === 1 ? 'report' : 'reports'}` : ''}</p>
           {#if item.reason}<p class="review-reason">{item.reason}</p>{/if}
-          {#if item.type === 'post'}
+          {#if item.type === 'post' && item.kind === 'thread'}
+            <h3>{item.name}</h3>
+            <p class="review-comment">{item.body}</p>
+            <p class="review-context">Thread in {item.board === 'support' ? 'Support' : 'General'}</p>
+          {:else if item.type === 'post'}
             <h3>{item.name}</h3>
             <button class="text-button" onclick={() => openRecipe = openRecipe === item.id ? null : item.id}>{openRecipe === item.id ? 'Hide recipe' : 'Read the recipe'}</button>
             {#if openRecipe === item.id}<div class="post-recipe"><RecipeCard recipe={item.recipe} scalable={false} /></div>{/if}

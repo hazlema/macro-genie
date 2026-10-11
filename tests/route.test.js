@@ -15,10 +15,11 @@ test(
   { skip: !parse && "needs the Svelte compiler" },
   () => {
     assert.deepEqual(parse("/"), {
-      tab: "foods",
+      tab: "community",
       postId: null,
       recipeId: null,
     });
+    assert.equal(parse("/foods").tab, "foods");
     assert.deepEqual(parse("/community/42"), {
       tab: "community",
       postId: 42,
@@ -35,7 +36,7 @@ test(
       recipeId: null,
     });
     assert.equal(parse("/community/not-a-number").postId, null);
-    assert.equal(parse("/nonsense").tab, "foods");
+    assert.equal(parse("/nonsense").tab, "community");
     assert.equal(pathFor({ tab: "community", postId: 7 }), "/community/7");
     assert.equal(pathFor({ tab: "saved", recipeId: "a b" }), "/recipes/a%20b");
     assert.equal(pathFor({ tab: "recipes" }), "/builder");

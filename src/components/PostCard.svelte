@@ -12,7 +12,11 @@
   let { post, onremoved, startOpen = false } = $props();
 
   // Starting values from the post; the card keeps its own from then on.
-  const start = untrack(() => ({ likes: post.likes, liked: post.likedByMe, comments: post.comments, servings: post.recipe.servings, id: post.id }));
+  const start = untrack(() => ({ likes: post.likes, liked: post.likedByMe, comments: post.comments, servings: post.recipe?.servings ?? 1, id: post.id }));
+  // A forum thread (title + message) rather than a shared recipe.
+  const thread = untrack(() => post.kind === 'thread');
+  // Threads open their replies straight away on their own page.
+  const BOARD_NAMES = { general: 'General', support: 'Support' };
   let likes = $state(start.likes);
   let liked = $state(start.liked);
   let commentCount = $state(start.comments);
@@ -30,7 +34,7 @@
   let linkCopied = $state(false);
 
   const day = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  const per = $derived(post.recipe.perServing ?? {});
+  const per = $derived(post.recipe?.perServing ?? {});
 
   async function like() {
     if (!account.signedIn) { account.loginOpen = true; return; }
@@ -103,10 +107,13 @@
     } catch { note = 'Couldn’t copy. The link is this page’s address once you open the recipe.'; }
   }
 
+  // A thread's own page shows its replies right away.
+  if (untrack(() => thread && startOpen)) loadComments();
+
   function save() {
     const { perServing, gramsPerServing, ...rest } = $state.snapshot(post.recipe);
     saved = !!saveRecipe({ ...rest, perServing, gramsPerServing, shownServings: servings, communityId: post.id });
-    note = saved ? 'Saved to your recipe book (My recipes).' : 'This browser wouldn’t store the recipe.';
+    note = saved ? 'Saved to your Recipe Book.' : 'This browser wouldn’t store the recipe.';
   }
 </script>
 
@@ -124,22 +131,28 @@
   <div class="post-head">
     <div>
       <h3><a class="post-title" href={`/community/${post.id}`} onclick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); navigate({ tab: 'community', postId: post.id }); }}>{post.name}</a></h3>
-      <p class="post-meta"><span class="meal-tag">{post.mealType}</span> by {post.author}, {day(post.createdAt)}</p>
+      <p class="post-meta"><span class="meal-tag" class:forum-tag={thread}>{thread ? BOARD_NAMES[post.board] : post.mealType}</span> by {post.author}, {day(post.createdAt)}</p>
     </div>
     <button class="like" class:liked aria-pressed={liked} aria-label={`${liked ? 'Unlike' : 'Like'} ${post.name}`} onclick={like} disabled={status !== 'live'}>
       <span aria-hidden="true">{liked ? '♥' : '♡'}</span> {likes}
     </button>
   </div>
+  {#if thread}
+    <p class="thread-body" class:clamped={!startOpen}>{post.body}</p>
+  {:else}
   {#if post.recipe.description}<p class="post-description">{post.recipe.description}</p>{/if}
   <p class="idea-macros">Per serving: <strong>{formatAmount(per.calories)}</strong> kcal<span class="separator">·</span><strong>{formatAmount(per.protein)}</strong> g protein<span class="separator">·</span><strong>{formatAmount(per.netCarbs)}</strong> g net carbs<span class="separator">·</span><strong>{formatAmount(per.fat)}</strong> g fat</p>
+  {/if}
 
   <div class="post-actions">
-    <button class="outline-button" aria-expanded={open} onclick={() => open = !open}>{open ? 'Hide recipe' : 'Show recipe'}</button>
+    {#if !thread}<button class="outline-button" aria-expanded={open} onclick={() => open = !open}>{open ? 'Hide recipe' : 'Show recipe'}</button>{/if}
     {#if status === 'live'}
-      <button class="text-button" aria-expanded={commentsOpen} onclick={loadComments}>{commentsOpen ? 'Hide comments' : `Comments (${commentCount})`}</button>
+      <button class="text-button" aria-expanded={commentsOpen} onclick={loadComments}>{commentsOpen ? (thread ? 'Hide replies' : 'Hide comments') : `${thread ? 'Replies' : 'Comments'} (${commentCount})`}</button>
     {/if}
-    {#if saved}<span class="post-saved">In your recipe book</span>
-    {:else}<button class="outline-button" onclick={save}>Save to my recipe book</button>{/if}
+    {#if !thread}
+      {#if saved}<span class="post-saved">In your Recipe Book</span>
+      {:else}<button class="outline-button" onclick={save}>Save to Recipe Book</button>{/if}
+    {/if}
     {#if status === 'live'}<button class="text-button" onclick={copyLink}>{linkCopied ? 'Link copied' : 'Copy link'}</button>{/if}
     {#if confirm === 'remove'}
       <span class="confirm-delete">Remove your post for everyone? <button class="danger-button" onclick={removePost}>Remove</button><button class="text-button" onclick={() => confirm = ''}>Keep it</button></span>
@@ -156,7 +169,7 @@
   </div>
   {#if note}<p class="post-note" role="status">{note}</p>{/if}
 
-  {#if open}
+  {#if open && !thread}
     <div class="post-recipe"><RecipeCard recipe={post.recipe} bind:servings /></div>
   {/if}
 
@@ -183,8 +196,8 @@
       {/if}
       {#if account.signedIn}
         <form class="comment-form" onsubmit={send}>
-          <textarea bind:value={draft} maxlength="1000" rows="2" aria-label="Write a comment" placeholder="Made it? Tweaked it? Say how it went."></textarea>
-          <button class="primary-button" disabled={sending || !draft.trim()}>{sending ? 'Posting…' : 'Comment'}</button>
+          <textarea bind:value={draft} maxlength="1000" rows="2" aria-label={thread ? 'Write a reply' : 'Write a comment'} placeholder={thread ? 'Write a reply' : 'Made it? Tweaked it? Say how it went.'}></textarea>
+          <button class="primary-button" disabled={sending || !draft.trim()}>{sending ? 'Posting…' : thread ? 'Reply' : 'Comment'}</button>
         </form>
       {:else}
         <button class="text-button" onclick={() => account.loginOpen = true}>Sign in to comment</button>

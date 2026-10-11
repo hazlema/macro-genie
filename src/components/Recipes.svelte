@@ -419,7 +419,7 @@
                     <button class="primary-button" onclick={writeRecipe} disabled={!account.signedIn || account.credits < 1}>Write it again · 1 credit</button>
                   {:else}
                     {#if savedId}
-                      <button class="primary-button" onclick={onviewsaved}>Saved. View in My recipes</button>
+                      <button class="primary-button" onclick={onviewsaved}>Saved. View in Recipe Book</button>
                     {:else}
                       <button class="primary-button" onclick={saveCard}>Save recipe</button>
                     {/if}

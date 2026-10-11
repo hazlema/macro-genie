@@ -67,12 +67,12 @@
 
 <a class="skip-link" href="#results">{tab === 'foods' ? 'Skip to foods' : 'Skip to content'}</a>
 <header class="topbar">
-  <a class="wordmark" href="/" aria-label="Macro Genie home">Macro Genie<span class="brand-dot"></span></a>
+  <a class="wordmark" href="/community" onclick={(e) => { e.preventDefault(); navigate({ tab: 'community' }); }} aria-label="Macro Genie home">Macro Genie<span class="brand-dot"></span></a>
   <nav class="tabs" aria-label="Browse">
-    <button class:current={tab === 'foods'} aria-current={tab === 'foods' ? 'page' : undefined} onclick={() => navigate({ tab: 'foods' })}>Foods <span>{dataset ? dataset.foods.length.toLocaleString() : '…'}</span></button>
-    <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => navigate({ tab: 'recipes' })}>Recipe Builder</button>
     <button class:current={tab === 'community'} aria-current={tab === 'community' ? 'page' : undefined} onclick={() => navigate({ tab: 'community' })}>Community</button>
-    <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => navigate({ tab: 'saved' })}>My recipes{#if prefs.recipes.length}<span>{prefs.recipes.length}</span>{/if}</button>
+    <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => navigate({ tab: 'saved' })}>Recipe Book{#if prefs.recipes.length}<span>{prefs.recipes.length}</span>{/if}</button>
+    <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => navigate({ tab: 'recipes' })}>Recipe Builder</button>
+    <button class:current={tab === 'foods'} aria-current={tab === 'foods' ? 'page' : undefined} onclick={() => navigate({ tab: 'foods' })}>Food Macros <span>{dataset ? dataset.foods.length.toLocaleString() : '…'}</span></button>
   </nav>
   {#if tab === 'foods'}
     <div class="search-box">

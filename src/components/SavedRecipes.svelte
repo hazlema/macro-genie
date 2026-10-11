@@ -88,7 +88,7 @@
     <aside class:mobile-open={mobileOpen}>
       <button class="mobile-filter-toggle" onclick={() => mobileOpen = !mobileOpen} aria-expanded={mobileOpen} aria-controls="saved-list">Saved recipes ({prefs.recipes.length})<span>{mobileOpen ? '−' : '+'}</span></button>
       <div class="filter-content" id="saved-list">
-        <div class="filter-heading"><h1>My recipes</h1></div>
+        <div class="filter-heading"><h1>Recipe Book</h1></div>
         <p class="filter-intro">Saved in this browser. Clearing site data removes them.</p>
         <ul class="saved-list">
           {#each prefs.recipes as r (r.id)}
