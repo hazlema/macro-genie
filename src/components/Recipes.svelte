@@ -7,6 +7,7 @@
   import { structuredText } from '../lib/scale.js';
   import { prefs, save, saveRecipe } from '../lib/prefs.svelte.js';
   import { printRecipe } from '../lib/print.svelte.js';
+  import { account, noteResponse } from '../lib/account.svelte.js';
 
   let { foods, oneditdislikes, onviewsaved } = $props();
 
@@ -29,6 +30,8 @@
   let chosen = $state(Array.isArray(draft.chosen?.items) ? draft.chosen : null);
   // The written recipe: structured (version 2), so it can be shown for any servings.
   let written = $state(draft.written?.version === 2 ? draft.written : null);
+  // How many ideas a run makes; each one uses a credit.
+  let ideaCount = $state(Number.isInteger(draft.ideaCount) && draft.ideaCount >= 1 && draft.ideaCount <= 4 ? draft.ideaCount : 4);
   let viewServings = $state(draft.written?.version === 2 ? (draft.viewServings ?? draft.written.servings) : 4);
   // Which amounts the written recipe was for, and whether it's been saved.
   let methodFor = $state(typeof draft.methodFor === 'string' ? draft.methodFor : '');
@@ -45,7 +48,7 @@
   let batch = 0;
 
   $effect(() => {
-    prefs.draft = $state.snapshot({ servings, ranges, wantText, note, ideas: ideas.filter(i => i.status === 'ready'), chosen, written, viewServings, methodFor, savedId });
+    prefs.draft = $state.snapshot({ servings, ranges, wantText, note, ideas: ideas.filter(i => i.status === 'ready'), chosen, written, viewServings, methodFor, savedId, ideaCount });
     save();
   });
 
@@ -83,8 +86,9 @@
   function swapTo(item, food) {
     item.id = food.id;
     swapping = null;
-    // A written recipe would now name the old food; rewrite it to match.
-    if (written && !writing) writeRecipe();
+    // A written recipe would now name the old food; rewrite it to match
+    // (one credit). Without a credit it's marked out of date instead.
+    if (written && !writing && account.signedIn && account.credits >= 1) writeRecipe();
   }
   const focusOnMount = (node) => { node.focus(); node.select(); };
 
@@ -120,6 +124,7 @@
         body: JSON.stringify({ servings, ranges: activeRanges(), want: asked, note: note.trim(), dislikes: $state.snapshot(prefs.dislikes), angle }),
       });
       const body = await res.json().catch(() => null);
+      noteResponse(res, body);
       if (token !== batch) return;
       ideas[angle] = !res.ok || !body || body.error
         ? { status: 'error', error: body?.error ?? unreachable(res.status) }
@@ -130,8 +135,9 @@
   }
   function getIdeas() {
     const token = ++batch;
-    ideas = ANGLES.map(() => ({ status: 'pending' }));
-    ANGLES.forEach((_, angle) => requestIdea(angle, token));
+    if (!account.signedIn) { account.loginOpen = true; return; }
+    ideas = ANGLES.slice(0, ideaCount).map(() => ({ status: 'pending' }));
+    ideas.forEach((_, angle) => requestIdea(angle, token));
   }
 
   function choose(idea) {
@@ -154,6 +160,7 @@
         body: JSON.stringify({ name: chosen.name, description: chosen.description ?? '', servings, seasonings: chosen.seasonings ?? [], dislikes: $state.snapshot(prefs.dislikes), ingredients: s.amounts.filter(a => a.grams > 0).map(a => ({ id: a.food.id, grams: a.grams })) }),
       });
       const body = await res.json().catch(() => null);
+      noteResponse(res, body);
       if (!res.ok || body?.version !== 2) {
         methodError = body?.error ?? unreachable(res.status);
         return;
@@ -250,8 +257,18 @@
       {#if wantDisliked.length}<p class="want-warning">{wantDisliked.join(', ')} {wantDisliked.length === 1 ? 'is' : 'are'} on your list of foods you won’t eat, so {wantDisliked.length === 1 ? 'it' : 'they'} won’t be used.</p>{/if}
       <label class="note-field"><span>Anything else? <small>Optional</small></span><input bind:value={note} maxlength="300" placeholder="Comfort food, ready in 30 minutes, no oven" /></label>
       <div class="brief-actions">
-        <button class="primary-button" onclick={getIdeas} disabled={generating || !!recipe.error}>{generating ? 'Thinking up ideas…' : readyIdeas.length ? 'Get 4 new ideas' : 'Get 4 ideas'}</button>
-        <span>Ideas appear one by one, usually within half a minute.</span>
+        {#if account.signedIn}
+          <label class="idea-count"><span>Ideas</span><input type="range" min="1" max="4" step="1" bind:value={ideaCount} aria-valuetext={`${ideaCount} ideas, ${ideaCount} credits`} /><strong>{ideaCount}</strong></label>
+          <button class="primary-button" onclick={getIdeas} disabled={generating || !!recipe.error || account.credits < ideaCount}>{generating ? 'Thinking up ideas…' : `Get ${ideaCount} ${readyIdeas.length ? 'new ' : ''}${ideaCount === 1 ? 'idea' : 'ideas'} · ${ideaCount} ${ideaCount === 1 ? 'credit' : 'credits'}`}</button>
+          {#if account.credits < ideaCount}
+            <span class="credit-short">Not enough credits: you have {account.credits}. {account.credits ? 'Try fewer ideas, or b' : 'B'}uying credits is coming soon.</span>
+          {:else}
+            <span>Ideas appear one by one, usually within half a minute.</span>
+          {/if}
+        {:else}
+          <button class="primary-button" onclick={() => account.loginOpen = true}>Sign in to get ideas</button>
+          <span>New accounts get 10 free credits: one per idea or written recipe.</span>
+        {/if}
       </div>
     </section>
 
@@ -345,7 +362,7 @@
                   {:else if swapQuery.trim().length >= 2}
                     <p class="swap-none">No foods match “{swapQuery.trim()}”. Try a shorter word.</p>
                   {/if}
-                  <p class="swap-hint">Keeps the amount; the dish is re-fitted to your targets.</p>
+                  <p class="swap-hint">Keeps the amount; the dish is re-fitted to your targets.{written ? ' A written recipe is rewritten to match, using 1 credit.' : ''}</p>
                 </li>
               {/if}
             {/if}
@@ -388,14 +405,18 @@
                   <h3>Write the full recipe</h3>
                   <p>Claude writes the steps using exactly these amounts.</p>
                 </div>
-                <button class="primary-button" onclick={writeRecipe}>Write the recipe</button>
+                {#if account.signedIn}
+                  <button class="primary-button" onclick={writeRecipe} disabled={account.credits < 1}>Write the recipe · 1 credit</button>
+                {:else}
+                  <button class="primary-button" onclick={() => account.loginOpen = true}>Sign in to write it</button>
+                {/if}
               </div>
             {:else}
               <RecipeCard recipe={card} bind:servings={viewServings} {writing} {stale} scalable={!stale}>
                 {#if !writing}
                   {#if stale}
                     <p class="stale-note">You changed the recipe since this was written, so the steps below are out of date.</p>
-                    <button class="primary-button" onclick={writeRecipe}>Write it again</button>
+                    <button class="primary-button" onclick={writeRecipe} disabled={!account.signedIn || account.credits < 1}>Write it again · 1 credit</button>
                   {:else}
                     {#if savedId}
                       <button class="primary-button" onclick={onviewsaved}>Saved. View in My recipes</button>
@@ -404,7 +425,7 @@
                     {/if}
                     <button class="outline-button" onclick={() => printRecipe($state.snapshot(written), viewServings)}>Print</button>
                     <button class="outline-button" onclick={copyRecipe}>{copied ? 'Copied' : 'Copy'}</button>
-                    <button class="text-button" onclick={writeRecipe}>Write it again</button>
+                    <button class="text-button" onclick={writeRecipe} disabled={!account.signedIn || account.credits < 1}>Write it again · 1 credit</button>
                   {/if}
                 {/if}
               </RecipeCard>
@@ -417,6 +438,6 @@
         {/if}
       </section>
     {/if}
-    <footer><p>Food by your numbers. <span>No accounts. Just answers.</span></p><p>Ideas come from Claude; amounts are sized to your targets from USDA data and rounded to the gram. Ingredients can shrink to nothing or grow to double what was suggested; “Must use” keeps at least a quarter.</p></footer>
+    <footer><p>Food by your numbers. <span>Food search is free, no account needed.</span></p><p>Ideas come from Claude; amounts are sized to your targets from USDA data and rounded to the gram. Ingredients can shrink to nothing or grow to double what was suggested; “Must use” keeps at least a quarter.</p></footer>
   </main>
 </div>

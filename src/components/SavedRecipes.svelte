@@ -5,6 +5,7 @@
   import { structuredText } from '../lib/scale.js';
   import { prefs, deleteRecipe, updateRecipe } from '../lib/prefs.svelte.js';
   import { printRecipe } from '../lib/print.svelte.js';
+  import { account, noteResponse } from '../lib/account.svelte.js';
 
   let { selectedId = $bindable(null), onmakeone, foods = [] } = $props();
   let servings = $state(4);
@@ -40,6 +41,7 @@
       rewriteError = 'Some of this recipe’s foods couldn’t be found, so it can’t be rewritten. Build it again in the Recipe Builder.';
       return;
     }
+    if (!account.signedIn) { account.loginOpen = true; return; }
     rewriting = true; rewriteError = '';
     try {
       const res = await fetch('/api/recipe', {
@@ -48,6 +50,7 @@
         body: JSON.stringify({ name: target.name, description: target.description ?? '', servings, seasonings: target.seasonings ?? [], dislikes: $state.snapshot(prefs.dislikes), ingredients: ingredients.map(i => ({ id: i.food.id, grams: i.grams })) }),
       });
       const body = await res.json().catch(() => null);
+      noteResponse(res, body);
       if (!res.ok || body?.version !== 2) {
         rewriteError = body?.error ?? (res.status === 429 ? 'You’re making requests faster than the site allows. Wait a minute, then try again.' : 'The recipe service had a problem. Try again.');
         return;
@@ -106,7 +109,7 @@
                 <span aria-live="polite">Serves {servings}</span>
                 <button aria-label="More servings" disabled={servings >= 50 || rewriting} onclick={() => servings++}>+</button>
               </span>
-              <button class="outline-button" disabled={rewriting} onclick={rewrite}>{rewriting ? 'Rewriting…' : `Rewrite for ${servings} ${servings === 1 ? 'serving' : 'servings'}`}</button>
+              <button class="outline-button" disabled={rewriting} onclick={rewrite}>{rewriting ? 'Rewriting…' : `Rewrite for ${servings} ${servings === 1 ? 'serving' : 'servings'} · 1 credit`}</button>
             </div>
           {/if}
           {#if rewriteError}<p class="method-error" role="alert">{rewriteError}</p>{/if}

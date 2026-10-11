@@ -31,6 +31,14 @@ Connect this GitHub repository to Netlify. The included `netlify.toml` supplies:
 
 Push changes to the branch connected to Netlify to rebuild both the website and MCP data. The static website works independently of the functions.
 
+### Accounts and credits
+
+The Recipe Builder needs a free account: "Login / Create Account" signs in with Google, and new accounts get 10 credits. Each idea or written recipe uses one credit; a job that fails is refunded. Food search, My recipes, and the MCP server need no account.
+
+- **Stored:** Google's account id, a first name for display, the credit balance, and later a Stripe customer id, in Netlify Database (Postgres). A credit ledger records each change with its reason. No email or password.
+- **Environment variables** (Functions scope): `GOOGLE_CLIENT_ID` (a Google Cloud OAuth "Web application" client; authorized JavaScript origins `http://localhost`, `http://localhost:5173`, and the site's URL) and `SESSION_SECRET` (any random string of 32+ characters; signs the session cookie).
+- **Database:** migrations in `netlify/database/migrations/` are applied by Netlify on deploy. Locally, start `npm run dev`, then run `npm run db:migrate` once in another terminal. Netlify Database uses Netlify credits for compute; any Postgres works (pass a connection string in `server/db.js`).
+
 ### Recipe ideas (Claude)
 
 Set `ANTHROPIC_API_KEY` in Netlify under **Project configuration → Environment variables**, scoped to **Functions**, then redeploy. Without it, the Recipe Builder explains that ideas aren't set up.

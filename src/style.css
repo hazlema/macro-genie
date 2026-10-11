@@ -2183,3 +2183,74 @@ dialog.dislikes[open] {
   line-height: 1.5;
   color: #c8d0c8;
 }
+
+/* Account area in the top bar */
+.account-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.search-box + .account-area {
+  margin-left: 0;
+}
+.topbar > .account-area:first-of-type,
+.tabs + .account-area {
+  margin-left: auto;
+}
+.credit-pill {
+  color: var(--lime);
+  background: #c2db7510;
+  border: 1px solid #c2db7540;
+  border-radius: 20px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.account-name {
+  font-size: 14px;
+  color: #c8d0c8;
+}
+.login-button {
+  padding: 10px 18px;
+}
+.google-slot {
+  /* Google's button frame paints a white box on dark-scheme pages. */
+  color-scheme: light;
+  min-height: 44px;
+  display: flex;
+  justify-content: center;
+  margin: 6px 0 10px;
+}
+@media (max-width: 760px) {
+  .account-area {
+    order: 2;
+    margin-left: auto;
+  }
+  .account-name {
+    display: none;
+  }
+}
+
+/* Ideas per run, and running short of credits */
+.idea-count {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.idea-count input {
+  accent-color: var(--lime);
+  width: 110px;
+}
+.idea-count strong {
+  color: #e6e8e4;
+  font-size: 15px;
+  min-width: 1ch;
+  font-variant-numeric: tabular-nums;
+}
+.brief-actions .credit-short {
+  color: var(--amber);
+}

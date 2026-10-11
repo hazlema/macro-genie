@@ -4,6 +4,8 @@
   import RangeTable from './components/RangeTable.svelte';
   import DislikeSummary from './components/DislikeSummary.svelte';
   import DislikesModal from './components/DislikesModal.svelte';
+  import LoginModal from './components/LoginModal.svelte';
+  import { account, refreshAccount, signOut } from './lib/account.svelte.js';
   import Recipes from './components/Recipes.svelte';
   import SavedRecipes from './components/SavedRecipes.svelte';
   import RecipeCard from './components/RecipeCard.svelte';
@@ -46,7 +48,7 @@
       loadError = 'The food data couldn’t be loaded. Check your connection and try again.';
     } finally { loading = false; }
   }
-  onMount(loadFoods);
+  onMount(() => { loadFoods(); refreshAccount(); });
 
   function changed() { visible = 20; activePreset = ''; }
   function applyPreset(preset) {
@@ -75,6 +77,15 @@
       <input type="search" aria-label="Search foods" placeholder="Search foods: steak, lentil, yogurt" bind:value={query} oninput={changed} />
     </div>
   {/if}
+  <div class="account-area">
+    {#if account.signedIn}
+      <span class="credit-pill" title="Each idea or written recipe uses one credit">{account.credits} {account.credits === 1 ? 'credit' : 'credits'}</span>
+      <span class="account-name">{account.displayName}</span>
+      <button class="text-button" onclick={signOut}>Sign out</button>
+    {:else if account.loaded}
+      <button class="outline-button login-button" onclick={() => account.loginOpen = true}>Login / Create Account</button>
+    {/if}
+  </div>
 </header>
 
 {#if tab === 'foods'}
@@ -118,7 +129,7 @@
         <div class="food-list">{#each result.foods.slice(0, visible) as food (food.id)}<FoodCard {food} {basis} />{/each}</div>
         <div class="pagination"><span>Showing {Math.min(visible, result.foods.length).toLocaleString()} of {result.foods.length.toLocaleString()}</span>{#if result.foods.length > visible}<button class="outline-button" onclick={() => visible += 20}>Show {Math.min(20, result.foods.length - visible)} more <span aria-hidden="true">↓</span></button>{/if}</div>
       {/if}
-      <footer><p>Food by your numbers. <span>No accounts. Just answers.</span></p><p>USDA SR Legacy · {dataset?.total.toLocaleString() ?? '…'} food records. {dataset?.excluded ?? '…'} without serving sizes excluded.</p><p>Missing nutrients appear as — and won’t match an active range. Values are rounded for display; filters use full precision.</p></footer>
+      <footer><p>Food by your numbers. <span>Food search is free, no account needed.</span></p><p>USDA SR Legacy · {dataset?.total.toLocaleString() ?? '…'} food records. {dataset?.excluded ?? '…'} without serving sizes excluded.</p><p>Missing nutrients appear as — and won’t match an active range. Values are rounded for display; filters use full precision.</p></footer>
     </main>
   </div>
 {:else if tab === 'saved'}
@@ -130,5 +141,6 @@
 {/if}
 
 <DislikesModal bind:open={dislikesOpen} foods={dataset?.foods ?? []} />
+<LoginModal />
 
 <div class="print-only">{#if printJob.recipe}<RecipeCard recipe={printJob.recipe} servings={printJob.servings ?? printJob.recipe.servings} scalable={false} />{/if}</div>

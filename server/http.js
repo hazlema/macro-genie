@@ -31,7 +31,7 @@ export const fail = (error) => {
     );
   console.error(error);
   return Response.json(
-    { error: "Something went wrong making this idea. Try again." },
+    { error: "Something went wrong. Try again." },
     { status: 502 },
   );
 };

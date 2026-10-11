@@ -10,6 +10,12 @@ export default defineConfig(({ command }) => {
     // in this plugin, so its credentials are ignored here; no local test ever
     // spends Netlify credits.
     const local = loadEnv("development", process.cwd(), "ANTHROPIC_");
+    // Sign-in settings from .env for the functions under npm run dev.
+    const auth = loadEnv("development", process.cwd(), [
+      "GOOGLE_CLIENT_ID",
+      "SESSION_SECRET",
+    ]);
+    for (const [key, value] of Object.entries(auth)) process.env[key] ??= value;
     process.env.MACRO_GENIE_LOCAL = "1";
     process.env.MACRO_GENIE_LOCAL_KEY = local.ANTHROPIC_API_KEY ?? "";
     console.log(
