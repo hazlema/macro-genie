@@ -44,12 +44,14 @@ export async function roleOf(accountId) {
 export async function requireMod(accountId) {
   const role = await roleOf(accountId);
   if (!role.mod) throw new UserFacingError("Only moderators can do that.", 403);
+  if (role.suspended) throw new UserFacingError(SUSPENDED, 403);
   return role;
 }
 
 export async function requireAdmin(accountId) {
   const role = await roleOf(accountId);
   if (!role.admin) throw new UserFacingError("Only admins can do that.", 403);
+  if (role.suspended) throw new UserFacingError(SUSPENDED, 403);
   return role;
 }
 

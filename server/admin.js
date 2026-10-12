@@ -2,6 +2,7 @@ import { UserFacingError } from "./chef.js";
 import { database, transaction } from "./db.js";
 import { logActivity } from "./activity.js";
 import { roleOf } from "./roles.js";
+import { guard } from "./users.js";
 
 // Everything waiting for a decision: held and blocked posts and comments,
 // plus live items someone has reported.
@@ -53,6 +54,7 @@ export async function decide(type, id, action, actorId = null) {
   if (!["approve", "remove", "suspend"].includes(action))
     throw new UserFacingError("Unknown action.");
   const table = type === "post" ? "posts" : "comments";
+  const actor = action === "suspend" ? await roleOf(actorId) : null;
   const result = await transaction(async (c) => {
     const found = await c.query(
       `SELECT status, account_id${type === "comment" ? ", post_id" : ""} FROM ${table} WHERE id = $1 FOR UPDATE`,
@@ -60,6 +62,15 @@ export async function decide(type, id, action, actorId = null) {
     );
     const row = found.rows[0];
     if (!row) throw new UserFacingError("That item wasn't found.", 404);
+    // Suspending from the queue follows the Users tab's rules: nobody acts
+    // on the owner or themselves, and only admins act on staff.
+    if (action === "suspend") {
+      const author = await c.query(
+        `SELECT id, google_sub, is_admin, is_mod FROM accounts WHERE id = $1`,
+        [row.account_id],
+      );
+      guard(actor, actorId, author.rows[0]);
+    }
     const next = action === "approve" ? "live" : "removed";
     await c.query(
       `UPDATE ${table} SET status = $2, moderation_note = $3 WHERE id = $1`,

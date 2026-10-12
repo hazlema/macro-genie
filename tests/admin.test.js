@@ -10,7 +10,13 @@ import {
   pruneActivity,
 } from "../server/activity.js";
 import { getAccount } from "../server/accounts.js";
-import { addComment, createThread, toggleLike } from "../server/community.js";
+import {
+  addComment,
+  createThread,
+  removeOwnPost,
+  toggleLike,
+} from "../server/community.js";
+import { decide } from "../server/admin.js";
 import {
   adjustCredits,
   deleteAndBan,
@@ -424,4 +430,99 @@ test("admin endpoints: sign-in required, mods vs admins enforced by the server",
     404,
   );
   assert.equal((await call("/api/admin/nope", mod)).status, 404);
+});
+
+// Haiku stand-in that holds everything for review.
+const unsure = {
+  messages: {
+    create: async () => ({
+      stop_reason: "tool_use",
+      content: [
+        {
+          type: "tool_use",
+          name: "submit_review",
+          input: {
+            verdict: "unsure",
+            reason: "Check it.",
+            meal_type: "dinner",
+          },
+        },
+      ],
+    }),
+  },
+};
+
+test("the review queue can't suspend staff, the owner, or yourself", async () => {
+  const { admin, mod } = await staff();
+  const held = (who, title) =>
+    createThread(who.id, { board: "general", title, body: "x" }, unsure);
+  const adminPost = await held(admin, "Admin thread");
+  await assert.rejects(
+    decide("post", adminPost.id, "suspend", mod.id),
+    /Only admins can do that to a moderator/,
+  );
+  assert.equal((await roleOf(admin.id)).suspended, false);
+  const modPost = await held(mod, "Mod thread");
+  await assert.rejects(
+    decide("post", modPost.id, "suspend", mod.id),
+    /your own account/,
+  );
+  const own = await person("Boss", "owner-q");
+  const ownPost = await held(own, "Owner thread");
+  process.env.ADMIN_SUBS = "owner-q";
+  try {
+    await assert.rejects(
+      decide("post", ownPost.id, "suspend", admin.id),
+      /site owner/,
+    );
+  } finally {
+    delete process.env.ADMIN_SUBS;
+  }
+  assert.deepEqual(await decide("post", modPost.id, "suspend", admin.id), {
+    status: "removed",
+  });
+  assert.equal((await roleOf(mod.id)).suspended, true);
+});
+
+test("admins can't change their own or the owner's credits; owners can", async () => {
+  const { admin } = await staff();
+  await assert.rejects(
+    adjustCredits(admin.id, admin.id, 500, "me"),
+    /your own account/,
+  );
+  const own = await person("Owna", "owner-c");
+  process.env.ADMIN_SUBS = "owner-c";
+  try {
+    await assert.rejects(
+      adjustCredits(admin.id, own.id, -5, "x"),
+      /site owner/,
+    );
+    assert.deepEqual(await adjustCredits(own.id, own.id, 100, "testing"), {
+      credits: 110,
+    });
+    assert.deepEqual(await adjustCredits(own.id, admin.id, 5, "thanks"), {
+      credits: 15,
+    });
+  } finally {
+    delete process.env.ADMIN_SUBS;
+  }
+});
+
+test("suspended staff lose their powers", async () => {
+  const { admin, mod } = await staff();
+  await db.sql`UPDATE accounts SET suspended_at = now() WHERE id IN (${admin.id}, ${mod.id})`;
+  await assert.rejects(requireMod(mod.id), /suspended/);
+  await assert.rejects(requireAdmin(admin.id), /suspended/);
+  await assert.rejects(listUsers(mod.id), /suspended/);
+});
+
+test("suspended users can't remove their own posts", async () => {
+  const sam = await person("Sam");
+  const post = await createThread(
+    sam.id,
+    { board: "general", title: "Sam's", body: "x" },
+    fine,
+  );
+  await db.sql`UPDATE accounts SET suspended_at = now() WHERE id = ${sam.id}`;
+  await assert.rejects(removeOwnPost(sam.id, post.id), /suspended/);
 });

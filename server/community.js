@@ -404,6 +404,7 @@ export async function boardCounts() {
 }
 
 export async function removeOwnPost(accountId, postId) {
+  await requireActive(accountId);
   const rows = await database()
     .sql`UPDATE posts SET status = 'removed' WHERE id = ${postId} AND account_id = ${accountId} AND status <> 'removed' RETURNING id`;
   if (!rows[0]) throw new UserFacingError("That post wasn't found.", 404);
@@ -513,6 +514,7 @@ export async function addComment(accountId, postId, body, api) {
 }
 
 export async function removeOwnComment(accountId, commentId) {
+  await requireActive(accountId);
   return transaction(async (c) => {
     const row = await c.query(
       `UPDATE comments SET status = 'removed'

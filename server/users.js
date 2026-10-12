@@ -37,7 +37,7 @@ async function target(id) {
 }
 
 // Nobody acts on the owner or on themselves; only admins act on staff.
-function guard(actor, actorId, t) {
+export function guard(actor, actorId, t) {
   if (isOwnerSub(t.google_sub))
     throw new UserFacingError(
       "The site owner's account can't be changed here.",
@@ -149,6 +149,9 @@ export async function adjustCredits(actorId, id, amount, reason) {
   if (!why)
     throw new UserFacingError("Add a reason; it goes in their credit history.");
   const t = await target(id);
+  // Owners may set anyone's credits, their own included; other admins can't
+  // touch their own balance or the owner's.
+  if (!actor.owner) guard(actor, actorId, t);
   if (Number(t.credits) + change < 0)
     throw new UserFacingError(
       `That would take ${t.display_name} below 0 credits (they have ${t.credits}).`,
