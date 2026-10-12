@@ -2,7 +2,7 @@
   import RecipeCard from './RecipeCard.svelte';
   import { api } from '../lib/account.svelte.js';
 
-  let { onclose } = $props();
+  let { onclose = null, onchange = () => {} } = $props();
   let items = $state(null);
   let error = $state('');
   let busy = $state(null);
@@ -15,6 +15,7 @@
     const res = await api('/api/admin/queue');
     if (res.ok) items = res.body.items;
     else { error = res.error; items = []; }
+    onchange(items.length);
   }
   load();
 
@@ -22,18 +23,18 @@
     busy = `${item.type}-${item.id}`;
     const res = await api('/api/admin/decide', { method: 'POST', body: { type: item.type, id: item.id, action } });
     busy = null;
-    if (res.ok) items = items.filter((i) => !(i.type === item.type && i.id === item.id));
+    if (res.ok) { items = items.filter((i) => !(i.type === item.type && i.id === item.id)); onchange(items.length); }
     else error = res.error;
   }
 </script>
 
-<main id="results" tabindex="-1" class="review">
+<section class="review">
   <div class="review-head">
     <div>
-      <h1>Review queue</h1>
+      <h2>Review queue</h2>
       <p>Posts and comments the automatic check wasn’t sure about, ones it blocked, and anything people reported.</p>
     </div>
-    <button class="outline-button" onclick={onclose}>Back to the community</button>
+    {#if onclose}<button class="outline-button" onclick={onclose}>Back to the community</button>{/if}
   </div>
   {#if error}<p class="method-error" role="alert">{error}</p>{/if}
   {#if items === null}
@@ -44,7 +45,7 @@
     <ul class="review-list">
       {#each items as item (`${item.type}-${item.id}`)}
         <li class="review-item">
-          <p class="review-meta"><span class="meal-tag">{item.type}</span> <strong>{label[item.status] ?? item.status}</strong> · by {item.author}{item.authorBanned ? ' (banned)' : ''} · {day(item.createdAt)}{item.reports ? ` · ${item.reports} ${item.reports === 1 ? 'report' : 'reports'}` : ''}</p>
+          <p class="review-meta"><span class="meal-tag">{item.type}</span> <strong>{label[item.status] ?? item.status}</strong> · by {item.author}{item.authorSuspended ? ' (suspended)' : ''} · {day(item.createdAt)}{item.reports ? ` · ${item.reports} ${item.reports === 1 ? 'report' : 'reports'}` : ''}</p>
           {#if item.reason}<p class="review-reason">{item.reason}</p>{/if}
           {#if item.type === 'post' && item.kind === 'thread'}
             <h3>{item.name}</h3>
@@ -61,10 +62,10 @@
           <div class="post-actions">
             <button class="primary-button" disabled={busy} onclick={() => decide(item, 'approve')}>Approve</button>
             <button class="outline-button" disabled={busy} onclick={() => decide(item, 'remove')}>Remove</button>
-            <button class="danger-button" disabled={busy || item.authorBanned} onclick={() => decide(item, 'ban')}>Remove and ban {item.author}</button>
+            <button class="danger-button" disabled={busy || item.authorSuspended} onclick={() => decide(item, 'suspend')}>Remove and suspend {item.author}</button>
           </div>
         </li>
       {/each}
     </ul>
   {/if}
-</main>
+</section>

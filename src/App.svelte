@@ -9,6 +9,7 @@
   import Recipes from './components/Recipes.svelte';
   import SavedRecipes from './components/SavedRecipes.svelte';
   import Community from './components/Community.svelte';
+  import Admin from './components/Admin.svelte';
   import Landing from './components/Landing.svelte';
   import RecipeCard from './components/RecipeCard.svelte';
   import PanelToggle from './components/PanelToggle.svelte';
@@ -98,6 +99,7 @@
   {/if}
   <div class="account-area">
     {#if account.signedIn}
+      {#if account.isMod}<button class="text-button account-wide" onclick={() => navigate({ tab: 'admin' })}>Admin</button>{/if}
       <span class="credit-pill account-wide" title="Each idea or written recipe uses one credit">{account.credits} {account.credits === 1 ? 'credit' : 'credits'}</span>
       <span class="account-name account-wide">{account.displayName}</span>
       <button class="text-button account-wide" onclick={signOut}>Sign out</button>
@@ -108,6 +110,7 @@
           <div class="account-pop" id="account-pop">
             <p>Signed in as <strong>{account.displayName}</strong></p>
             <p class="account-pop-note">Each idea or written recipe uses one credit.</p>
+            {#if account.isMod}<button class="outline-button" onclick={() => { accountMenu = false; navigate({ tab: 'admin' }); }}>Admin</button>{/if}
             <button class="outline-button" onclick={() => { accountMenu = false; signOut(); }}>Sign out</button>
           </div>
         {/if}
@@ -117,6 +120,7 @@
     {/if}
   </div>
 </header>
+{#if account.suspended}<p class="suspended-banner" role="status">Your account is suspended. You can browse, but not post, comment, like, or use credits.</p>{/if}
 
 {#if tab === 'foods'}
   <div class="workspace">
@@ -163,6 +167,8 @@
       <footer><p>Food by your numbers. <span>Food search is free, no account needed.</span></p><p>USDA SR Legacy · {dataset?.total.toLocaleString() ?? '…'} food records. {dataset?.excluded ?? '…'} without serving sizes excluded.</p><p>Missing nutrients appear as — and won’t match an active range. Values are rounded for display; filters use full precision.</p></footer>
     </main>
   </div>
+{:else if tab === 'admin'}
+  <Admin adminTab={route.adminTab} />
 {:else if tab === 'home'}
   <Landing foodCount={dataset?.foods.length} />
 {:else if tab === 'community'}

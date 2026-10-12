@@ -124,11 +124,11 @@
   {#if status === 'held' || status === 'blocked'}
     <div class="post-status" class:blocked={status === 'blocked'}>
       <p>{status === 'held' ? 'Waiting for a moderator' : 'Blocked by the automatic check'}{post.reason ? `: ${post.reason}` : ''}</p>
-      {#if account.isAdmin}
+      {#if account.isMod}
         <span class="mod-actions"><button class="text-button approve" onclick={() => moderate('post', post.id, 'approve')}>Approve</button><button class="text-button" onclick={() => moderate('post', post.id, 'remove')}>Remove</button></span>
       {/if}
     </div>
-  {:else if account.isAdmin && (post.waitingComments || post.reports)}
+  {:else if account.isMod && (post.waitingComments || post.reports)}
     <p class="post-status">{[post.waitingComments ? `${post.waitingComments} ${post.waitingComments === 1 ? 'comment' : 'comments'} waiting` : '', post.reports ? `${post.reports} ${post.reports === 1 ? 'report' : 'reports'}` : ''].filter(Boolean).join(', ')}</p>
   {/if}
   <div class="post-head">
@@ -184,7 +184,7 @@
         {#each comments as c (c.id)}
           <div class="comment" class:waiting={c.status !== 'live'}>
             <p class="comment-meta"><strong>{c.author}</strong> {day(c.createdAt)}</p>
-            {#if c.status !== 'live' && account.isAdmin}
+            {#if c.status !== 'live' && account.isMod}
               <p class="comment-waiting">{c.status === 'held' ? 'Waiting for a moderator' : 'Blocked'}{c.reason ? `: ${c.reason}` : ''}
                 <span class="mod-actions"><button class="text-button approve" onclick={() => moderate('comment', c.id, 'approve')}>Approve</button><button class="text-button" onclick={() => moderate('comment', c.id, 'remove')}>Remove</button></span>
               </p>

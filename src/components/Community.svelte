@@ -1,7 +1,6 @@
 <script>
   import RangeTable from './RangeTable.svelte';
   import PostCard from './PostCard.svelte';
-  import ReviewQueue from './ReviewQueue.svelte';
   import LazyEditor from './LazyEditor.svelte';
   import PanelToggle from './PanelToggle.svelte';
   import { emptyRanges, rangeSummary } from '../lib/foods.js';
@@ -36,7 +35,6 @@
   let counts = $state({});
   let queue = $state(0);
   let mobileOpen = $state(false);
-  let reviewing = $state(false);
   let needsReview = $state(false);
   let composing = $state(false);
   let title = $state('');
@@ -85,7 +83,7 @@
     timer = setTimeout(() => load(), 250);
     return () => clearTimeout(timer);
   });
-  $effect(() => { account.signedIn; account.isAdmin; loadCounts(); });
+  $effect(() => { account.signedIn; account.isMod; loadCounts(); });
 
   function pickForum(id) { board = id; composing = false; composeNote = ''; }
   function pickMeal(id) { board = null; meal = id; composing = false; }
@@ -109,10 +107,7 @@
   const boardName = $derived(FORUMS.find(([id]) => id === board)?.[1]);
 </script>
 
-{#if reviewing}
-  <ReviewQueue onclose={() => { reviewing = false; load(); loadCounts(); }} />
-{:else}
-  <div class="workspace">
+<div class="workspace">
     <!-- Wide screens: macros in the side column. Phones get the same table
          under the board chips instead (below), only on the recipe boards. -->
     <aside class="community-aside">
@@ -121,7 +116,7 @@
         <p class="filter-intro">For the recipe boards, per serving. Leave blank for no limit.</p>
         <RangeTable bind:ranges />
         {#if board}<p class="range-note">Macro filters apply to the recipe boards, not forum threads.</p>{/if}
-        {#if account.isAdmin}
+        {#if account.isMod}
           <label class="dislike-toggle mod-filter"><input type="checkbox" bind:checked={needsReview} /> Needs review only</label>
         {/if}
       </div>
@@ -132,8 +127,8 @@
           <h1>Community</h1>
           <p>Recipes people built and shared, plus open discussion. Nutrition is per serving, from USDA data.</p>
         </div>
-        {#if account.isAdmin}
-          <button class="outline-button queue-button" onclick={() => reviewing = true}>Review queue{#if queue}<span class="queue-count" aria-label={`${queue} waiting`}>{queue}</span>{/if}</button>
+        {#if account.isMod}
+          <button class="outline-button queue-button" onclick={() => navigate({ tab: 'admin' })}>Review queue{#if queue}<span class="queue-count" aria-label={`${queue} waiting`}>{queue}</span>{/if}</button>
         {/if}
       </div>
 
@@ -158,7 +153,7 @@
           <div class="filter-content" id="community-macros">
             <p class="filter-intro">Per serving. Leave blank for no limit.</p>
             <RangeTable bind:ranges />
-            {#if account.isAdmin}
+            {#if account.isMod}
               <label class="dislike-toggle mod-filter"><input type="checkbox" bind:checked={needsReview} /> Needs review only</label>
             {/if}
             <button class="primary-button panel-done" onclick={() => { mobileOpen = false; document.querySelector('.community-results')?.scrollIntoView({ block: 'start' }); }}>Show recipes</button>
@@ -220,4 +215,3 @@
       <footer><p>Food by your numbers. <span>Browsing is free; posting, liking, and commenting need an account.</span></p><p>Posts and comments are checked automatically and by a person when unsure. Report anything that doesn’t belong.</p></footer>
     </main>
   </div>
-{/if}

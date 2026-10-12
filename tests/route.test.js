@@ -41,5 +41,17 @@ test(
     assert.equal(pathFor({ tab: "home" }), "/");
     assert.equal(pathFor({ tab: "saved", recipeId: "a b" }), "/recipes/a%20b");
     assert.equal(pathFor({ tab: "recipes" }), "/builder");
+    assert.deepEqual(parse("/admin"), {
+      tab: "admin",
+      postId: null,
+      recipeId: null,
+      adminTab: "reviews",
+    });
+    assert.equal(parse("/admin/users").adminTab, "users");
+    assert.equal(parse("/admin/log").adminTab, "log");
+    assert.equal(parse("/admin/whatever").adminTab, "reviews");
+    assert.equal(pathFor({ tab: "admin" }), "/admin");
+    assert.equal(pathFor({ tab: "admin", adminTab: "reviews" }), "/admin");
+    assert.equal(pathFor({ tab: "admin", adminTab: "log" }), "/admin/log");
   },
 );

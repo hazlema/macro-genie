@@ -6,6 +6,8 @@ export const account = $state({
   displayName: "",
   credits: 0,
   isAdmin: false,
+  isMod: false,
+  suspended: false,
   googleClientId: null,
   loginOpen: false,
 });
@@ -15,6 +17,8 @@ function apply(body) {
   account.displayName = body?.account?.displayName ?? "";
   account.credits = body?.account?.credits ?? 0;
   account.isAdmin = !!body?.account?.isAdmin;
+  account.isMod = !!body?.account?.isMod;
+  account.suspended = !!body?.account?.suspended;
   if (body && "googleClientId" in body)
     account.googleClientId = body.googleClientId;
 }
