@@ -16,7 +16,14 @@ export const EMOJI = emojis
       !(e.version > 15.1) &&
       !e.name.startsWith("regional_indicator_"),
   )
-  .map((e) => ({ ...e, emoji: colorGlyph(e.emoji), emoticons: [] }));
+  // No fallbackImage: Tiptap would show a large picture whenever its support
+  // check fails, while posts show the device's own emoji.
+  .map((e) => ({
+    ...e,
+    emoji: colorGlyph(e.emoji),
+    emoticons: [],
+    fallbackImage: undefined,
+  }));
 
 const byName = new Map(EMOJI.map((e) => [e.name, e]));
 export const glyphFor = (name) => byName.get(name)?.emoji ?? "";

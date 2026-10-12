@@ -148,3 +148,12 @@ test("text typed before the editor loaded carries over exactly, as plain text", 
   assert.equal(shown, "# Title\nbody & more\n> quote ~~x~~ *a* :)");
   assert.equal(plainTextDoc(""), "");
 });
+
+test("emoji in the editor are the device's own characters, never fallback images", () => {
+  const editor = make();
+  editor.commands.setEmoji("baby_chick");
+  editor.commands.setEmoji("innocent");
+  const html = editor.getHTML();
+  assert.doesNotMatch(html, /<img/);
+  assert.match(html, /🐤/);
+});
