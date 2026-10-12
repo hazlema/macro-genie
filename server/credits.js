@@ -1,5 +1,6 @@
 import { getAccount, refundCredit, spendCredit } from "./accounts.js";
 import { UserFacingError } from "./chef.js";
+import { requireActive } from "./roles.js";
 import { readSession } from "./session.js";
 
 // Runs an AI job for the signed-in account, paid with one credit. The credit
@@ -11,6 +12,7 @@ export async function withCredit(request, reason, job) {
       "Sign in to use the Recipe Builder. New accounts get 10 free credits.",
       401,
     );
+  await requireActive(accountId);
   const left = await spendCredit(accountId, reason);
   if (left === null) {
     const account = await getAccount(accountId);

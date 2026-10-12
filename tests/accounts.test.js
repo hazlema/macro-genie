@@ -130,7 +130,13 @@ test("signing in with Google creates the account and a session; only a first nam
   ).json();
   assert.deepEqual(me, {
     signedIn: true,
-    account: { displayName: "Matthew", credits: 10, isAdmin: false },
+    account: {
+      displayName: "Matthew",
+      credits: 10,
+      isAdmin: false,
+      isMod: false,
+      suspended: false,
+    },
     googleClientId: CLIENT_ID,
   });
   const anon = await (await account(req("/api/me"))).json();
@@ -185,4 +191,19 @@ test("AI jobs cost a credit, need a sign-in, and refund on failure", async () =>
     withCredit(signedIn, "idea", async () => ({})),
     (e) => e.status === 402,
   );
+});
+
+test("a suspended account can't spend credits", async () => {
+  const { id } = await findOrCreateAccount({
+    sub: "g-susp",
+    displayName: "Sy",
+  });
+  await db.sql`UPDATE accounts SET suspended_at = now() WHERE id = ${id}`;
+  process.env.SESSION_SECRET ??= "x".repeat(40);
+  const cookie = sessionCookie(id, req("/")).split(";")[0];
+  await assert.rejects(
+    withCredit(req("/", { headers: { cookie } }), "idea", async () => ({})),
+    /Your account is suspended/,
+  );
+  assert.equal((await getAccount(id)).credits, 10, "nothing was taken");
 });

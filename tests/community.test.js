@@ -22,7 +22,7 @@ import {
   setDisplayName,
   toggleLike,
 } from "../server/community.js";
-import { decide, isAdmin, reviewQueue } from "../server/admin.js";
+import { decide, reviewQueue } from "../server/admin.js";
 
 const { foods } = normalizeDataset(raw);
 const pumpkin = findFoods(foods, "pumpkin canned without salt")[0];
@@ -365,28 +365,34 @@ test("three reports hide a post until a moderator looks; moderators decide", asy
     "reports cleared",
   );
 
-  await decide("post", post.id, "ban");
+  await decide("post", post.id, "suspend");
   await assert.rejects(
     createPost(hal.id, recipe(), { mealType: "dinner" }, haiku("fine")),
-    /can't post/,
+    /Your account is suspended/,
   );
-  await assert.rejects(toggleLike(hal.id, post.id), /can't post/);
+  await assert.rejects(
+    toggleLike(hal.id, post.id),
+    /Your account is suspended/,
+  );
+  await assert.rejects(
+    addComment(hal.id, post.id, "hi", haiku("fine")),
+    /Your account is suspended/,
+  );
+  await assert.rejects(report(hal.id, "post", post.id), /suspended/);
+  assert.ok(
+    (await listPosts()).posts.length >= 0,
+    "a suspended account can still browse",
+  );
+  const queued = (await reviewQueue()).find((i) => i.author === "Hal");
+  if (queued) assert.equal(queued.authorSuspended, true);
 });
 
-test("moderators come from ADMIN_SUBS, not the database", async () => {
-  const mod = await findOrCreateAccount({
-    sub: "admin-sub-1",
-    displayName: "Mod",
-  });
-  const other = await person("Ivy");
-  process.env.ADMIN_SUBS = "someone-else, admin-sub-1";
-  try {
-    assert.equal(await isAdmin(mod.id), true);
-    assert.equal(await isAdmin(other.id), false);
-  } finally {
-    delete process.env.ADMIN_SUBS;
-  }
-  assert.equal(await isAdmin(mod.id), false);
+test("moderators can be set in the database as well as ADMIN_SUBS", async () => {
+  const { roleOf } = await import("../server/roles.js");
+  const mod = await person("Mona");
+  assert.equal((await roleOf(mod.id)).mod, false);
+  await db.sql`UPDATE accounts SET is_mod = true WHERE id = ${mod.id}`;
+  assert.equal((await roleOf(mod.id)).mod, true);
 });
 
 test("display names are checked and can be changed", async () => {

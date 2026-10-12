@@ -5,6 +5,7 @@ import { solveRecipe } from "../src/lib/recipe.js";
 import { UserFacingError, foodById } from "./chef.js";
 import { database, transaction } from "./db.js";
 import { MEAL_TYPES, moderate, recipeForReview } from "./moderate.js";
+import { requireActive } from "./roles.js";
 
 // ---------------------------------------------------------------- recipes
 
@@ -121,13 +122,8 @@ function reviewFromToken(token, recipe) {
 // ------------------------------------------------------------- accounts
 
 async function poster(accountId) {
-  const rows = await database()
-    .sql`SELECT id, display_name, banned FROM accounts WHERE id = ${accountId}`;
-  if (!rows[0])
-    throw new UserFacingError("Your account wasn't found. Sign in again.", 401);
-  if (rows[0].banned)
-    throw new UserFacingError("Your account can't post or comment.", 403);
-  return rows[0];
+  const role = await requireActive(accountId);
+  return { id: accountId, display_name: role.displayName };
 }
 
 const STATUS = { fine: "live", unsure: "held", blocked: "blocked" };

@@ -1,5 +1,5 @@
 import { findOrCreateAccount, getAccount } from "../../server/accounts.js";
-import { isAdmin } from "../../server/admin.js";
+import { roleOf } from "../../server/roles.js";
 import { setDisplayName } from "../../server/community.js";
 import { UserFacingError } from "../../server/chef.js";
 import { fail } from "../../server/http.js";
@@ -37,7 +37,11 @@ export default async function handler(request) {
           signedIn: !!account,
           account: account && {
             ...publicAccount(account),
-            isAdmin: await isAdmin(account.id),
+            ...(await roleOf(account.id).then((r) => ({
+              isAdmin: r.admin,
+              isMod: r.mod,
+              suspended: r.suspended,
+            }))),
           },
           googleClientId,
         },

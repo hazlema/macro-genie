@@ -1,10 +1,5 @@
-import {
-  decide,
-  isAdmin,
-  queueCount,
-  requireAdmin,
-  reviewQueue,
-} from "../../server/admin.js";
+import { decide, queueCount, reviewQueue } from "../../server/admin.js";
+import { requireMod, roleOf } from "../../server/roles.js";
 import { UserFacingError } from "../../server/chef.js";
 import {
   addComment,
@@ -73,7 +68,7 @@ export default async function handler(request) {
           throw new UserFacingError("Ranges weren't readable.");
         }
         const viewer = viewerOf(request);
-        const moderator = await isAdmin(viewer);
+        const moderator = (await roleOf(viewer)).mod;
         return Response.json(
           await listPosts({
             viewer,
@@ -90,7 +85,7 @@ export default async function handler(request) {
       }
       case "GET community/counts": {
         const viewer = viewerOf(request);
-        const moderator = await isAdmin(viewer);
+        const moderator = (await roleOf(viewer)).mod;
         return Response.json(
           {
             counts: await boardCounts(),
@@ -120,7 +115,9 @@ export default async function handler(request) {
       case "GET community/posts/:id": {
         const viewer = viewerOf(request);
         return Response.json(
-          { post: await getPost(idFrom(id), viewer, await isAdmin(viewer)) },
+          {
+            post: await getPost(idFrom(id), viewer, (await roleOf(viewer)).mod),
+          },
           { headers: { "Cache-Control": "no-store" } },
         );
       }
@@ -135,7 +132,7 @@ export default async function handler(request) {
             comments: await listComments(
               idFrom(id),
               viewerOf(request),
-              await isAdmin(viewerOf(request)),
+              (await roleOf(viewerOf(request))).mod,
             ),
           },
           { headers: { "Cache-Control": "no-store" } },
@@ -157,16 +154,21 @@ export default async function handler(request) {
         );
       }
       case "GET admin/queue":
-        await requireAdmin(signedIn(request));
+        await requireMod(signedIn(request));
         return Response.json(
           { items: await reviewQueue() },
           { headers: { "Cache-Control": "no-store" } },
         );
       case "POST admin/decide": {
-        await requireAdmin(signedIn(request));
+        await requireMod(signedIn(request));
         const body = await json(request);
         return Response.json(
-          await decide(body.type, idFrom(body.id), body.action),
+          await decide(
+            body.type,
+            idFrom(body.id),
+            body.action,
+            signedIn(request),
+          ),
         );
       }
       default:
