@@ -33,6 +33,17 @@
   let activePreset = $state('');
   let mobileFilters = $state(panelStartsOpen(0));
   let dislikesOpen = $state(false);
+  let accountMenu = $state(false);
+  let tabsEl = $state();
+
+  // Phones with large text: the tabs scroll inside their pill, so keep the
+  // current one in view (without scrolling the page).
+  $effect(() => {
+    tab;
+    const current = tabsEl?.querySelector('.current');
+    if (!current || tabsEl.scrollWidth <= tabsEl.clientWidth) return;
+    tabsEl.scrollLeft = current.offsetLeft - (tabsEl.clientWidth - current.offsetWidth) / 2;
+  });
 
   const activeCount = $derived(Object.values(ranges).filter(r => r.min != null || r.max != null).length);
   const result = $derived.by(() => {
@@ -66,12 +77,14 @@
   }
 </script>
 
+<svelte:window onpointerdown={(e) => { if (accountMenu && !e.target.closest('.account-menu')) accountMenu = false; }} onkeydown={(e) => { if (e.key === 'Escape') accountMenu = false; }} />
+
 <svelte:head><title>Macro Genie — Food by your numbers</title></svelte:head>
 
 <a class="skip-link" href="#results">{tab === 'foods' ? 'Skip to foods' : 'Skip to content'}</a>
 <header class="topbar">
   <a class="wordmark" href="/" onclick={(e) => { e.preventDefault(); navigate({ tab: 'home' }); }} aria-label="Macro Genie home">Macro Genie<span class="brand-dot"></span></a>
-  <nav class="tabs" aria-label="Browse">
+  <nav class="tabs" aria-label="Browse" bind:this={tabsEl}>
     <button class:current={tab === 'community'} aria-current={tab === 'community' ? 'page' : undefined} onclick={() => navigate({ tab: 'community' })}>Community</button>
     <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => navigate({ tab: 'saved' })}><span class="wide-label">Recipe Book</span><span class="narrow-label">Recipes</span>{#if prefs.recipes.length}<span class="tab-count">{prefs.recipes.length}</span>{/if}</button>
     <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => navigate({ tab: 'recipes' })}><span class="wide-label">Recipe Builder</span><span class="narrow-label">Builder</span></button>
@@ -85,9 +98,20 @@
   {/if}
   <div class="account-area">
     {#if account.signedIn}
-      <span class="credit-pill" title="Each idea or written recipe uses one credit">{account.credits} {account.credits === 1 ? 'credit' : 'credits'}</span>
-      <span class="account-name">{account.displayName}</span>
-      <button class="text-button" onclick={signOut}>Sign out</button>
+      <span class="credit-pill account-wide" title="Each idea or written recipe uses one credit">{account.credits} {account.credits === 1 ? 'credit' : 'credits'}</span>
+      <span class="account-name account-wide">{account.displayName}</span>
+      <button class="text-button account-wide" onclick={signOut}>Sign out</button>
+      <!-- Phones: one button on the logo's row; name and Sign out in a menu. -->
+      <div class="account-menu">
+        <button class="credit-pill" aria-expanded={accountMenu} aria-controls="account-pop" onclick={() => accountMenu = !accountMenu}>{account.credits} {account.credits === 1 ? 'credit' : 'credits'} <span aria-hidden="true">▾</span></button>
+        {#if accountMenu}
+          <div class="account-pop" id="account-pop">
+            <p>Signed in as <strong>{account.displayName}</strong></p>
+            <p class="account-pop-note">Each idea or written recipe uses one credit.</p>
+            <button class="outline-button" onclick={() => { accountMenu = false; signOut(); }}>Sign out</button>
+          </div>
+        {/if}
+      </div>
     {:else if account.loaded}
       <button class="outline-button login-button" onclick={() => account.loginOpen = true}><span class="login-long">Login / Create Account</span><span class="login-short">Log in</span></button>
     {/if}
