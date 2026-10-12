@@ -6,8 +6,20 @@ import pg from "pg";
 
 // `sql` is a tagged template: values become $1, $2 … parameters, never text,
 // and it resolves to the result rows.
+// pg treats sslmode=prefer/require/verify-ca as verify-full today, warns on
+// every start, and will weaken them to libpq's meaning in pg 9. Saying
+// verify-full keeps today's check of Neon's (publicly trusted) certificate.
+export const strictSsl = (url) =>
+  url?.replace(
+    /([?&]sslmode=)(prefer|require|verify-ca)(?=&|$)/,
+    "$1verify-full",
+  );
+
 export function connect(connectionString) {
-  const pool = new pg.Pool({ connectionString, max: 3 });
+  const pool = new pg.Pool({
+    connectionString: strictSsl(connectionString),
+    max: 3,
+  });
   const sql = async (strings, ...values) =>
     (
       await pool.query(

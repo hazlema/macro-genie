@@ -4,6 +4,7 @@
 // never change the live database. Each file runs in its own transaction.
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import pg from "pg";
+import { strictSsl } from "../server/db.js";
 
 const DIR = new URL("../db/migrations/", import.meta.url);
 
@@ -17,7 +18,9 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+const client = new pg.Client({
+  connectionString: strictSsl(process.env.DATABASE_URL),
+});
 await client.connect();
 try {
   await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
