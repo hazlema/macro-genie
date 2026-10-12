@@ -2412,7 +2412,6 @@ dialog.dislikes[open] {
   margin: 0;
   font-size: 14px;
   line-height: 1.55;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .comment .text-button {
@@ -2736,7 +2735,6 @@ dialog.dislikes[open] {
   margin: 12px 0 4px;
   font-size: 15px;
   line-height: 1.6;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-width: 75ch;
 }
@@ -2746,6 +2744,32 @@ dialog.dislikes[open] {
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.markdown p {
+  margin: 0;
+}
+.markdown p + p,
+.markdown p + ul,
+.markdown p + ol,
+.markdown ul + p,
+.markdown ol + p {
+  margin-top: 0.6em;
+}
+.markdown ul,
+.markdown ol {
+  margin: 0;
+  padding-left: 1.4em;
+}
+.markdown li + li {
+  margin-top: 0.15em;
+}
+.markdown a {
+  color: var(--lime);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown strong {
+  font-weight: 650;
 }
 .compose-toggle {
   margin-bottom: 18px;

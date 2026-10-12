@@ -1,4 +1,3 @@
-// src/lib/markdown.js
 import { Lexer } from "marked";
 
 // Turns Community Markdown into HTML, allowing only what the editor can

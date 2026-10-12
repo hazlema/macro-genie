@@ -1,4 +1,3 @@
-// tests/markdown.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderMarkdown } from "../src/lib/markdown.js";
