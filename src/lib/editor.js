@@ -99,3 +99,20 @@ export function normalizeUrl(input) {
   if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(url)) return `https://${url}`;
   return null;
 }
+
+// Text typed into the stand-in textarea before the editor loaded, as an
+// editor document: kept exactly as typed (blank lines start paragraphs, single
+// line breaks stay), never parsed as Markdown, so "# " or "> " isn't lost.
+export function plainTextDoc(text) {
+  if (!text) return "";
+  const paragraph = (block) => ({
+    type: "paragraph",
+    content: block
+      .split("\n")
+      .flatMap((line, i) => [
+        ...(i ? [{ type: "hardBreak" }] : []),
+        ...(line ? [{ type: "text", text: line }] : []),
+      ]),
+  });
+  return { type: "doc", content: text.split(/\n{2,}/).map(paragraph) };
+}

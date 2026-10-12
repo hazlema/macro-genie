@@ -20,7 +20,8 @@ for (const k of [
 globalThis.requestAnimationFrame ??= (f) => setTimeout(f, 0);
 
 const { Editor } = await import("@tiptap/core");
-const { editorExtensions, normalizeUrl } = await import("../src/lib/editor.js");
+const { editorExtensions, normalizeUrl, plainTextDoc } =
+  await import("../src/lib/editor.js");
 
 const make = (opts = {}) =>
   new Editor({
@@ -128,4 +129,22 @@ test("& < > typed in the editor show as themselves once posted", async () => {
   const shown = new JSDOM(renderMarkdown(editor.getMarkdown())).window.document
     .body.textContent;
   assert.equal(shown, "Salt & pepper, a > b, 2 < 3");
+});
+
+test("text typed before the editor loaded carries over exactly, as plain text", async () => {
+  const { renderMarkdown } = await import("../src/lib/markdown.js");
+  const typed = "# Title\nbody & more\n\n> quote ~~x~~ *a* :)";
+  const editor = new Editor({
+    element: document.createElement("div"),
+    extensions: editorExtensions(),
+    content: plainTextDoc(typed),
+  });
+  // Every word survives in order; a line break may become a paragraph break.
+  const html = renderMarkdown(editor.getMarkdown()).replace(
+    /<br>|<\/p><p>/g,
+    "\n",
+  );
+  const shown = new JSDOM(html).window.document.body.textContent;
+  assert.equal(shown, "# Title\nbody & more\n> quote ~~x~~ *a* :)");
+  assert.equal(plainTextDoc(""), "");
 });

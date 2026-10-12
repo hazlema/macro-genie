@@ -6,9 +6,15 @@
   // stays, so people can still post.
   let { markdown = $bindable(''), maxlength = 1000, placeholder = '', label = '', rows = 2, onsubmit = () => {} } = $props();
   let RichEditor = $state(null);
+  let hadFocus = $state(false);
 
   onMount(() => {
-    import('./RichEditor.svelte').then((m) => (RichEditor = m.default)).catch(() => {});
+    import('./RichEditor.svelte')
+      .then((m) => {
+        hadFocus = document.activeElement?.classList.contains('rich-fallback') ?? false;
+        RichEditor = m.default;
+      })
+      .catch(() => {});
   });
 
   const keydown = (e) => {
@@ -17,7 +23,7 @@
 </script>
 
 {#if RichEditor}
-  <RichEditor bind:markdown {maxlength} {placeholder} {label} {onsubmit} />
+  <RichEditor bind:markdown {maxlength} {placeholder} {label} {onsubmit} autofocus={hadFocus} />
 {:else}
   <textarea class="rich-fallback" bind:value={markdown} {maxlength} {rows} {placeholder} aria-label={label} onkeydown={keydown}></textarea>
 {/if}

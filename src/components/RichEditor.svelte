@@ -1,13 +1,14 @@
 <script>
   import { onMount } from 'svelte';
   import { Editor } from '@tiptap/core';
-  import { editorExtensions, normalizeUrl } from '../lib/editor.js';
+  import { editorExtensions, normalizeUrl, plainTextDoc } from '../lib/editor.js';
   import { rememberEmoji, suggestionItems } from '../lib/emoji.js';
   import EmojiPicker from './EmojiPicker.svelte';
 
   // A rich-text box that reads and writes Markdown. The parent binds
   // markdown and clears it after posting; onsubmit runs on Ctrl/⌘+Enter.
-  let { markdown = $bindable(''), maxlength = 1000, placeholder = '', label = '', onsubmit = () => {} } = $props();
+  // autofocus: the stand-in textarea had focus, so carry on typing here.
+  let { markdown = $bindable(''), maxlength = 1000, placeholder = '', label = '', onsubmit = () => {}, autofocus = false } = $props();
 
   let root;
   let element;
@@ -82,13 +83,15 @@
           render: () => ({ onStart: show, onUpdate: show, onKeyDown: ({ event }) => suggestKey(event), onExit: () => { suggest = null; } }),
         },
       }),
-      content: markdown,
-      contentType: 'markdown',
+      // Anything typed into the stand-in textarea is kept exactly as typed.
+      content: plainTextDoc(markdown),
       editorProps: { attributes: { class: 'rich-input', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label } },
       onTransaction: () => { tick++; },
       onUpdate: ({ editor }) => { emitted = editor.getMarkdown(); markdown = emitted; },
     });
-    emitted = markdown;
+    emitted = markdown ? editor.getMarkdown() : '';
+    markdown = emitted;
+    if (autofocus) editor.commands.focus('end');
     return () => editor.destroy();
   });
 
