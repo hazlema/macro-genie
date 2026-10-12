@@ -9,8 +9,12 @@ import pg from "pg";
 export function connect(connectionString) {
   const pool = new pg.Pool({ connectionString, max: 3 });
   const sql = async (strings, ...values) =>
-    (await pool.query(strings.reduce((text, s, i) => `${text}$${i}${s}`), values))
-      .rows;
+    (
+      await pool.query(
+        strings.reduce((text, s, i) => `${text}$${i}${s}`),
+        values,
+      )
+    ).rows;
   return { sql, pool };
 }
 

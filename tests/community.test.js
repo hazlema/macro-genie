@@ -1,5 +1,6 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
+import { listActivity } from "../server/activity.js";
 import { NetlifyDB } from "@netlify/database-dev";
 import raw from "../foods.json" with { type: "json" };
 import { findFoods, normalizeDataset } from "../src/lib/foods.js";
@@ -654,4 +655,64 @@ test("forum threads: started on a board, replied to, counted, and kept apart fro
   const queued = (await reviewQueue()).find((i) => i.id === held.id);
   assert.equal(queued.kind, "thread");
   assert.equal(queued.body, "link in bio");
+});
+
+test("recipe posts and problems reach the admin log; ordinary forum posts don't", async () => {
+  const lia = await person("Lia");
+  const logged = async () =>
+    (await listActivity({ limit: 200 })).entries.filter(
+      (e) => e.name === "Lia",
+    );
+
+  const shared = await createPost(
+    lia.id,
+    recipe(),
+    { mealType: "dinner" },
+    haiku("fine"),
+  );
+  await createThread(
+    lia.id,
+    { board: "general", title: "Hello all", body: "Hi" },
+    haiku("fine"),
+  );
+  const held = await createThread(
+    lia.id,
+    { board: "support", title: "Buy this", body: "link in bio" },
+    haiku("unsure", { reason: "Might be an ad." }),
+  );
+  await addComment(
+    lia.id,
+    shared.id,
+    "rude words",
+    haiku("blocked", { reason: "Abusive." }),
+  );
+  const other = await person("Oli");
+  await report(other.id, "post", shared.id, "Spam or advertising");
+
+  const mine = await logged();
+  assert.deepEqual(
+    mine.map((e) => e.kind),
+    ["blocked", "held", "recipe_post"],
+    "the live forum thread isn't logged",
+  );
+  assert.equal(
+    mine[2].text,
+    'posted a recipe to the community: "Pumpkin Gruyère Gratin"',
+  );
+  assert.equal(mine[2].link, `/community/${shared.id}`);
+  assert.equal(
+    mine[1].text,
+    "posted in Support but it was held for review: Might be an ad.",
+  );
+  assert.equal(mine[1].link, `/community/${held.id}`);
+  assert.match(
+    mine[0].text,
+    /^commented on "Pumpkin Gruyère Gratin" but it was blocked: Abusive\.$/,
+  );
+  const reportEntry = (
+    await listActivity({ chip: "problems", limit: 200 })
+  ).entries.find((e) => e.name === "Oli");
+  assert.equal(reportEntry.kind, "report");
+  assert.equal(reportEntry.text, "reported a post: Spam or advertising");
+  assert.equal(reportEntry.link, `/community/${shared.id}`);
 });

@@ -1,4 +1,10 @@
-import { findOrCreateAccount, getAccount } from "../../server/accounts.js";
+import {
+  WELCOME_CREDITS,
+  findOrCreateAccount,
+  getAccount,
+  isBannedSub,
+} from "../../server/accounts.js";
+import { logActivity } from "../../server/activity.js";
 import { roleOf } from "../../server/roles.js";
 import { setDisplayName } from "../../server/community.js";
 import { UserFacingError } from "../../server/chef.js";
@@ -71,7 +77,17 @@ export default async function handler(request) {
       throw new UserFacingError("Send the request as JSON.");
     });
     const person = await verifyGoogleToken(body?.credential);
+    if (await isBannedSub(person.sub))
+      throw new UserFacingError("This Google account can't sign in here.", 403);
     const account = await findOrCreateAccount(person);
+    await logActivity({
+      kind: account.isNew ? "joined" : "sign_in",
+      accountId: account.id,
+      actorName: account.displayName,
+      text: account.isNew
+        ? `joined (new account, ${WELCOME_CREDITS} credits)`
+        : "signed in",
+    });
     return Response.json(
       { signedIn: true, account: publicAccount(account), isNew: account.isNew },
       { headers: { "Set-Cookie": sessionCookie(account.id, request) } },

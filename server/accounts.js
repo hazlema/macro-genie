@@ -83,3 +83,10 @@ export async function addCredits(accountId, amount, reason, ref = null) {
     return Number(updated.rows[0].credits);
   });
 }
+
+// A Google account that was deleted and banned from the admin page.
+export async function isBannedSub(sub) {
+  const rows = await database()
+    .sql`SELECT 1 FROM banned_subs WHERE google_sub = ${sub}`;
+  return rows.length > 0;
+}

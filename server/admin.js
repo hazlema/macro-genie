@@ -1,5 +1,7 @@
 import { UserFacingError } from "./chef.js";
 import { database, transaction } from "./db.js";
+import { logActivity } from "./activity.js";
+import { roleOf } from "./roles.js";
 
 // Everything waiting for a decision: held and blocked posts and comments,
 // plus live items someone has reported.
@@ -51,7 +53,7 @@ export async function decide(type, id, action, actorId = null) {
   if (!["approve", "remove", "suspend"].includes(action))
     throw new UserFacingError("Unknown action.");
   const table = type === "post" ? "posts" : "comments";
-  return transaction(async (c) => {
+  const result = await transaction(async (c) => {
     const found = await c.query(
       `SELECT status, account_id${type === "comment" ? ", post_id" : ""} FROM ${table} WHERE id = $1 FOR UPDATE`,
       [id],
@@ -90,6 +92,19 @@ export async function decide(type, id, action, actorId = null) {
       );
     return { status: next, authorId: Number(row.account_id) };
   });
+  if (action === "suspend") {
+    const [actor, author] = await Promise.all([
+      roleOf(actorId),
+      roleOf(result.authorId),
+    ]);
+    await logActivity({
+      kind: "admin_action",
+      accountId: actorId,
+      actorName: actor.displayName || "A moderator",
+      text: `suspended ${author.displayName} from the review queue`,
+    });
+  }
+  return { status: result.status };
 }
 
 // How many items wait for a decision, for the badge on the queue button.

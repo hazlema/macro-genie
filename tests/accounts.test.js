@@ -1,5 +1,6 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
+import { listActivity } from "../server/activity.js";
 import { NetlifyDB } from "@netlify/database-dev";
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from "jose";
 import { connect, useDatabase } from "../server/db.js";
@@ -206,4 +207,31 @@ test("a suspended account can't spend credits", async () => {
     /Your account is suspended/,
   );
   assert.equal((await getAccount(id)).credits, 10, "nothing was taken");
+});
+
+test("sign-ins are logged (first time as joined), and banned Google accounts can't sign in", async () => {
+  const signIn = async (sub, given_name) =>
+    account(
+      req("/api/auth/google", {
+        method: "POST",
+        body: JSON.stringify({ credential: await signer({ sub, given_name }) }),
+      }),
+    );
+  assert.equal((await signIn("g-log", "Logan")).status, 200);
+  assert.equal((await signIn("g-log", "Logan")).status, 200);
+  const mine = (await listActivity({ chip: "signins", limit: 200 })).entries
+    .filter((e) => e.name === "Logan")
+    .map((e) => e.kind);
+  assert.deepEqual(mine, ["sign_in", "joined"]);
+
+  await db.sql`INSERT INTO banned_subs (google_sub) VALUES ('g-banned')`;
+  const refused = await signIn("g-banned", "Bad");
+  assert.equal(refused.status, 403);
+  assert.equal(
+    (await refused.json()).error,
+    "This Google account can't sign in here.",
+  );
+  const rows =
+    await db.sql`SELECT id FROM accounts WHERE google_sub = 'g-banned'`;
+  assert.equal(rows.length, 0, "no account was created");
 });

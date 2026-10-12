@@ -6,6 +6,7 @@ import { UserFacingError, foodById } from "./chef.js";
 import { database, transaction } from "./db.js";
 import { MEAL_TYPES, moderate, recipeForReview } from "./moderate.js";
 import { requireActive } from "./roles.js";
+import { heldText, logActivity } from "./activity.js";
 
 // ---------------------------------------------------------------- recipes
 
@@ -157,7 +158,7 @@ export async function createPost(
   { mealType, token } = {},
   api,
 ) {
-  await poster(accountId);
+  const who = await poster(accountId);
   if (!MEAL_TYPES.includes(mealType))
     throw new UserFacingError("Pick a meal type for this recipe.");
   const recipe = normalizeRecipe(input);
@@ -179,11 +180,30 @@ export async function createPost(
       ${mealType}, ${p.calories}, ${p.protein}, ${p.netCarbs}, ${p.fat},
       ${p.sugar}, ${p.sodium}, ${STATUS[review.verdict]}, ${review.reason})
     RETURNING id, status`;
-  return {
-    id: Number(rows[0].id),
-    status: rows[0].status,
-    reason: review.reason,
-  };
+  const id = Number(rows[0].id);
+  const status = rows[0].status;
+  await logActivity(
+    status === "live"
+      ? {
+          kind: "recipe_post",
+          accountId,
+          actorName: who.display_name,
+          text: `posted a recipe to the community: "${recipe.name}"`,
+          link: `/community/${id}`,
+        }
+      : {
+          kind: status,
+          accountId,
+          actorName: who.display_name,
+          text: heldText(
+            `posted the recipe "${recipe.name}"`,
+            status,
+            review.reason,
+          ),
+          link: `/community/${id}`,
+        },
+  );
+  return { id, status, reason: review.reason };
 }
 
 const COLUMNS = {
@@ -320,7 +340,7 @@ export async function createThread(
   { board, title, body } = {},
   api,
 ) {
-  await poster(accountId);
+  const who = await poster(accountId);
   if (!BOARDS.includes(board)) throw new UserFacingError("Pick a board.");
   const cleanTitle = String(title ?? "")
     .replace(/\s+/g, " ")
@@ -347,11 +367,21 @@ export async function createThread(
     VALUES (${accountId}, 'thread', ${board}, ${cleanTitle}, ${cleanBody},
       ${STATUS[review.verdict]}, ${review.reason})
     RETURNING id, status`;
-  return {
-    id: Number(rows[0].id),
-    status: rows[0].status,
-    reason: review.reason,
-  };
+  const id = Number(rows[0].id);
+  const status = rows[0].status;
+  if (status !== "live")
+    await logActivity({
+      kind: status,
+      accountId,
+      actorName: who.display_name,
+      text: heldText(
+        `posted in ${board === "support" ? "Support" : "General"}`,
+        status,
+        review.reason,
+      ),
+      link: `/community/${id}`,
+    });
+  return { id, status, reason: review.reason };
 }
 
 // Live items on each board, for the counts on the filter chips.
@@ -437,12 +467,12 @@ export async function listComments(postId, viewer = null, moderator = false) {
 }
 
 export async function addComment(accountId, postId, body, api) {
-  await poster(accountId);
+  const who = await poster(accountId);
   const clean = String(body ?? "").trim();
   if (!clean || clean.length > 1000)
     throw new UserFacingError("Comments are 1 to 1,000 characters.");
   const post = await database()
-    .sql`SELECT status FROM posts WHERE id = ${postId}`;
+    .sql`SELECT status, name FROM posts WHERE id = ${postId}`;
   if (post[0]?.status !== "live")
     throw new UserFacingError("That post wasn't found.", 404);
   const recent = await database()
@@ -454,7 +484,7 @@ export async function addComment(accountId, postId, body, api) {
     );
   const review = await moderate("comment", clean, api);
   const status = STATUS[review.verdict];
-  return transaction(async (c) => {
+  const result = await transaction(async (c) => {
     const row = await c.query(
       `INSERT INTO comments (post_id, account_id, body, status, moderation_note)
        VALUES ($1, $2, $3, $4, $5) RETURNING id`,
@@ -467,6 +497,19 @@ export async function addComment(accountId, postId, body, api) {
       );
     return { id: Number(row.rows[0].id), status, reason: review.reason };
   });
+  if (result.status !== "live")
+    await logActivity({
+      kind: result.status,
+      accountId,
+      actorName: who.display_name,
+      text: heldText(
+        `commented on "${post[0].name}"`,
+        result.status,
+        result.reason,
+      ),
+      link: `/community/${postId}`,
+    });
+  return result;
 }
 
 export async function removeOwnComment(accountId, commentId) {
@@ -496,8 +539,8 @@ export const REPORTS_TO_HIDE = 3;
 export async function report(accountId, type, targetId, reason = "") {
   if (!["post", "comment"].includes(type))
     throw new UserFacingError("Unknown item.");
-  await poster(accountId);
-  return transaction(async (c) => {
+  const who = await poster(accountId);
+  const result = await transaction(async (c) => {
     await c.query(
       `INSERT INTO reports (target_type, target_id, account_id, reason)
        VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
@@ -522,6 +565,23 @@ export async function report(accountId, type, targetId, reason = "") {
       );
     return { hidden: !!hidden.rows[0] };
   });
+  const postId =
+    type === "post"
+      ? targetId
+      : Number(
+          (
+            await database()
+              .sql`SELECT post_id FROM comments WHERE id = ${targetId}`
+          )[0]?.post_id ?? 0,
+        );
+  await logActivity({
+    kind: "report",
+    accountId,
+    actorName: who.display_name,
+    text: `reported a ${type}${result.hidden ? " (now hidden for review)" : ""}${reason ? `: ${String(reason).slice(0, 300)}` : ""}`,
+    link: postId ? `/community/${postId}` : null,
+  });
+  return result;
 }
 
 export const nutrientKeys = NUTRIENTS.map((n) => n.key);
