@@ -38,6 +38,7 @@ The Recipe Builder needs a free account: "Login / Create Account" signs in with 
 - **Stored:** Google's account id, a first name for display, the credit balance, and later a Stripe customer id, in Netlify Database (Postgres). A credit ledger records each change with its reason. No email or password.
 - **Environment variables** (Functions scope): `GOOGLE_CLIENT_ID` (a Google Cloud OAuth "Web application" client; authorized JavaScript origins `http://localhost`, `http://localhost:5173`, and the site's URL) and `SESSION_SECRET` (any random string of 32+ characters; signs the session cookie).
 - **Database:** migrations in `netlify/database/migrations/` are applied by Netlify on deploy. Locally, start `npm run dev`, then run `npm run db:migrate` once in another terminal. Netlify Database uses Netlify credits for compute; any Postgres works (pass a connection string in `server/db.js`).
+- **Writing in the Community:** threads and comments use a rich-text editor (Tiptap, loaded only when a writing box opens) that saves Markdown: bold, italic, lists, and links. Emoji: the 😊 picker, `:shortcode:` with suggestions after two letters, and a few emoticons (`:)`, `:D`, `<3`…). Text is stored as Markdown with real emoji characters and shown through a small allow-list renderer (`src/lib/markdown.js`); anything else, including HTML, shows as plain text. Links are http(s) only, open in a new tab, and any post with a link waits for a moderator.
 
 ### Recipe ideas (Claude)
 

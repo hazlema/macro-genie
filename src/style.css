@@ -2935,6 +2935,12 @@ dialog.dislikes[open] {
   justify-content: space-between;
   margin: 6px 0;
 }
+.emoji-picker .emoji-tabs button {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 0;
+  font-size: 17px;
+}
 .emoji-tabs button,
 .emoji-grid button {
   border: 0;
