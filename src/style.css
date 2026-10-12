@@ -3442,3 +3442,42 @@ dialog.dislikes[open] {
   color: inherit;
   font: inherit;
 }
+
+.admin-log .board-chips {
+  margin-bottom: 18px;
+}
+.log-list {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+}
+.log-entry {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 14px;
+  padding: 11px 0 11px 12px;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+}
+.log-entry.problem {
+  border-left-color: var(--coral);
+}
+.log-entry time {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.log-entry p {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.log-entry a {
+  color: var(--lime);
+}
+@media (max-width: 760px) {
+  .log-entry {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+}
