@@ -2,6 +2,7 @@
   import RangeTable from './RangeTable.svelte';
   import PostCard from './PostCard.svelte';
   import ReviewQueue from './ReviewQueue.svelte';
+  import LazyEditor from './LazyEditor.svelte';
   import { emptyRanges } from '../lib/foods.js';
   import { account, api } from '../lib/account.svelte.js';
   import { navigate } from '../lib/route.svelte.js';
@@ -41,6 +42,7 @@
   let message = $state('');
   let posting = $state(false);
   let composeNote = $state('');
+  let threadForm = $state();
   let request = 0;
 
   const activeRanges = () =>
@@ -90,7 +92,7 @@
 
   async function startThread(event) {
     event.preventDefault();
-    if (posting) return;
+    if (posting || message.length > 5000) return;
     posting = true; composeNote = '';
     const res = await api('/api/community/threads', { method: 'POST', body: { board, title, body: message } });
     posting = false;
@@ -172,11 +174,11 @@
           {:else if !composing}
             <button class="primary-button compose-toggle" onclick={() => composing = true}>Start a thread in {boardName}</button>
           {:else}
-            <form class="thread-form" onsubmit={startThread}>
+            <form class="thread-form" onsubmit={startThread} bind:this={threadForm}>
               <label class="note-field"><span>Title</span><input bind:value={title} maxlength="120" placeholder={board === 'support' ? 'What do you need help with?' : 'What’s on your mind?'} required /></label>
-              <label class="note-field"><span>Message</span><textarea bind:value={message} maxlength="5000" rows="5" required></textarea></label>
+              <div class="note-field"><span>Message</span><LazyEditor bind:markdown={message} maxlength={5000} rows={5} label="Message" placeholder="Write your message" onsubmit={() => threadForm.requestSubmit()} /></div>
               <div class="post-actions">
-                <button class="primary-button" disabled={posting || title.trim().length < 3 || !message.trim()}>{posting ? 'Posting…' : 'Post thread'}</button>
+                <button class="primary-button" disabled={posting || title.trim().length < 3 || !message.trim() || message.length > 5000}>{posting ? 'Posting…' : 'Post thread'}</button>
                 <button type="button" class="text-button" onclick={() => composing = false}>Cancel</button>
               </div>
             </form>

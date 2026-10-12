@@ -2428,17 +2428,6 @@ dialog.dislikes[open] {
   align-items: flex-end;
   margin-top: 12px;
 }
-.comment-form textarea {
-  flex: 1;
-  min-width: 0;
-  resize: vertical;
-  background: #111415;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font: inherit;
-  font-size: 14px;
-  color: inherit;
-}
 .post-form {
   display: grid;
   gap: 14px;

@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import RecipeCard from './RecipeCard.svelte';
   import Markdown from './Markdown.svelte';
+  import LazyEditor from './LazyEditor.svelte';
   import { formatAmount } from '../lib/foods.js';
   import { account, api } from '../lib/account.svelte.js';
   import { prefs, saveRecipe } from '../lib/prefs.svelte.js';
@@ -33,6 +34,7 @@
   let reportReason = $state('Spam or advertising');
   let saved = $state(prefs.recipes.some((r) => r.communityId === start.id || r.postedId === start.id));
   let linkCopied = $state(false);
+  let commentForm = $state();
 
   const day = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   const per = $derived(post.recipe?.perServing ?? {});
@@ -54,7 +56,7 @@
 
   async function send(event) {
     event.preventDefault();
-    if (!draft.trim() || sending) return;
+    if (!draft.trim() || sending || draft.length > 1000) return;
     sending = true; note = '';
     const res = await api(`/api/community/posts/${post.id}/comments`, { method: 'POST', body: { body: draft } });
     sending = false;
@@ -196,9 +198,9 @@
         {/each}
       {/if}
       {#if account.signedIn}
-        <form class="comment-form" onsubmit={send}>
-          <textarea bind:value={draft} maxlength="1000" rows="2" aria-label={thread ? 'Write a reply' : 'Write a comment'} placeholder={thread ? 'Write a reply' : 'Made it? Tweaked it? Say how it went.'}></textarea>
-          <button class="primary-button" disabled={sending || !draft.trim()}>{sending ? 'Posting…' : thread ? 'Reply' : 'Comment'}</button>
+        <form class="comment-form" onsubmit={send} bind:this={commentForm}>
+          <LazyEditor bind:markdown={draft} maxlength={1000} label={thread ? 'Write a reply' : 'Write a comment'} placeholder={thread ? 'Write a reply' : 'Made it? Tweaked it? Say how it went.'} onsubmit={() => commentForm.requestSubmit()} />
+          <button class="primary-button" disabled={sending || !draft.trim() || draft.length > 1000}>{sending ? 'Posting…' : thread ? 'Reply' : 'Comment'}</button>
         </form>
       {:else}
         <button class="text-button" onclick={() => account.loginOpen = true}>Sign in to comment</button>
