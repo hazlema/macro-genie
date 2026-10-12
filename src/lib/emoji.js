@@ -12,6 +12,8 @@ export const EMOJI = emojis
     (e) =>
       e.emoji &&
       e.group !== "components" &&
+      // Unicode 16+ (2024 on) shows as an empty box on many devices.
+      !(e.version > 15.1) &&
       !e.name.startsWith("regional_indicator_"),
   )
   .map((e) => ({ ...e, emoji: colorGlyph(e.emoji), emoticons: [] }));
@@ -56,8 +58,44 @@ export const EMOJI_GROUPS = GROUPS.map(([group, id, label, icon]) => ({
   items: EMOJI.filter((e) => e.group === group),
 }));
 
+// Emoji people reach for most in food chat; they win ties in search.
+const POPULAR = [
+  "fire",
+  "heart",
+  "yum",
+  "+1",
+  "joy",
+  "smile",
+  "heart_eyes",
+  "drooling_face",
+  "star_struck",
+  "clap",
+  "raised_hands",
+  "pray",
+  "muscle",
+  "thinking",
+  "sweat_smile",
+  "wink",
+  "slightly_smiling_face",
+  "laughing",
+  "cry",
+  "ok_hand",
+  "100",
+  "sparkles",
+  "tada",
+  "hot_pepper",
+  "avocado",
+  "egg",
+  "fork_and_knife",
+  "plate_with_cutlery",
+  "cook",
+  "green_salad",
+  "pizza",
+];
+const popularity = new Map(POPULAR.map((name, i) => [name, i]));
+
 // Best first: exact shortcode, shortcode prefix, a word inside a shortcode,
-// then a tag. Ties keep the list's order.
+// then a tag. Ties go to popular emoji, then shorter names.
 export function searchEmoji(query, limit = 8) {
   const q = String(query ?? "")
     .trim()
@@ -72,11 +110,15 @@ export function searchEmoji(query, limit = 8) {
     if (e.tags.some((t) => t.startsWith(q))) return 3;
     return -1;
   };
-  return EMOJI.map((e) => [rank(e), e])
+  const tieBreak = (e) => [
+    popularity.get(e.name) ?? POPULAR.length,
+    Math.min(...e.shortcodes.map((s) => s.length)),
+  ];
+  return EMOJI.map((e) => [rank(e), ...tieBreak(e), e])
     .filter(([r]) => r >= 0)
-    .sort((a, b) => a[0] - b[0])
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2])
     .slice(0, limit)
-    .map(([, e]) => e);
+    .map((row) => row[3]);
 }
 
 // What the ":" popup shows. Needs two characters so "Note:" or "2:1" stay quiet.

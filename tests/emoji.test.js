@@ -83,3 +83,14 @@ test("recent emoji are remembered newest first, without repeats, up to 24", () =
   assert.deepEqual(recentEmoji({ getItem: () => "not json" }), []);
   assert.doesNotThrow(() => rememberEmoji("fire", undefined));
 });
+
+test("emoji newer than Unicode 15.1 are left out; many devices show them as boxes", () => {
+  assert.ok(EMOJI.every((e) => !(e.version > 15.1)));
+  assert.equal(glyphFor("fight_cloud"), "");
+});
+
+test("among equal matches, common emoji come first, then shorter names", () => {
+  assert.equal(searchEmoji("fi")[0].name, "fire");
+  assert.equal(searchEmoji("he")[0].name, "heart");
+  assert.equal(searchEmoji("thu")[0].name, "+1");
+});
