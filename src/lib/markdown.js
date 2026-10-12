@@ -12,7 +12,10 @@ const ESCAPES = {
   '"': "&quot;",
   "'": "&#39;",
 };
-const escape = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ESCAPES[c]);
+// An "&" that already starts an entity is left alone: the editor writes
+// "Salt &amp; pepper", and entities are inert as text and inside quotes.
+const escape = (s) =>
+  String(s ?? "").replace(/&(?!#?\w+;)|[<>"']/g, (c) => ESCAPES[c]);
 const asText = (raw) => escape(String(raw ?? "").trim()).replace(/\n/g, "<br>");
 
 const safeHref = (href) => {

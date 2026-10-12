@@ -120,3 +120,12 @@ test("link addresses are cleaned up or refused", () => {
   assert.equal(normalizeUrl("mailto:a@b.com"), null);
   assert.equal(normalizeUrl("not a url"), null);
 });
+
+test("& < > typed in the editor show as themselves once posted", async () => {
+  const { renderMarkdown } = await import("../src/lib/markdown.js");
+  const editor = make();
+  type(editor, "Salt & pepper, a > b, 2 < 3");
+  const shown = new JSDOM(renderMarkdown(editor.getMarkdown())).window.document
+    .body.textContent;
+  assert.equal(shown, "Salt & pepper, a > b, 2 < 3");
+});

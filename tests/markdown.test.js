@@ -75,3 +75,13 @@ test("editor output with escapes round-trips", () => {
   // What the editor writes when someone types 2*3 [x] literally.
   assert.equal(renderMarkdown("2\\*3 \\[x\\]"), "<p>2*3 [x]</p>");
 });
+
+test("entities the editor writes aren't encoded twice, and stay inert", () => {
+  assert.equal(renderMarkdown("Salt &amp; pepper"), "<p>Salt &amp; pepper</p>");
+  assert.equal(renderMarkdown("&lt;script&gt;"), "<p>&lt;script&gt;</p>");
+  assert.equal(renderMarkdown("Tom & Jerry"), "<p>Tom &amp; Jerry</p>");
+  assert.equal(
+    renderMarkdown('[x](https://a.com/?q="&amp;)'),
+    '<p><a href="https://a.com/?q=&quot;&amp;" target="_blank" rel="nofollow noopener noreferrer ugc">x</a></p>',
+  );
+});
