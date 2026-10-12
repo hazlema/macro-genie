@@ -3182,4 +3182,18 @@ dialog.dislikes[open] {
   .tabs button {
     letter-spacing: -0.01em;
   }
+  /* iPhones zoom in on any field with text under 16px, and the zoomed page
+     then slides sideways. 16px keeps them from zooming. */
+  body
+    :is(
+      input:not([type="checkbox"]):not([type="range"]),
+      select,
+      textarea,
+      .rich-input
+    ) {
+    font-size: 16px;
+  }
+  #category {
+    font-size: 16px;
+  }
 }
