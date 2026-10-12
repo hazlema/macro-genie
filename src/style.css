@@ -130,7 +130,7 @@ input::placeholder {
   font-weight: 650;
   font-size: 15px;
 }
-.tabs button span {
+.tabs button .tab-count {
   font-weight: 400;
   font-size: 12px;
   margin-left: 7px;
@@ -140,7 +140,7 @@ input::placeholder {
   background: #e7eae3;
   color: #151819;
 }
-.tabs button.current span {
+.tabs button.current .tab-count {
   color: #616b61;
 }
 .tabs button:not(.current):hover {
@@ -795,7 +795,7 @@ footer p:first-child span {
     font-size: 13px;
     padding: 9px 12px;
   }
-  .tabs button span {
+  .tabs button .tab-count {
     font-size: 10px;
     margin-left: 5px;
   }
@@ -3006,5 +3006,180 @@ dialog.dislikes[open] {
   }
   .emoji-grid {
     grid-template-columns: repeat(7, 1fr);
+  }
+}
+
+/* Tablets and phones: the header wraps instead of pushing the page sideways */
+.login-short {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+  .login-long {
+    display: none;
+  }
+  .login-short {
+    display: inline;
+  }
+  .topbar .search-box {
+    order: 3;
+    flex-basis: 100%;
+  }
+  /* Logo and account on top, the tabs on a row of their own. */
+  .wordmark {
+    order: 0;
+    margin-right: auto;
+  }
+  .topbar .account-area {
+    order: 1;
+    margin-left: auto;
+  }
+  .tabs {
+    order: 2;
+  }
+}
+
+/* Phones: short labels, a header that fits, and a macro panel button that
+   looks like something to tap */
+.narrow-label,
+.panel-toggle,
+.panel-done,
+.community-macros {
+  display: none;
+}
+@media (max-width: 760px) {
+  /* Nothing should ever make the page slide sideways. */
+  body {
+    overflow-x: clip;
+  }
+  .wide-label {
+    display: none;
+  }
+  .narrow-label {
+    display: inline;
+  }
+  .topbar {
+    row-gap: 14px;
+  }
+  .wordmark {
+    order: 0;
+  }
+  .account-area {
+    order: 1;
+    margin-left: auto;
+  }
+  .tabs {
+    order: 2;
+    flex-basis: 100%;
+    min-width: 0;
+  }
+  .tabs button {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 9px 4px;
+    font-size: 13.5px;
+  }
+  .tabs button .tab-count {
+    margin-left: 4px;
+  }
+  .login-button {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+
+  .panel-toggle {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: calc(100% - 40px);
+    margin: 18px 20px;
+    padding: 14px 16px 14px 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .panel-toggle:hover,
+  .panel-toggle[aria-expanded="true"] {
+    border-color: #4a5356;
+  }
+  .panel-toggle-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .panel-toggle strong {
+    font-size: 16px;
+    font-weight: 650;
+  }
+  .panel-toggle small {
+    font-size: 13px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .panel-toggle small.set {
+    color: var(--lime);
+  }
+  .panel-chevron {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: var(--lime);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.15s;
+  }
+  .panel-toggle[aria-expanded="true"] .panel-chevron {
+    transform: rotate(180deg);
+  }
+  .panel-done {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+  }
+
+  /* The Recipe Builder's servings stepper lives in the panel heading. */
+  aside .filter-heading:has(.servings) {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 14px;
+  }
+  aside .filter-heading:has(.servings) h1 {
+    display: none;
+  }
+
+  .community-aside {
+    display: none;
+  }
+  .community-macros {
+    display: block;
+    margin: 0 -20px 6px;
+  }
+  .community-macros .panel-toggle {
+    margin-top: 0;
+  }
+  .results-tools {
+    gap: 12px;
+  }
+  .clear-button {
+    white-space: nowrap;
+  }
+  /* A post's buttons in two rows: open it, then keep, share, or report it. */
+  .post-actions {
+    gap: 8px 4px;
+  }
+  .tabs button {
+    letter-spacing: -0.01em;
   }
 }

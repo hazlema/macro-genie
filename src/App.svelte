@@ -11,9 +11,11 @@
   import Community from './components/Community.svelte';
   import Landing from './components/Landing.svelte';
   import RecipeCard from './components/RecipeCard.svelte';
+  import PanelToggle from './components/PanelToggle.svelte';
+  import { panelStartsOpen, rememberPanelUsed, showResults } from './lib/panel.js';
   import { printJob } from './lib/print.svelte.js';
   import { route, navigate } from './lib/route.svelte.js';
-  import { BASES, GROUPS, PRESETS, SORTS, emptyRanges, normalizeDataset, searchFoods } from './lib/foods.js';
+  import { BASES, GROUPS, PRESETS, SORTS, emptyRanges, normalizeDataset, rangeSummary, searchFoods } from './lib/foods.js';
   import { expandDislikes } from './lib/recipe.js';
   import { prefs } from './lib/prefs.svelte.js';
 
@@ -29,7 +31,7 @@
   const tab = $derived(route.tab);
   let visible = $state(20);
   let activePreset = $state('');
-  let mobileFilters = $state(false);
+  let mobileFilters = $state(panelStartsOpen(0));
   let dislikesOpen = $state(false);
 
   const activeCount = $derived(Object.values(ranges).filter(r => r.min != null || r.max != null).length);
@@ -71,9 +73,9 @@
   <a class="wordmark" href="/" onclick={(e) => { e.preventDefault(); navigate({ tab: 'home' }); }} aria-label="Macro Genie home">Macro Genie<span class="brand-dot"></span></a>
   <nav class="tabs" aria-label="Browse">
     <button class:current={tab === 'community'} aria-current={tab === 'community' ? 'page' : undefined} onclick={() => navigate({ tab: 'community' })}>Community</button>
-    <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => navigate({ tab: 'saved' })}>Recipe Book{#if prefs.recipes.length}<span>{prefs.recipes.length}</span>{/if}</button>
-    <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => navigate({ tab: 'recipes' })}>Recipe Builder</button>
-    <button class:current={tab === 'foods'} aria-current={tab === 'foods' ? 'page' : undefined} onclick={() => navigate({ tab: 'foods' })}>Food Macros <span>{dataset ? dataset.foods.length.toLocaleString() : '…'}</span></button>
+    <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => navigate({ tab: 'saved' })}><span class="wide-label">Recipe Book</span><span class="narrow-label">Recipes</span>{#if prefs.recipes.length}<span class="tab-count">{prefs.recipes.length}</span>{/if}</button>
+    <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => navigate({ tab: 'recipes' })}><span class="wide-label">Recipe Builder</span><span class="narrow-label">Builder</span></button>
+    <button class:current={tab === 'foods'} aria-current={tab === 'foods' ? 'page' : undefined} onclick={() => navigate({ tab: 'foods' })}><span class="wide-label">Food Macros</span><span class="narrow-label">Foods</span><span class="tab-count wide-label">{dataset ? dataset.foods.length.toLocaleString() : '…'}</span></button>
   </nav>
   {#if tab === 'foods'}
     <div class="search-box">
@@ -87,7 +89,7 @@
       <span class="account-name">{account.displayName}</span>
       <button class="text-button" onclick={signOut}>Sign out</button>
     {:else if account.loaded}
-      <button class="outline-button login-button" onclick={() => account.loginOpen = true}>Login / Create Account</button>
+      <button class="outline-button login-button" onclick={() => account.loginOpen = true}><span class="login-long">Login / Create Account</span><span class="login-short">Log in</span></button>
     {/if}
   </div>
 </header>
@@ -95,7 +97,7 @@
 {#if tab === 'foods'}
   <div class="workspace">
     <aside class:mobile-open={mobileFilters}>
-      <button class="mobile-filter-toggle" onclick={() => mobileFilters = !mobileFilters} aria-expanded={mobileFilters} aria-controls="filter-content">Your ranges {activeCount ? `(${activeCount})` : ''}<span>{mobileFilters ? '−' : '+'}</span></button>
+      <PanelToggle title="Set your macros" summary={rangeSummary(ranges)} hint="Protein, carbs, calories and more" bind:open={mobileFilters} controls="filter-content" ontoggle={(open) => { if (!open) rememberPanelUsed(); }} />
       <div class="filter-content" id="filter-content">
         <div class="filter-heading"><h1>Your ranges</h1><select class="basis-select" aria-label="Nutrient basis" bind:value={basis} onchange={() => visible = 20}>{#each Object.entries(BASES) as [key, name]}<option value={key}>{name}</option>{/each}</select></div>
         <p class="filter-intro"><span class="mobile-only">{BASES[basis]}. </span>Leave blank for no limit.</p>
@@ -111,6 +113,7 @@
         </div>
         <DislikeSummary onedit={() => dislikesOpen = true} />
         <button class="clear-button" onclick={clearAll}>↺ <span>Clear all</span></button>
+        <button class="primary-button panel-done" onclick={() => { mobileFilters = false; showResults(); }}>{loading || result.error ? 'Show foods' : `Show ${result.foods.length.toLocaleString()} ${result.foods.length === 1 ? 'food' : 'foods'}`}</button>
         <div class="serving-note"><span class="note-icon" aria-hidden="true">i</span><p>{basis === '100g' ? 'Every number is for 100 g of the food, so foods compare weight for weight.' : 'Every number is for the serving shown. Different foods have different serving sizes.'}</p></div>
       </div>
     </aside>

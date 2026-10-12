@@ -2,7 +2,9 @@
   import RangeTable from './RangeTable.svelte';
   import RecipeCard from './RecipeCard.svelte';
   import DislikeSummary from './DislikeSummary.svelte';
-  import { NUTRIENTS, PRESETS, emptyRanges, formatAmount, swapOptions } from '../lib/foods.js';
+  import PanelToggle from './PanelToggle.svelte';
+  import { panelStartsOpen, rememberPanelUsed, showResults } from '../lib/panel.js';
+  import { NUTRIENTS, PRESETS, emptyRanges, formatAmount, rangeSummary, swapOptions } from '../lib/foods.js';
   import { solveRecipe, isDisliked, expandDislikes, splitFoodList, missingRequests } from '../lib/recipe.js';
   import { structuredText } from '../lib/scale.js';
   import { prefs, save, saveRecipe } from '../lib/prefs.svelte.js';
@@ -40,7 +42,8 @@
   let writing = $state(false);
   let methodError = $state('');
   let activePreset = $state('');
-  let mobileOpen = $state(false);
+  // Phones: open for a first-time visitor with no targets saved yet.
+  let mobileOpen = $state(panelStartsOpen(Object.values(draft.ranges ?? {}).filter((r) => r?.min != null || r?.max != null).length));
   let copied = $state(false);
   // Swapping one recipe ingredient for another food, e.g. feta for cheddar.
   let swapping = $state(null);
@@ -228,7 +231,7 @@
 
 <div class="workspace">
   <aside class:mobile-open={mobileOpen}>
-    <button class="mobile-filter-toggle" onclick={() => mobileOpen = !mobileOpen} aria-expanded={mobileOpen} aria-controls="dish-content">Your targets {activeCount ? `(${activeCount})` : ''}<span>{mobileOpen ? '−' : '+'}</span></button>
+    <PanelToggle title="Set your macros" summary={activeCount ? `Serves ${servings}: ${rangeSummary(ranges)}` : ''} hint={`Serves ${servings}. Protein, carbs, calories and more`} bind:open={mobileOpen} controls="dish-content" ontoggle={(open) => { if (!open) rememberPanelUsed(); }} />
     <div class="filter-content" id="dish-content">
       <div class="filter-heading">
         <h1>Your targets</h1>
@@ -246,6 +249,7 @@
       </div>
       <DislikeSummary onedit={oneditdislikes} />
       <button class="clear-button" onclick={startOver}>↺ <span>Start over</span></button>
+      <button class="primary-button panel-done" onclick={() => { mobileOpen = false; showResults(); }}>Done</button>
       <div class="serving-note"><span class="note-icon" aria-hidden="true">i</span><p>Claude invents the dishes. Every amount and nutrition number is worked out from USDA data, never by the AI.</p></div>
     </div>
   </aside>

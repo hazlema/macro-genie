@@ -336,3 +336,26 @@ export function formatAmount(value) {
     value,
   );
 }
+
+// One line for the collapsed macro panel on phones, e.g.
+// "Protein ≥ 30 g, Calories ≤ 600 kcal, +2 more". Empty when nothing is set.
+export function rangeSummary(ranges, shown = 3) {
+  const parts = NUTRIENTS.flatMap(({ key, label, unit }) => {
+    const { min, max } = ranges?.[key] ?? {};
+    const hasMin = min != null;
+    const hasMax = max != null;
+    if (!hasMin && !hasMax) return [];
+    if (hasMin && hasMax)
+      return min === max
+        ? `${label} ${formatAmount(min)} ${unit}`
+        : `${label} ${formatAmount(min)}–${formatAmount(max)} ${unit}`;
+    return hasMin
+      ? `${label} ≥ ${formatAmount(min)} ${unit}`
+      : `${label} ≤ ${formatAmount(max)} ${unit}`;
+  });
+  const extra = parts.length - shown;
+  return [
+    ...parts.slice(0, shown),
+    ...(extra > 0 ? [`+${extra} more`] : []),
+  ].join(", ");
+}

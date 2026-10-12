@@ -3,7 +3,8 @@
   import PostCard from './PostCard.svelte';
   import ReviewQueue from './ReviewQueue.svelte';
   import LazyEditor from './LazyEditor.svelte';
-  import { emptyRanges } from '../lib/foods.js';
+  import PanelToggle from './PanelToggle.svelte';
+  import { emptyRanges, rangeSummary } from '../lib/foods.js';
   import { account, api } from '../lib/account.svelte.js';
   import { navigate } from '../lib/route.svelte.js';
 
@@ -112,8 +113,9 @@
   <ReviewQueue onclose={() => { reviewing = false; load(); loadCounts(); }} />
 {:else}
   <div class="workspace">
-    <aside class:mobile-open={mobileOpen}>
-      <button class="mobile-filter-toggle" onclick={() => mobileOpen = !mobileOpen} aria-expanded={mobileOpen} aria-controls="community-filters">Macros {activeCount ? `(${activeCount})` : ''}<span>{mobileOpen ? '−' : '+'}</span></button>
+    <!-- Wide screens: macros in the side column. Phones get the same table
+         under the board chips instead (below), only on the recipe boards. -->
+    <aside class="community-aside">
       <div class="filter-content" id="community-filters">
         <div class="filter-heading"><h1>Macros</h1></div>
         <p class="filter-intro">For the recipe boards, per serving. Leave blank for no limit.</p>
@@ -149,6 +151,20 @@
           </div>
         </div>
       </div>
+
+      {#if !board && !postId}
+        <div class="community-macros" class:mobile-open={mobileOpen}>
+          <PanelToggle title="Filter by macros" summary={rangeSummary(ranges)} hint="Per serving: protein, carbs, calories and more" bind:open={mobileOpen} controls="community-macros" />
+          <div class="filter-content" id="community-macros">
+            <p class="filter-intro">Per serving. Leave blank for no limit.</p>
+            <RangeTable bind:ranges />
+            {#if account.isAdmin}
+              <label class="dislike-toggle mod-filter"><input type="checkbox" bind:checked={needsReview} /> Needs review only</label>
+            {/if}
+            <button class="primary-button panel-done" onclick={() => { mobileOpen = false; document.querySelector('.community-results')?.scrollIntoView({ block: 'start' }); }}>Show recipes</button>
+          </div>
+        </div>
+      {/if}
 
       {#if postId}
         <a class="back-link" href="/community" onclick={(e) => { e.preventDefault(); navigate({ tab: 'community' }); }}>← All of the community</a>

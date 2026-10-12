@@ -154,7 +154,7 @@
     {/if}
     {#if !thread}
       {#if saved}<span class="post-saved">In your Recipe Book</span>
-      {:else}<button class="outline-button" onclick={save}>Save to Recipe Book</button>{/if}
+      {:else}<button class="outline-button" onclick={save}><span class="wide-label">Save to Recipe Book</span><span class="narrow-label">Save recipe</span></button>{/if}
     {/if}
     {#if status === 'live'}<button class="text-button" onclick={copyLink}>{linkCopied ? 'Link copied' : 'Copy link'}</button>{/if}
     {#if confirm === 'remove'}
