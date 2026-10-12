@@ -4,6 +4,12 @@ import { NetlifyDB } from "@netlify/database-dev";
 import { connect, useDatabase } from "../server/db.js";
 import { findOrCreateAccount } from "../server/accounts.js";
 import {
+  heldText,
+  listActivity,
+  logActivity,
+  pruneActivity,
+} from "../server/activity.js";
+import {
   requireActive,
   requireAdmin,
   requireMod,
@@ -98,4 +104,75 @@ test("a suspended account can't act, unless it's an owner", async () => {
   } finally {
     delete process.env.ADMIN_SUBS;
   }
+});
+
+test("the log lists entries newest first, filtered by chip, paged by id", async () => {
+  await db.sql`DELETE FROM activity_log`;
+  for (const name of ["S0", "S1", "S2"])
+    await logActivity({ kind: "sign_in", actorName: name, text: "signed in" });
+  await logActivity({
+    kind: "recipe_post",
+    actorName: "Ada",
+    text: 'posted a recipe to the community: "Gratin"',
+    link: "/community/5",
+  });
+  await logActivity({
+    kind: "held",
+    actorName: "Bo",
+    text: heldText("posted in General", "held", "Might be an ad."),
+    link: "/community/6",
+  });
+  const all = await listActivity();
+  assert.deepEqual(
+    all.entries.map((e) => e.name),
+    ["Bo", "Ada", "S2", "S1", "S0"],
+  );
+  assert.equal(all.more, false);
+  assert.equal(all.entries[1].link, "/community/5");
+  assert.equal(
+    all.entries[0].text,
+    "posted in General but it was held for review: Might be an ad.",
+  );
+  assert.ok(!Number.isNaN(Date.parse(all.entries[0].at)));
+  assert.deepEqual(
+    (await listActivity({ chip: "problems" })).entries.map((e) => e.name),
+    ["Bo"],
+  );
+  assert.equal((await listActivity({ chip: "signins" })).entries.length, 3);
+
+  const page1 = await listActivity({ limit: 2 });
+  assert.deepEqual(
+    page1.entries.map((e) => e.name),
+    ["Bo", "Ada"],
+  );
+  assert.equal(page1.more, true);
+  // Something new arrives between pages; the next page still continues.
+  await logActivity({ kind: "sign_in", actorName: "New", text: "signed in" });
+  const page2 = await listActivity({ limit: 2, before: page1.entries[1].id });
+  assert.deepEqual(
+    page2.entries.map((e) => e.name),
+    ["S2", "S1"],
+  );
+  await assert.rejects(listActivity({ chip: "nope" }), /Unknown filter/);
+});
+
+test("logging never throws, and entries older than 90 days are pruned", async () => {
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    await logActivity({ kind: "not-a-kind", actorName: "X", text: "x" });
+  } finally {
+    console.error = quiet;
+  }
+  await db.sql`INSERT INTO activity_log (created_at, kind, actor_name, text)
+    VALUES (now() - interval '91 days', 'sign_in', 'Old', 'signed in')`;
+  await pruneActivity();
+  const names = (
+    await listActivity({ chip: "signins", limit: 200 })
+  ).entries.map((e) => e.name);
+  assert.ok(!names.includes("Old"));
+  assert.equal(
+    heldText("commented", "blocked", ""),
+    "commented but it was blocked",
+  );
 });
