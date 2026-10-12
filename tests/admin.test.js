@@ -9,6 +9,16 @@ import {
   logActivity,
   pruneActivity,
 } from "../server/activity.js";
+import { getAccount } from "../server/accounts.js";
+import { addComment, createThread, toggleLike } from "../server/community.js";
+import {
+  adjustCredits,
+  deleteAndBan,
+  listUsers,
+  removeCommunityContent,
+  setRoles,
+  setSuspended,
+} from "../server/users.js";
 import {
   requireActive,
   requireAdmin,
@@ -41,6 +51,28 @@ const pick = ({ owner, admin, mod, suspended }) => ({
   mod,
   suspended,
 });
+// Haiku stand-in: every review comes back "fine".
+const fine = {
+  messages: {
+    create: async () => ({
+      stop_reason: "tool_use",
+      content: [
+        {
+          type: "tool_use",
+          name: "submit_review",
+          input: { verdict: "fine", reason: "Fine.", meal_type: "dinner" },
+        },
+      ],
+    }),
+  },
+};
+const staff = async () => {
+  const admin = await person("Adele");
+  const mod = await person("Moe");
+  await db.sql`UPDATE accounts SET is_admin = true WHERE id = ${admin.id}`;
+  await db.sql`UPDATE accounts SET is_mod = true WHERE id = ${mod.id}`;
+  return { admin, mod };
+};
 
 test("roles: owners come from ADMIN_SUBS, admins and mods from the database", async () => {
   const owner = await person("Owner", "owner-sub");
@@ -174,5 +206,166 @@ test("logging never throws, and entries older than 90 days are pruned", async ()
   assert.equal(
     heldText("commented", "blocked", ""),
     "commented but it was blocked",
+  );
+});
+
+test("user search: newest first, by name, with % and _ matched literally", async () => {
+  const { mod } = await staff();
+  await person("Percent%Pat");
+  await person("Under_Ursula");
+  await person("Plainly");
+  const named = (r) => r.users.map((u) => u.displayName);
+  assert.deepEqual(named(await listUsers(mod.id, { query: "%" })), [
+    "Percent%Pat",
+  ]);
+  assert.deepEqual(named(await listUsers(mod.id, { query: "_" })), [
+    "Under_Ursula",
+  ]);
+  assert.equal((await listUsers(mod.id)).users[0].displayName, "Plainly");
+  const pat = await person("Pat Plain");
+  await assert.rejects(listUsers(pat.id), /Only moderators/);
+});
+
+test("mods suspend and remove posts, but not other staff, themselves, or the owner", async () => {
+  const { admin, mod } = await staff();
+  const kid = await person("Kid");
+  const suspended = await setSuspended(mod.id, kid.id, true);
+  assert.equal(suspended.suspended, true);
+  assert.equal((await setSuspended(mod.id, kid.id, false)).suspended, false);
+  await assert.rejects(
+    setSuspended(mod.id, admin.id, true),
+    /Only admins can do that to a moderator/,
+  );
+  await assert.rejects(setSuspended(mod.id, mod.id, true), /your own account/);
+  const own = await person("Own", "owner-x");
+  process.env.ADMIN_SUBS = "owner-x";
+  try {
+    await assert.rejects(setSuspended(admin.id, own.id, true), /site owner/);
+  } finally {
+    delete process.env.ADMIN_SUBS;
+  }
+  const log = (await listActivity({ chip: "problems", limit: 200 })).entries;
+  assert.ok(log.some((e) => e.name === "Moe" && e.text === "suspended Kid"));
+  assert.ok(log.some((e) => e.name === "Moe" && e.text === "unsuspended Kid"));
+});
+
+test("removing someone's community content keeps other posts' comment counts right", async () => {
+  const { mod } = await staff();
+  const host = await person("Host");
+  const troll = await person("Troll");
+  const thread = await createThread(
+    host.id,
+    { board: "general", title: "Hello there", body: "Hi" },
+    fine,
+  );
+  await addComment(troll.id, thread.id, "first", fine);
+  await addComment(troll.id, thread.id, "second", fine);
+  await createThread(
+    troll.id,
+    { board: "general", title: "Troll post", body: "x" },
+    fine,
+  );
+  const before =
+    await db.sql`SELECT comment_count FROM posts WHERE id = ${thread.id}`;
+  assert.equal(before[0].comment_count, 2);
+  assert.deepEqual(await removeCommunityContent(mod.id, troll.id), {
+    posts: 1,
+    comments: 2,
+  });
+  const after =
+    await db.sql`SELECT comment_count FROM posts WHERE id = ${thread.id}`;
+  assert.equal(after[0].comment_count, 0);
+  const left =
+    await db.sql`SELECT count(*)::int AS n FROM posts WHERE account_id = ${troll.id} AND status <> 'removed'`;
+  assert.equal(left[0].n, 0);
+});
+
+test("credits: admins only, a reason is required, and never below zero", async () => {
+  const { admin, mod } = await staff();
+  const cy = await person("Cy");
+  await assert.rejects(
+    adjustCredits(mod.id, cy.id, 5, "thanks"),
+    /Only admins/,
+  );
+  await assert.rejects(adjustCredits(admin.id, cy.id, 5, "  "), /Add a reason/);
+  await assert.rejects(
+    adjustCredits(admin.id, cy.id, 1.5, "x"),
+    /whole number/,
+  );
+  assert.deepEqual(
+    await adjustCredits(admin.id, cy.id, 50, "beta tester thanks"),
+    { credits: 60 },
+  );
+  await assert.rejects(
+    adjustCredits(admin.id, cy.id, -61, "oops"),
+    /below 0 credits \(they have 60\)/,
+  );
+  assert.deepEqual(await adjustCredits(admin.id, cy.id, -60, "reset"), {
+    credits: 0,
+  });
+  const ledger =
+    await db.sql`SELECT change, reason FROM credit_ledger WHERE account_id = ${cy.id} ORDER BY id`;
+  assert.deepEqual(
+    ledger.map((r) => [r.change, r.reason]),
+    [
+      [10, "welcome"],
+      [50, "admin:beta tester thanks"],
+      [-60, "admin:reset"],
+    ],
+  );
+  const entry = (
+    await listActivity({ chip: "credits", limit: 200 })
+  ).entries.find((e) => e.name === "Cy" && e.text.startsWith("got +50"));
+  assert.equal(entry.text, 'got +50 credits from Adele: "beta tester thanks"');
+});
+
+test("roles: admins set them, can't drop their own admin, can't touch the owner", async () => {
+  const { admin, mod } = await staff();
+  const dee = await person("Dee");
+  await assert.rejects(setRoles(mod.id, dee.id, { mod: true }), /Only admins/);
+  assert.equal((await setRoles(admin.id, dee.id, { mod: true })).mod, true);
+  assert.equal((await setRoles(admin.id, dee.id, { admin: true })).admin, true);
+  await assert.rejects(
+    setRoles(admin.id, admin.id, { admin: false }),
+    /your own admin role/,
+  );
+  const log = (await listActivity({ chip: "problems", limit: 200 })).entries;
+  assert.ok(
+    log.some((e) => e.text === "changed Dee's roles: made them a moderator"),
+  );
+});
+
+test("delete & ban erases everything, fixes counts on others' posts, and blocks that Google account", async () => {
+  const { admin } = await staff();
+  const host = await person("Hosta");
+  const gone = await person("Gone", "gone-sub");
+  const thread = await createThread(
+    host.id,
+    { board: "general", title: "Popular one", body: "Hi" },
+    fine,
+  );
+  await toggleLike(gone.id, thread.id);
+  await addComment(gone.id, thread.id, "hello", fine);
+  await assert.rejects(
+    deleteAndBan(admin.id, gone.id, "gone"),
+    /Type their display name/,
+  );
+  assert.deepEqual(await deleteAndBan(admin.id, gone.id, " Gone "), {
+    deleted: true,
+  });
+  assert.equal(await getAccount(gone.id), null);
+  const post =
+    await db.sql`SELECT like_count, comment_count FROM posts WHERE id = ${thread.id}`;
+  assert.deepEqual(post[0], { like_count: 0, comment_count: 0 });
+  const banned =
+    await db.sql`SELECT google_sub FROM banned_subs WHERE google_sub = 'gone-sub'`;
+  assert.equal(banned.length, 1);
+  await assert.rejects(
+    setSuspended(admin.id, gone.id, true),
+    /no longer exists/,
+  );
+  const log = (await listActivity({ chip: "problems", limit: 200 })).entries;
+  assert.ok(
+    log.some((e) => e.name === "Adele" && e.text === "deleted and banned Gone"),
   );
 });
