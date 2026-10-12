@@ -19,6 +19,13 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "@tiptap/core": "^3.31.4",
+    "@tiptap/extension-emoji": "^3.31.4",
+    "@tiptap/extensions": "^3.31.4",
+    "@tiptap/markdown": "^3.31.4",
+    "@tiptap/pm": "^3.31.4",
+    "@tiptap/starter-kit": "^3.31.4",
+    "@tiptap/suggestion": "^3.31.4",
     "javascript-lp-solver": "^1.0.3",
     "jose": "^6.2.12",
     "marked": "^18.1.1",
