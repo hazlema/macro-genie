@@ -226,15 +226,13 @@ test("a recipe without steps is asked for again, then fails clearly", async () =
 test("the idea endpoint asks for sign-in, and a missing API key is named clearly", async () => {
   const { client } = await import("../server/chef.js");
   const saved = {
-    key: process.env.ANTHROPIC_API_KEY,
-    url: process.env.ANTHROPIC_BASE_URL,
+    key: process.env.CLAUDE_API_KEY,
     secret: process.env.SESSION_SECRET,
   };
-  delete process.env.ANTHROPIC_API_KEY;
-  delete process.env.ANTHROPIC_BASE_URL;
+  delete process.env.CLAUDE_API_KEY;
   process.env.SESSION_SECRET = "s".repeat(40);
   try {
-    assert.throws(() => client(), /ANTHROPIC_API_KEY/);
+    assert.throws(() => client(), /CLAUDE_API_KEY/);
     const signedOut = await handler(
       new Request("https://example.com/api/idea", {
         method: "POST",
@@ -252,8 +250,7 @@ test("the idea endpoint asks for sign-in, and a missing API key is named clearly
     assert.equal(bad.status, 400);
   } finally {
     for (const [name, value] of [
-      ["ANTHROPIC_API_KEY", saved.key],
-      ["ANTHROPIC_BASE_URL", saved.url],
+      ["CLAUDE_API_KEY", saved.key],
       ["SESSION_SECRET", saved.secret],
     ])
       if (value === undefined) delete process.env[name];
@@ -489,6 +486,31 @@ test("local dev uses only the .env key, straight to Anthropic, never the gateway
     for (const key of [
       "MACRO_GENIE_LOCAL",
       "MACRO_GENIE_LOCAL_KEY",
+      "ANTHROPIC_API_KEY",
+      "ANTHROPIC_BASE_URL",
+    ])
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+  }
+});
+
+test("production uses CLAUDE_API_KEY straight to Anthropic, ignoring the gateway", async () => {
+  const { client } = await import("../server/chef.js");
+  const saved = { ...process.env };
+  try {
+    delete process.env.MACRO_GENIE_LOCAL;
+    process.env.ANTHROPIC_API_KEY = "gateway-token";
+    process.env.ANTHROPIC_BASE_URL = "https://gateway.example";
+    delete process.env.CLAUDE_API_KEY;
+    assert.throws(() => client(), /CLAUDE_API_KEY/);
+    process.env.CLAUDE_API_KEY = "sk-ant-prod";
+    const api = client();
+    assert.equal(api.apiKey, "sk-ant-prod");
+    assert.equal(api.baseURL, "https://api.anthropic.com");
+  } finally {
+    for (const key of [
+      "MACRO_GENIE_LOCAL",
+      "CLAUDE_API_KEY",
       "ANTHROPIC_API_KEY",
       "ANTHROPIC_BASE_URL",
     ])

@@ -367,29 +367,29 @@ export function finishIdea(submission, request) {
 }
 
 export function client() {
-  // Under `npm run dev`: only the .env key, straight to Anthropic, never
-  // Netlify's AI Gateway (which bills Netlify credits).
-  if (process.env.MACRO_GENIE_LOCAL) {
-    if (!process.env.MACRO_GENIE_LOCAL_KEY)
-      throw new UserFacingError(
-        "AI is off locally: add ANTHROPIC_API_KEY to .env and restart npm run dev.",
-        503,
-      );
-    return new Anthropic({
-      apiKey: process.env.MACRO_GENIE_LOCAL_KEY,
-      authToken: null,
-      baseURL: "https://api.anthropic.com",
-      timeout: 55_000,
-      maxRetries: 0,
-    });
-  }
-  if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_BASE_URL)
+  // Always straight to Anthropic, never Netlify's AI Gateway (slow, sometimes
+  // not ready, and billed in Netlify credits). Netlify injects its own
+  // ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL, so production reads
+  // CLAUDE_API_KEY instead; under `npm run dev` the key comes from .env.
+  const local = Boolean(process.env.MACRO_GENIE_LOCAL);
+  const apiKey = local
+    ? process.env.MACRO_GENIE_LOCAL_KEY
+    : process.env.CLAUDE_API_KEY;
+  if (!apiKey)
     throw new UserFacingError(
-      "Recipe ideas aren't set up yet: the site needs an ANTHROPIC_API_KEY.",
+      local
+        ? "AI is off locally: add ANTHROPIC_API_KEY to .env and restart npm run dev."
+        : "Recipe ideas aren't set up yet: the site needs a CLAUDE_API_KEY.",
       503,
     );
   // One attempt that finishes inside Netlify's 60-second function limit.
-  return new Anthropic({ timeout: 55_000, maxRetries: 0 });
+  return new Anthropic({
+    apiKey,
+    authToken: null,
+    baseURL: "https://api.anthropic.com",
+    timeout: 55_000,
+    maxRetries: 0,
+  });
 }
 
 // Haiku has no server-side fallback; the others retry a declined request on

@@ -11,12 +11,15 @@ import { NUTRIENTS } from "../src/lib/foods.js";
 import { structuredText } from "../src/lib/scale.js";
 import { MODELS } from "../server/usage.js";
 
-if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_BASE_URL) {
+if (!process.env.ANTHROPIC_API_KEY) {
   console.error(
     "No ANTHROPIC_API_KEY found. Put it in .env (ANTHROPIC_API_KEY=sk-ant-...) or the shell, then run again.",
   );
   process.exit(1);
 }
+// Same key handling as npm run dev: the .env key, straight to Anthropic.
+process.env.MACRO_GENIE_LOCAL = "1";
+process.env.MACRO_GENIE_LOCAL_KEY = process.env.ANTHROPIC_API_KEY;
 
 const models = process.argv.slice(2).length
   ? process.argv.slice(2)
