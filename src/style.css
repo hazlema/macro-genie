@@ -3390,6 +3390,9 @@ dialog.dislikes[open] {
   align-items: center;
   gap: 8px 12px;
 }
+.user-panel > .danger-button {
+  justify-self: start;
+}
 .user-note {
   margin: 0;
   color: var(--muted);
