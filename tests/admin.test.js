@@ -369,3 +369,59 @@ test("delete & ban erases everything, fixes counts on others' posts, and blocks 
     log.some((e) => e.name === "Adele" && e.text === "deleted and banned Gone"),
   );
 });
+
+test("admin endpoints: sign-in required, mods vs admins enforced by the server", async () => {
+  const { default: handler } = await import("../netlify/functions/admin.js");
+  const { sessionCookie } = await import("../server/session.js");
+  const { admin, mod } = await staff();
+  const plain = await person("Plain Jane");
+  const as = (who) => ({
+    cookie: sessionCookie(who.id, new Request("https://example.com/")).split(
+      ";",
+    )[0],
+  });
+  const call = (path, who, body) =>
+    handler(
+      new Request(`https://example.com${path}`, {
+        method: body ? "POST" : "GET",
+        headers: {
+          ...(who ? as(who) : {}),
+          "Content-Type": "application/json",
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      }),
+    );
+
+  assert.equal((await call("/api/admin/users")).status, 401);
+  assert.equal((await call("/api/admin/users", plain)).status, 403);
+  const users = await call("/api/admin/users?q=Plain", mod);
+  assert.equal(users.status, 200);
+  assert.equal((await users.json()).users[0].displayName, "Plain Jane");
+  assert.equal((await call("/api/admin/log?chip=problems", mod)).status, 200);
+  assert.equal((await call("/api/admin/log?chip=bad", mod)).status, 400);
+  assert.equal((await call("/api/admin/queue", mod)).status, 200);
+  assert.equal(
+    (
+      await call(`/api/admin/users/${plain.id}/credits`, mod, {
+        amount: 5,
+        reason: "x",
+      })
+    ).status,
+    403,
+  );
+  const credited = await call(`/api/admin/users/${plain.id}/credits`, admin, {
+    amount: 5,
+    reason: "welcome back",
+  });
+  assert.equal(credited.status, 200);
+  assert.deepEqual(await credited.json(), { credits: 15 });
+  const suspended = await call(`/api/admin/users/${plain.id}/suspend`, mod, {
+    on: true,
+  });
+  assert.equal((await suspended.json()).suspended, true);
+  assert.equal(
+    (await call(`/api/admin/users/999999/suspend`, mod, { on: true })).status,
+    404,
+  );
+  assert.equal((await call("/api/admin/nope", mod)).status, 404);
+});

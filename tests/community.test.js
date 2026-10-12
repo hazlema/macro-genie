@@ -449,7 +449,11 @@ test("the community endpoints: public browsing, sign-in to take part, moderators
     kim.id,
     new Request("https://example.com/"),
   ).split(";")[0];
-  const queue = await call("/api/admin/queue", { headers: { cookie } });
+  const { default: adminHandler } =
+    await import("../netlify/functions/admin.js");
+  const queue = await adminHandler(
+    new Request("https://example.com/api/admin/queue", { headers: { cookie } }),
+  );
   assert.equal(queue.status, 403, "signed in but not a moderator");
   const comments = await call("/api/community/posts/1/comments");
   assert.equal(comments.status, 200);

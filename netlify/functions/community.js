@@ -1,5 +1,5 @@
-import { decide, queueCount, reviewQueue } from "../../server/admin.js";
-import { requireMod, roleOf } from "../../server/roles.js";
+import { queueCount } from "../../server/admin.js";
+import { roleOf } from "../../server/roles.js";
 import { UserFacingError } from "../../server/chef.js";
 import {
   addComment,
@@ -19,9 +19,9 @@ import { fail } from "../../server/http.js";
 import { readSession } from "../../server/session.js";
 
 // Anyone can browse; taking part (posting, liking, commenting, reporting)
-// needs an account; the review queue needs a moderator.
+// needs an account; moderators also see what is waiting for review.
 export const config = {
-  path: ["/api/community", "/api/community/*", "/api/admin/*"],
+  path: ["/api/community", "/api/community/*"],
   rateLimit: {
     windowLimit: 120,
     windowSize: 60,
@@ -151,24 +151,6 @@ export default async function handler(request) {
         const body = await json(request);
         return Response.json(
           await report(viewer, body.type, idFrom(body.id), body.reason),
-        );
-      }
-      case "GET admin/queue":
-        await requireMod(signedIn(request));
-        return Response.json(
-          { items: await reviewQueue() },
-          { headers: { "Cache-Control": "no-store" } },
-        );
-      case "POST admin/decide": {
-        await requireMod(signedIn(request));
-        const body = await json(request);
-        return Response.json(
-          await decide(
-            body.type,
-            idFrom(body.id),
-            body.action,
-            signedIn(request),
-          ),
         );
       }
       default:
