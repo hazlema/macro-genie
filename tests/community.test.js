@@ -147,6 +147,21 @@ test("moderation failures are held for review, never waved through", async () =>
   assert.equal(api.calls[0].model, "claude-haiku-5-5");
 });
 
+test("Haiku sees link addresses hidden behind Markdown link text", async () => {
+  const api = haiku("fine");
+  await moderate(
+    "comment",
+    "Try [my recipe](https://cheap-pills.example) 😋",
+    api,
+  );
+  assert.match(
+    api.calls[0].messages[0].content,
+    /https:\/\/cheap-pills\.example/,
+  );
+  assert.match(api.calls[0].system, /Markdown/);
+  assert.match(api.calls[0].system, /\[text\]\(address\)/);
+});
+
 test("posts go live, wait for review, or are blocked by Haiku's verdict", async () => {
   const ada = await person();
   const live = await createPost(
