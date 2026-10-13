@@ -17,6 +17,7 @@ import {
 } from "../../server/community.js";
 import { fail } from "../../server/http.js";
 import { readSession } from "../../server/session.js";
+import { withTiming } from "../../server/timing.js";
 
 // Anyone can browse; taking part (posting, liking, commenting, reporting)
 // needs an account; moderators also see what is waiting for review.
@@ -52,7 +53,7 @@ async function json(request) {
   });
 }
 
-export default async function handler(request) {
+async function handler(request) {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter(Boolean).slice(1); // after "api"
   const method = request.method;
@@ -160,3 +161,6 @@ export default async function handler(request) {
     return fail(error);
   }
 }
+
+// Server-Timing header and a "timing" log line for every response.
+export default withTiming(handler);

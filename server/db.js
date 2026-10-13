@@ -1,4 +1,5 @@
 import pg from "pg";
+import { timed } from "./timing.js";
 
 // Postgres on Neon, reached through DATABASE_URL. This deliberately avoids
 // @netlify/database: with that package installed, Netlify provisions its own
@@ -15,11 +16,30 @@ export const strictSsl = (url) =>
     "$1verify-full",
   );
 
+// Every query reports its time to the request's Server-Timing header.
+// Pooled connections are reused, so each is wrapped only once.
+function timedQuery(target) {
+  if (target.timed) return target;
+  target.timed = true;
+  const raw = target.query.bind(target);
+  target.query = async (...args) => {
+    const start = performance.now();
+    try {
+      return await raw(...args);
+    } finally {
+      timed("db", performance.now() - start);
+    }
+  };
+  return target;
+}
+
 export function connect(connectionString) {
-  const pool = new pg.Pool({
-    connectionString: strictSsl(connectionString),
-    max: 3,
-  });
+  const pool = timedQuery(
+    new pg.Pool({
+      connectionString: strictSsl(connectionString),
+      max: 3,
+    }),
+  );
   const sql = async (strings, ...values) =>
     (
       await pool.query(
@@ -48,7 +68,7 @@ export function useDatabase(client) {
 
 // Runs `work(client)` inside a transaction on one pooled connection.
 export async function transaction(work) {
-  const client = await database().pool.connect();
+  const client = timedQuery(await database().pool.connect());
   try {
     await client.query("BEGIN");
     const result = await work(client);

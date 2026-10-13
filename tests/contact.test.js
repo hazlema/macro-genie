@@ -173,3 +173,52 @@ test("mods read the inbox and mark messages done; others can't", async () => {
     /wasn't found/,
   );
 });
+
+test("database work inside a request shows up in its Server-Timing header", async () => {
+  const { withTiming } = await import("../server/timing.js");
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    const handler = withTiming(async () => {
+      await saveMessage({
+        name: "Visitor",
+        email: "t@example.com",
+        topic: "Other",
+        body: "Timing check message",
+      });
+      return new Response("ok");
+    });
+    const res = await handler(new Request("https://example.com/api/contact"));
+    const header = res.headers.get("Server-Timing");
+    const queries = Number(header.match(/desc="(\d+) quer/)[1]);
+    assert.ok(queries >= 2, header);
+    assert.match(header, /db;dur=\d+/);
+  } finally {
+    console.log = quiet;
+  }
+});
+
+test("reused pool connections aren't counted twice", async () => {
+  const { withTiming } = await import("../server/timing.js");
+  const quiet = console.log;
+  console.log = () => {};
+  const count = async (times) => {
+    const handler = withTiming(async () => {
+      for (let i = 0; i < times; i++)
+        await findOrCreateAccount({ sub: "timing-reuse", displayName: "Tim" });
+      return new Response("ok");
+    });
+    const header = (
+      await handler(new Request("https://example.com/x"))
+    ).headers.get("Server-Timing");
+    return Number(header.match(/desc="(\d+) quer/)[1]);
+  };
+  try {
+    await count(1);
+    const one = await count(1);
+    const five = await count(5);
+    assert.equal(five, one * 5);
+  } finally {
+    console.log = quiet;
+  }
+});

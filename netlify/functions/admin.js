@@ -13,6 +13,7 @@ import {
   setRoles,
   setSuspended,
 } from "../../server/users.js";
+import { withTiming } from "../../server/timing.js";
 
 // The admin page's API. Each case (or the users.js function it calls)
 // checks whether the signed-in account is a mod or an admin.
@@ -45,7 +46,7 @@ const json = (request) =>
     throw new UserFacingError("Send the request as JSON.");
   });
 
-export default async function handler(request) {
+async function handler(request) {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter(Boolean).slice(2); // after "api/admin"
   const route = `${request.method} ${parts.map((p) => (/^\d+$/.test(p) ? ":id" : p)).join("/")}`;
@@ -129,3 +130,6 @@ export default async function handler(request) {
     return fail(error);
   }
 }
+
+// Server-Timing header and a "timing" log line for every response.
+export default withTiming(handler);

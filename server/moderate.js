@@ -1,5 +1,6 @@
 import { client } from "./chef.js";
 import { addUsage, emptyUsage, logUsage } from "./usage.js";
+import { measure } from "./timing.js";
 
 // Haiku checks community posts, comments, and display names before they go
 // live. Three outcomes: fine (goes live), unsure (held for a person to
@@ -57,21 +58,23 @@ export async function moderate(kind, text, api) {
   }
   const usage = emptyUsage(MODERATION_MODEL);
   try {
-    const response = await model.messages.create(
-      {
-        model: MODERATION_MODEL,
-        max_tokens: 1000,
-        output_config: { effort: "low" },
-        system: SYSTEM,
-        tools: [REVIEW_TOOL],
-        messages: [
-          {
-            role: "user",
-            content: `Review this ${kind === "name" ? "display name" : kind}.\n\n<content>\n${String(text).slice(0, 12_000)}\n</content>`,
-          },
-        ],
-      },
-      { timeout: 20_000 },
+    const response = await measure("ai", () =>
+      model.messages.create(
+        {
+          model: MODERATION_MODEL,
+          max_tokens: 1000,
+          output_config: { effort: "low" },
+          system: SYSTEM,
+          tools: [REVIEW_TOOL],
+          messages: [
+            {
+              role: "user",
+              content: `Review this ${kind === "name" ? "display name" : kind}.\n\n<content>\n${String(text).slice(0, 12_000)}\n</content>`,
+            },
+          ],
+        },
+        { timeout: 20_000 },
+      ),
     );
     addUsage(usage, response);
     if (response.stop_reason === "refusal")

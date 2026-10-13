@@ -5,6 +5,7 @@ import {
 } from "../../server/chef.js";
 import { withCredit } from "../../server/credits.js";
 import { fail } from "../../server/http.js";
+import { withTiming } from "../../server/timing.js";
 
 // Five of these run in parallel per "Get ideas" click, one idea each.
 export const config = {
@@ -13,7 +14,7 @@ export const config = {
   rateLimit: { windowLimit: 40, windowSize: 60, aggregateBy: ["ip", "domain"] },
 };
 
-export default async function handler(request) {
+async function handler(request) {
   try {
     const body = await request.json().catch(() => {
       throw new UserFacingError("Send the request as JSON.");
@@ -27,3 +28,6 @@ export default async function handler(request) {
     return fail(error);
   }
 }
+
+// Server-Timing header and a "timing" log line for every response.
+export default withTiming(handler);

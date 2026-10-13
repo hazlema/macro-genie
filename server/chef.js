@@ -3,6 +3,7 @@
 // solver, never from the model.
 import Anthropic from "@anthropic-ai/sdk";
 import { MODELS, addUsage, emptyUsage, logUsage } from "./usage.js";
+import { measure } from "./timing.js";
 import { checkMeasure } from "../src/lib/measures.js";
 import { z } from "zod";
 import raw from "../foods.json" with { type: "json" };
@@ -427,14 +428,16 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const timeout = BUDGET_MS - (Date.now() - started);
     if (timeout < 5_000) break;
-    const response = await api.beta.messages.create(
-      request(model, {
-        max_tokens: 8000,
-        system: SYSTEM,
-        tools: TOOLS,
-        messages,
-      }),
-      { timeout },
+    const response = await measure("ai", () =>
+      api.beta.messages.create(
+        request(model, {
+          max_tokens: 8000,
+          system: SYSTEM,
+          tools: TOOLS,
+          messages,
+        }),
+        { timeout },
+      ),
     );
     addUsage(usage, response);
     checkStop(response);
@@ -660,14 +663,16 @@ export async function writeRecipe(
   for (let turn = 0; turn < 2; turn++) {
     const timeout = BUDGET_MS - (Date.now() - started);
     if (timeout < 5_000) break;
-    const response = await api.beta.messages.create(
-      request(model, {
-        max_tokens: 6000,
-        system: RECIPE_SYSTEM,
-        tools: [RECIPE_TOOL],
-        messages,
-      }),
-      { timeout },
+    const response = await measure("ai", () =>
+      api.beta.messages.create(
+        request(model, {
+          max_tokens: 6000,
+          system: RECIPE_SYSTEM,
+          tools: [RECIPE_TOOL],
+          messages,
+        }),
+        { timeout },
+      ),
     );
     addUsage(usage, response);
     checkStop(response);

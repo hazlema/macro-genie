@@ -3,6 +3,7 @@ import { fail } from "../../server/http.js";
 import { checkMessage, saveMessage } from "../../server/messages.js";
 import { roleOf } from "../../server/roles.js";
 import { readSession } from "../../server/session.js";
+import { withTiming } from "../../server/timing.js";
 
 // The contact form. Works signed out; a hidden "website" field catches bots
 // (they get a normal-looking reply and nothing is stored). Netlify's limiter
@@ -13,7 +14,7 @@ export const config = {
   rateLimit: { windowLimit: 3, windowSize: 180, aggregateBy: ["ip", "domain"] },
 };
 
-export default async function handler(request) {
+async function handler(request) {
   try {
     const input = await request.json().catch(() => {
       throw new UserFacingError("Send the request as JSON.");
@@ -33,3 +34,6 @@ export default async function handler(request) {
     return fail(error);
   }
 }
+
+// Server-Timing header and a "timing" log line for every response.
+export default withTiming(handler);
