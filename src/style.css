@@ -3644,3 +3644,11 @@ dialog.dislikes[open] {
     padding: 22px 20px 48px;
   }
 }
+
+.policy-body {
+  max-width: 70ch;
+  line-height: 1.65;
+}
+.policy-body p + p {
+  margin-top: 0.9em;
+}

@@ -11,6 +11,7 @@
   import Community from './components/Community.svelte';
   import Admin from './components/Admin.svelte';
   import Help from './components/Help.svelte';
+  import PolicyPage from './components/PolicyPage.svelte';
   import FooterLinks from './components/FooterLinks.svelte';
   import Landing from './components/Landing.svelte';
   import RecipeCard from './components/RecipeCard.svelte';
@@ -174,6 +175,8 @@
   </div>
 {:else if tab === 'admin'}
   <Admin adminTab={route.adminTab} />
+{:else if tab === 'page' && route.page !== 'contact'}
+  <PolicyPage page={route.page} />
 {:else if tab === 'help'}
   <Help slug={route.helpSlug} />
 {:else if tab === 'home'}

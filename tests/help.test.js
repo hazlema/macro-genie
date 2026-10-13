@@ -66,3 +66,29 @@ test("guide text has no code spans (the renderer shows backticks literally); com
     "claude mcp add --transport http macro-genie {{MCP_URL}}",
   );
 });
+
+test("the policy pages say what the owner decided", async () => {
+  const { POLICIES } = await import("../src/help/policies.js");
+  assert.deepEqual(Object.keys(POLICIES).sort(), [
+    "privacy",
+    "refunds",
+    "terms",
+  ]);
+  for (const p of Object.values(POLICIES))
+    assert.equal(p.updated, "October 13, 2026");
+  assert.match(POLICIES.refunds.body, /unused credits/i);
+  assert.match(POLICIES.refunds.body, /30 days/);
+  assert.match(POLICIES.refunds.body, /refunded automatically/i);
+  for (const word of ["Netlify", "Neon", "Anthropic", "Google", "Stripe"])
+    assert.match(POLICIES.privacy.body, new RegExp(word));
+  assert.match(POLICIES.privacy.body, /no ads or trackers/i);
+  assert.match(POLICIES.privacy.body, /don't store your email/i);
+  assert.match(POLICIES.terms.body, /not medical advice/i);
+  assert.match(POLICIES.terms.body, /no cash value/i);
+  for (const p of Object.values(POLICIES))
+    assert.doesNotMatch(
+      p.body,
+      /@[a-z0-9-]+\.[a-z]/i,
+      "no email address on the site",
+    );
+});
