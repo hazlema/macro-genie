@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   formatQty,
+  ingredientLines,
   renderRecipe,
   scaleMeasure,
   structuredText,
@@ -148,5 +149,25 @@ test("a noun repeated after a counted amount is dropped", () => {
   assert.equal(
     renderRecipe(r, 8).steps[0],
     "Cook 2 small onions, then whisk 6 eggs with 2 cups pumpkin.",
+  );
+});
+
+test("Copy ingredients gives one line per ingredient at the shown servings, ready for Cronometer", () => {
+  assert.equal(
+    ingredientLines(recipe),
+    [
+      "1 cup canned pumpkin (230 g)",
+      "2 tbsp olive oil (30 g), divided",
+      "3 large eggs (150 g)",
+      "120 g Gruyère, shredded",
+      "salt, nutmeg, to taste",
+    ].join("\n"),
+  );
+  const doubled = ingredientLines(recipe, 8).split("\n");
+  assert.equal(doubled[0], "2 cups canned pumpkin (460 g)");
+  assert.equal(doubled[3], "240 g Gruyère, shredded");
+  assert.equal(
+    ingredientLines({ ...recipe, seasonings: [] }).split("\n").length,
+    4,
   );
 });

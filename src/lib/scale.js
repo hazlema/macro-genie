@@ -188,6 +188,21 @@ export function renderRecipe(recipe, servings = recipe.servings) {
   };
 }
 
+// The ingredient list as shown on the card, one per line, for pasting into
+// Cronometer's "Paste Ingredients" recipe import (or anywhere else).
+export function ingredientLines(recipe, servings = recipe.servings) {
+  const r = renderRecipe(recipe, servings);
+  return [
+    ...r.ingredients.map(
+      (i) =>
+        `${i.text}${i.measured ? ` (${i.grams} g)` : ""}${i.prep ? `, ${i.prep}` : ""}`,
+    ),
+    ...(recipe.seasonings?.length
+      ? [`${recipe.seasonings.join(", ")}, to taste`]
+      : []),
+  ].join("\n");
+}
+
 // Plain-text version at a number of servings, for copying.
 export function structuredText(recipe, servings, nutrients = []) {
   const r = renderRecipe(recipe, servings);
@@ -203,13 +218,9 @@ export function structuredText(recipe, servings, nutrients = []) {
     `Serves ${servings}.${per ? ` Per serving: ${per}.` : ""}`,
     "",
     "Ingredients",
-    ...r.ingredients.map(
-      (i) =>
-        `- ${i.text}${i.measured ? ` (${i.grams} g)` : ""}${i.prep ? `, ${i.prep}` : ""}`,
-    ),
-    ...(recipe.seasonings?.length
-      ? [`- ${recipe.seasonings.join(", ")}, to taste`]
-      : []),
+    ...ingredientLines(recipe, servings)
+      .split("\n")
+      .map((line) => `- ${line}`),
     "",
     "Method",
     ...r.steps.map((s, i) => `${i + 1}. ${s}`),

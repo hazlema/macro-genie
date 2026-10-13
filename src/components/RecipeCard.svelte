@@ -1,7 +1,7 @@
 <script>
   import { NUTRIENTS, formatAmount } from '../lib/foods.js';
   import { parseMethod } from '../lib/recipe.js';
-  import { renderRecipe } from '../lib/scale.js';
+  import { ingredientLines, renderRecipe } from '../lib/scale.js';
 
   // recipe: a structured recipe (version 2: ingredients + steps, scalable) or an
   // older text recipe ({ name, description, servings, perServing, method }).
@@ -12,6 +12,16 @@
   const shown = $derived(structured ? renderRecipe(recipe, servings) : null);
   const blocks = $derived(structured ? [] : parseMethod(recipe.method));
   const gramsEach = $derived(recipe.gramsPerServing);
+  let copiedIngredients = $state(false);
+  async function copyIngredients() {
+    try {
+      await navigator.clipboard.writeText(ingredientLines(recipe, servings));
+      copiedIngredients = true;
+      setTimeout(() => (copiedIngredients = false), 2000);
+    } catch {
+      copiedIngredients = false;
+    }
+  }
 </script>
 
 <article class="recipe-card" aria-busy={writing}>
@@ -41,7 +51,10 @@
 
   <div class="card-body" class:stale aria-live={writing ? 'polite' : undefined}>
     {#if structured}
-      <h3>Ingredients</h3>
+      <div class="card-subhead">
+        <h3>Ingredients</h3>
+        {#if !writing}<button class="text-button copy-ingredients" onclick={copyIngredients}>{copiedIngredients ? 'Copied' : 'Copy ingredients'}</button>{/if}
+      </div>
       <ul>
         {#each shown.ingredients as ing}
           <li>{ing.text}{#if ing.measured}{' '}<span class="card-grams">({ing.grams.toLocaleString()} g)</span>{/if}{#if ing.prep}, {ing.prep}{/if}</li>

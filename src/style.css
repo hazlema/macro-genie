@@ -3484,3 +3484,19 @@ dialog.dislikes[open] {
     gap: 3px;
   }
 }
+
+.card-subhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.card-subhead .copy-ingredients {
+  padding: 4px 0;
+  font-size: 13px;
+}
+@media print {
+  .copy-ingredients {
+    display: none;
+  }
+}
