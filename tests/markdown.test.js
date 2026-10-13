@@ -85,3 +85,12 @@ test("entities the editor writes aren't encoded twice, and stay inert", () => {
     '<p><a href="https://a.com/?q=&quot;&amp;" target="_blank" rel="nofollow noopener noreferrer ugc">x</a></p>',
   );
 });
+
+test("links to our own pages render in place; protocol-relative links don't", () => {
+  assert.equal(
+    renderMarkdown("See [the builder](/help/builder)."),
+    '<p>See <a href="/help/builder">the builder</a>.</p>',
+  );
+  assert.equal(renderMarkdown("[x](//evil.example/a)"), "<p>x</p>");
+  assert.equal(renderMarkdown("[x](/\\evil.example)"), "<p>x</p>");
+});

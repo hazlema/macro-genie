@@ -1,4 +1,5 @@
 <script>
+  import FooterLinks from './FooterLinks.svelte';
   import RangeTable from './RangeTable.svelte';
   import RecipeCard from './RecipeCard.svelte';
   import DislikeSummary from './DislikeSummary.svelte';
@@ -442,6 +443,6 @@
         {/if}
       </section>
     {/if}
-    <footer><p>Food by your numbers. <span>Food search is free, no account needed.</span></p><p>Ideas come from Claude; amounts are sized to your targets from USDA data and rounded to the gram. Ingredients can shrink to nothing or grow to double what was suggested; “Must use” keeps at least a quarter.</p></footer>
+    <footer><p>Food by your numbers. <span>Food search is free, no account needed.</span></p><p>Ideas come from Claude; amounts are sized to your targets from USDA data and rounded to the gram. Ingredients can shrink to nothing or grow to double what was suggested; “Must use” keeps at least a quarter.</p><FooterLinks /></footer>
   </main>
 </div>

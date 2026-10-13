@@ -1,4 +1,5 @@
 <script>
+  import FooterLinks from './FooterLinks.svelte';
   import RangeTable from './RangeTable.svelte';
   import PostCard from './PostCard.svelte';
   import LazyEditor from './LazyEditor.svelte';
@@ -212,6 +213,6 @@
           {#if more}<div class="pagination"><button class="outline-button" disabled={loading} onclick={() => load(true)}>{loading ? 'Loading…' : 'Show more'}</button></div>{/if}
         {/if}
       {/if}
-      <footer><p>Food by your numbers. <span>Browsing is free; posting, liking, and commenting need an account.</span></p><p>Posts and comments are checked automatically and by a person when unsure. Report anything that doesn’t belong.</p></footer>
+      <footer><p>Food by your numbers. <span>Browsing is free; posting, liking, and commenting need an account.</span></p><p>Posts and comments are checked automatically and by a person when unsure. Report anything that doesn’t belong.</p><FooterLinks /></footer>
     </main>
   </div>

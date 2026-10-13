@@ -10,6 +10,8 @@
   import SavedRecipes from './components/SavedRecipes.svelte';
   import Community from './components/Community.svelte';
   import Admin from './components/Admin.svelte';
+  import Help from './components/Help.svelte';
+  import FooterLinks from './components/FooterLinks.svelte';
   import Landing from './components/Landing.svelte';
   import RecipeCard from './components/RecipeCard.svelte';
   import PanelToggle from './components/PanelToggle.svelte';
@@ -99,6 +101,7 @@
   {/if}
   <div class="account-area">
     {#if account.signedIn}
+      <button class="text-button account-wide" onclick={() => navigate({ tab: 'help' })}>Help</button>
       {#if account.isMod}<button class="text-button account-wide" onclick={() => navigate({ tab: 'admin' })}>Admin</button>{/if}
       <span class="credit-pill account-wide" title="Each idea or written recipe uses one credit">{account.credits} {account.credits === 1 ? 'credit' : 'credits'}</span>
       <span class="account-name account-wide">{account.displayName}</span>
@@ -110,12 +113,14 @@
           <div class="account-pop" id="account-pop">
             <p>Signed in as <strong>{account.displayName}</strong></p>
             <p class="account-pop-note">Each idea or written recipe uses one credit.</p>
+            <button class="outline-button" onclick={() => { accountMenu = false; navigate({ tab: 'help' }); }}>Help</button>
             {#if account.isMod}<button class="outline-button" onclick={() => { accountMenu = false; navigate({ tab: 'admin' }); }}>Admin</button>{/if}
             <button class="outline-button" onclick={() => { accountMenu = false; signOut(); }}>Sign out</button>
           </div>
         {/if}
       </div>
     {:else if account.loaded}
+      <button class="text-button help-link" onclick={() => navigate({ tab: 'help' })}>Help</button>
       <button class="outline-button login-button" onclick={() => account.loginOpen = true}><span class="login-long">Login / Create Account</span><span class="login-short">Log in</span></button>
     {/if}
   </div>
@@ -164,11 +169,13 @@
         <div class="food-list">{#each result.foods.slice(0, visible) as food (food.id)}<FoodCard {food} {basis} />{/each}</div>
         <div class="pagination"><span>Showing {Math.min(visible, result.foods.length).toLocaleString()} of {result.foods.length.toLocaleString()}</span>{#if result.foods.length > visible}<button class="outline-button" onclick={() => visible += 20}>Show {Math.min(20, result.foods.length - visible)} more <span aria-hidden="true">↓</span></button>{/if}</div>
       {/if}
-      <footer><p>Food by your numbers. <span>Food search is free, no account needed.</span></p><p>USDA SR Legacy · {dataset?.total.toLocaleString() ?? '…'} food records. {dataset?.excluded ?? '…'} without serving sizes excluded.</p><p>Missing nutrients appear as — and won’t match an active range. Values are rounded for display; filters use full precision.</p></footer>
+      <footer><p>Food by your numbers. <span>Food search is free, no account needed.</span></p><p>USDA SR Legacy · {dataset?.total.toLocaleString() ?? '…'} food records. {dataset?.excluded ?? '…'} without serving sizes excluded.</p><p>Missing nutrients appear as — and won’t match an active range. Values are rounded for display; filters use full precision.</p><FooterLinks /></footer>
     </main>
   </div>
 {:else if tab === 'admin'}
   <Admin adminTab={route.adminTab} />
+{:else if tab === 'help'}
+  <Help slug={route.helpSlug} />
 {:else if tab === 'home'}
   <Landing foodCount={dataset?.foods.length} />
 {:else if tab === 'community'}

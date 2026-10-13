@@ -1,4 +1,5 @@
 <script>
+  import FooterLinks from './FooterLinks.svelte';
   import { onMount } from 'svelte';
   import { navigate } from '../lib/route.svelte.js';
   import { account } from '../lib/account.svelte.js';
@@ -136,7 +137,7 @@
     {/if}
   </section>
 
-  <footer><p>Food by your numbers. <span>Nutrition from the USDA SR Legacy database.</span></p></footer>
+  <footer><p>Food by your numbers. <span>Nutrition from the USDA SR Legacy database.</span></p><FooterLinks /></footer>
 </main>
 
 <style>
