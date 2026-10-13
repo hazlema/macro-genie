@@ -90,18 +90,31 @@
   function pickMeal(id) { board = null; meal = id; composing = false; }
   function clearFilters() { ranges = emptyRanges(); meal = 'all'; board = null; sort = 'new'; needsReview = false; }
 
+  // The new thread shows at the top straight away as "Posting…" while the
+  // automatic check and save run; if it's refused, the form comes back with
+  // the text so it can be fixed.
   async function startThread(event) {
     event.preventDefault();
     if (posting || message.length > 5000) return;
     posting = true; composeNote = '';
-    const res = await api('/api/community/threads', { method: 'POST', body: { board, title, body: message } });
+    const draft = { board, title: title.trim(), body: message.trim() };
+    const temp = { id: `sending-${Date.now()}`, kind: 'thread', board: draft.board, name: draft.title, body: draft.body, author: account.displayName, createdAt: new Date().toISOString(), likes: 0, likedByMe: false, comments: 0, mine: true, status: 'sending', recipe: null };
+    posts = [temp, ...posts];
+    composing = false;
+    const res = await api('/api/community/threads', { method: 'POST', body: draft });
     posting = false;
-    if (!res.ok) { composeNote = res.error; return; }
-    if (res.body.status === 'blocked') { composeNote = `Not posted: ${res.body.reason}`; return; }
+    if (!res.ok || res.body.status === 'blocked') {
+      posts = posts.filter((p) => p.id !== temp.id);
+      title = draft.title; message = draft.body; composing = true;
+      composeNote = res.ok ? `Not posted: ${res.body.reason}` : res.error;
+      return;
+    }
+    posts = posts.map((p) => (p.id === temp.id ? { ...p, id: res.body.id, status: res.body.status } : p));
     composeNote = res.body.status === 'live' ? 'Posted.' : 'Posted. It shows once a moderator has looked at it.';
-    title = ''; message = ''; composing = false;
-    load(); loadCounts();
+    title = ''; message = '';
+    loadCounts();
   }
+
 
   const activeCount = $derived(Object.values(ranges).filter(r => r.min != null || r.max != null).length);
   const noun = $derived(board ? (posts.length === 1 ? 'thread' : 'threads') : (posts.length === 1 ? 'recipe shared' : 'recipes shared'));

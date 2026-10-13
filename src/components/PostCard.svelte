@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import RecipeCard from './RecipeCard.svelte';
   import Markdown from './Markdown.svelte';
+  import { mergeLoaded, settleSent } from '../lib/comments.js';
   import LazyEditor from './LazyEditor.svelte';
   import { formatAmount } from '../lib/foods.js';
   import { account, api } from '../lib/account.svelte.js';
@@ -28,7 +29,6 @@
   let comments = $state(null);
   let commentsOpen = $state(false);
   let draft = $state('');
-  let sending = $state(false);
   let note = $state('');
   let confirm = $state(''); // 'report' | 'remove' | ''
   let reportReason = $state('Spam or advertising');
@@ -50,23 +50,30 @@
     commentsOpen = !commentsOpen;
     if (!commentsOpen || comments) return;
     const res = await api(`/api/community/posts/${post.id}/comments`);
-    comments = res.ok ? res.body.comments : [];
+    comments = mergeLoaded(res.ok ? res.body.comments : [], comments);
     if (!res.ok) note = res.error;
   }
 
+  // The comment shows straight away as "Posting…" while the automatic check
+  // and save run (a few seconds); it then becomes live, waits for a
+  // moderator, or is taken back with the reason.
   async function send(event) {
     event.preventDefault();
-    if (!draft.trim() || sending || draft.length > 1000) return;
-    sending = true; note = '';
-    const res = await api(`/api/community/posts/${post.id}/comments`, { method: 'POST', body: { body: draft } });
-    sending = false;
-    if (!res.ok) { note = res.error; return; }
-    if (res.body.status === 'blocked') { note = `Your comment wasn’t posted: ${res.body.reason}`; return; }
-    comments = [...(comments ?? []), { id: res.body.id, body: draft.trim(), author: account.displayName, createdAt: new Date().toISOString(), mine: true, status: res.body.status }];
+    const text = draft.trim();
+    if (!text || draft.length > 1000) return;
+    note = '';
+    const temp = { id: `sending-${Date.now()}`, body: text, author: account.displayName, createdAt: new Date().toISOString(), mine: true, status: 'sending' };
+    comments = [...(comments ?? []), temp];
+    draft = '';
+    const res = await api(`/api/community/posts/${post.id}/comments`, { method: 'POST', body: { body: text } });
+    const withoutTemp = () => (comments ?? []).filter((c) => c.id !== temp.id);
+    if (!res.ok) { comments = withoutTemp(); if (!draft.trim()) draft = text; note = res.error; return; }
+    if (res.body.status === 'blocked') { comments = withoutTemp(); note = `Your comment wasn’t posted: ${res.body.reason}`; return; }
+    comments = settleSent(comments, temp.id, { ...temp, id: res.body.id, status: res.body.status });
     if (res.body.status === 'live') commentCount += 1;
     else note = 'Thanks. Your comment shows once a moderator has looked at it.';
-    draft = '';
   }
+
 
   async function removeComment(c) {
     const res = await api(`/api/community/comments/${c.id}`, { method: 'DELETE' });
@@ -121,7 +128,9 @@
 </script>
 
 <li class="post" class:waiting={status !== 'live'}>
-  {#if status === 'held' || status === 'blocked'}
+  {#if status === 'sending'}
+    <div class="post-status"><p role="status">Posting…</p></div>
+  {:else if status === 'held' || status === 'blocked'}
     <div class="post-status" class:blocked={status === 'blocked'}>
       <p>{status === 'held' ? 'Waiting for a moderator' : 'Blocked by the automatic check'}{post.reason ? `: ${post.reason}` : ''}</p>
       {#if account.isMod}
@@ -147,6 +156,7 @@
   <p class="idea-macros">Per serving: <strong>{formatAmount(per.calories)}</strong> kcal<span class="separator">·</span><strong>{formatAmount(per.protein)}</strong> g protein<span class="separator">·</span><strong>{formatAmount(per.netCarbs)}</strong> g net carbs<span class="separator">·</span><strong>{formatAmount(per.fat)}</strong> g fat</p>
   {/if}
 
+  {#if status !== 'sending'}
   <div class="post-actions">
     {#if !thread}<button class="outline-button" aria-expanded={open} onclick={() => open = !open}>{open ? 'Hide recipe' : 'Show recipe'}</button>{/if}
     {#if status === 'live'}
@@ -170,6 +180,7 @@
       <button class="text-button" onclick={() => confirm = 'report'}>Report</button>
     {/if}
   </div>
+  {/if}
   {#if note}<p class="post-note" role="status">{note}</p>{/if}
 
   {#if open && !thread}
@@ -184,14 +195,16 @@
         {#each comments as c (c.id)}
           <div class="comment" class:waiting={c.status !== 'live'}>
             <p class="comment-meta"><strong>{c.author}</strong> {day(c.createdAt)}</p>
-            {#if c.status !== 'live' && account.isMod}
+            {#if c.status === 'sending'}
+              <p class="comment-waiting" role="status">Posting…</p>
+            {:else if c.status !== 'live' && account.isMod}
               <p class="comment-waiting">{c.status === 'held' ? 'Waiting for a moderator' : 'Blocked'}{c.reason ? `: ${c.reason}` : ''}
                 <span class="mod-actions"><button class="text-button approve" onclick={() => moderate('comment', c.id, 'approve')}>Approve</button><button class="text-button" onclick={() => moderate('comment', c.id, 'remove')}>Remove</button></span>
               </p>
             {:else if c.status !== 'live'}<p class="comment-waiting">Waiting for a moderator. Only you can see this until it’s approved.</p>{/if}
             <Markdown class="comment-body" text={c.body} />
-            {#if c.mine}<button class="text-button" onclick={() => removeComment(c)}>Delete</button>
-            {:else}<button class="text-button" onclick={() => reportItem('comment', c.id)}>Report</button>{/if}
+            {#if c.status !== 'sending' && c.mine}<button class="text-button" onclick={() => removeComment(c)}>Delete</button>
+            {:else if c.status !== 'sending'}<button class="text-button" onclick={() => reportItem('comment', c.id)}>Report</button>{/if}
           </div>
         {:else}
           <p class="comments-empty">No comments yet.</p>
@@ -200,7 +213,7 @@
       {#if account.signedIn}
         <form class="comment-form" onsubmit={send} bind:this={commentForm}>
           <LazyEditor bind:markdown={draft} maxlength={1000} label={thread ? 'Write a reply' : 'Write a comment'} placeholder={thread ? 'Write a reply' : 'Made it? Tweaked it? Say how it went.'} onsubmit={() => commentForm.requestSubmit()} />
-          <button class="primary-button" disabled={sending || !draft.trim() || draft.length > 1000}>{sending ? 'Posting…' : thread ? 'Reply' : 'Comment'}</button>
+          <button class="primary-button" disabled={!draft.trim() || draft.length > 1000}>{thread ? 'Reply' : 'Comment'}</button>
         </form>
       {:else}
         <button class="text-button" onclick={() => account.loginOpen = true}>Sign in to comment</button>
