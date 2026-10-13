@@ -2,12 +2,14 @@ export default {
   slug: "macros",
   title: "Set your macros",
   summary: "Ranges, per serving vs per 100 g, presets, and the phone panel.",
-  thumb: "/help/cronometer-1.png",
+  thumb: "/help/macros-1.png",
   intro:
     "Every page that filters by nutrition uses the same table: a **Min** and a **Max** for protein, net carbs, calories, fat, sugar, and sodium.",
   steps: [
     {
       title: "Fill in only what matters",
+      image: "/help/macros-1.png",
+      markers: [{ n: 1, x: 13, y: 34 }],
       text: "Type a number in **Min**, **Max**, or both. A blank box means no limit, so leave anything you don't care about empty.",
     },
     {
@@ -20,6 +22,8 @@ export default {
     },
     {
       title: "On your phone",
+      image: "/help/macros-1-phone.png",
+      markers: [{ n: 4, x: 5, y: 26 }],
       text: "Tap **Set your macros** to open the table. When you're done, **Show N foods** (or **Done** in the Recipe Builder) closes it and jumps to the results. The button then shows what's set, like \"Protein ≥ 30 g\".",
     },
     {

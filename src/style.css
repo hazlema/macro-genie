@@ -3620,7 +3620,8 @@ dialog.dislikes[open] {
 }
 .shot-marker {
   position: absolute;
-  transform: translate(-50%, -50%);
+  /* Sits just above and left of the control's corner, off its label. */
+  transform: translate(-80%, -80%);
   box-shadow: 0 0 0 3px #111415;
 }
 .mcp-url {
@@ -3709,4 +3710,16 @@ dialog.dislikes[open] {
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.narrow-marker {
+  display: none;
+}
+@media (max-width: 760px) {
+  .wide-marker {
+    display: none;
+  }
+  .narrow-marker {
+    display: inline-grid;
+  }
 }

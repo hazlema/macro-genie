@@ -2,7 +2,7 @@ export default {
   slug: "faq",
   title: "Questions",
   summary: "Accuracy, missing recipes, phones, and deleting your data.",
-  thumb: "/help/cronometer-1.png",
+  thumb: "/help/start-1.png",
   intro: "Short answers to common questions.",
   steps: [
     {

@@ -1,0 +1,360 @@
+{
+  "dislikes": [],
+  "hideOnFoods": false,
+  "draft": {
+    "servings": 4,
+    "ranges": {
+      "protein": {
+        "min": 30
+      },
+      "netCarbs": {},
+      "calories": {
+        "max": 600
+      },
+      "fat": {},
+      "sugar": {},
+      "sodium": {}
+    },
+    "wantText": "chicken thighs, broccoli, rice",
+    "note": "weeknight dinner",
+    "ideas": [
+      {
+        "status": "ready",
+        "idea": {
+          "name": "Cheesy Chicken, Broccoli & Rice Bake",
+          "description": "Golden-seared chicken thighs on garlicky broth-baked rice and tender broccoli, finished under a bubbling blanket of sharp cheddar.",
+          "seasonings": [
+            "salt",
+            "black pepper",
+            "garlic",
+            "smoked paprika",
+            "dried thyme",
+            "lemon zest"
+          ],
+          "missing": [],
+          "pairing": "great",
+          "pairingNote": "Chicken, broccoli, rice and cheddar is a classic comfort casserole, and the lemon zest keeps it bright.",
+          "servings": 4,
+          "fits": true,
+          "misses": [],
+          "perServing": {
+            "protein": 49.3765,
+            "netCarbs": 52.6015,
+            "calories": 593.375,
+            "fat": 18.5115,
+            "sugar": 3.6319999999999997,
+            "sodium": 429.825,
+            "carbs": 56.553999999999995,
+            "fiber": 3.9524999999999997
+          },
+          "totalGrams": 2140,
+          "ingredients": [
+            {
+              "id": "usda-row-4123",
+              "name": "Chicken, broilers or fryers, dark meat, thigh, meat only, raw",
+              "suggested": 650,
+              "grams": 650,
+              "required": true,
+              "fulfills": "chicken thighs"
+            },
+            {
+              "id": "usda-row-8145",
+              "name": "Broccoli, raw",
+              "suggested": 400,
+              "grams": 400,
+              "required": true,
+              "fulfills": "broccoli"
+            },
+            {
+              "id": "usda-row-3901",
+              "name": "Rice, white, long-grain, regular, raw, enriched",
+              "suggested": 220,
+              "grams": 220,
+              "required": true,
+              "fulfills": "rice"
+            },
+            {
+              "id": "usda-row-4152",
+              "name": "Cheese, cheddar, sharp, sliced",
+              "suggested": 120,
+              "grams": 120,
+              "required": true,
+              "fulfills": ""
+            },
+            {
+              "id": "usda-row-402",
+              "name": "Soup, chicken broth, low sodium, canned",
+              "suggested": 600,
+              "grams": 600,
+              "required": true,
+              "fulfills": ""
+            },
+            {
+              "id": "usda-row-8769",
+              "name": "Onions, raw",
+              "suggested": 150,
+              "grams": 150,
+              "required": false,
+              "fulfills": ""
+            }
+          ],
+          "usage": {
+            "model": "claude-opus-5-5",
+            "costUsd": 0.0421
+          },
+          "credits": 968
+        },
+        "want": [
+          "chicken thighs",
+          "broccoli",
+          "rice"
+        ]
+      }
+    ],
+    "chosen": {
+      "name": "Cheesy Chicken, Broccoli & Rice Bake",
+      "description": "Golden-seared chicken thighs on garlicky broth-baked rice and tender broccoli, finished under a bubbling blanket of sharp cheddar.",
+      "seasonings": [
+        "salt",
+        "black pepper",
+        "garlic",
+        "smoked paprika",
+        "dried thyme",
+        "lemon zest"
+      ],
+      "items": [
+        {
+          "id": "usda-row-4123",
+          "grams": 650,
+          "required": true
+        },
+        {
+          "id": "usda-row-8145",
+          "grams": 400,
+          "required": true
+        },
+        {
+          "id": "usda-row-3901",
+          "grams": 220,
+          "required": true
+        },
+        {
+          "id": "usda-row-4152",
+          "grams": 120,
+          "required": true
+        },
+        {
+          "id": "usda-row-402",
+          "grams": 600,
+          "required": true
+        },
+        {
+          "id": "usda-row-8769",
+          "grams": 150,
+          "required": false
+        }
+      ]
+    },
+    "written": {
+      "version": 2,
+      "name": "Cheesy Chicken, Broccoli & Rice Bake",
+      "description": "Golden-seared chicken thighs on garlicky broth-baked rice and tender broccoli, finished under a bubbling blanket of sharp cheddar.",
+      "servings": 4,
+      "perServing": {
+        "protein": 49.3765,
+        "netCarbs": 52.6015,
+        "calories": 593.375,
+        "fat": 18.5115,
+        "sugar": 3.6319999999999997,
+        "sodium": 429.825,
+        "carbs": 56.553999999999995,
+        "fiber": 3.9524999999999997
+      },
+      "gramsPerServing": 535,
+      "ingredients": [
+        {
+          "id": "usda-row-4123",
+          "name": "Chicken, broilers or fryers, dark meat, thigh, meat only, raw",
+          "label": "boneless skinless chicken thighs",
+          "grams": 650,
+          "qty": null,
+          "unit": "",
+          "prep": "trimmed, cut into large bite-size pieces"
+        },
+        {
+          "id": "usda-row-8145",
+          "name": "Broccoli, raw",
+          "label": "broccoli florets",
+          "grams": 400,
+          "qty": 4,
+          "unit": "cup",
+          "prep": "cut into bite-size florets"
+        },
+        {
+          "id": "usda-row-3901",
+          "name": "Rice, white, long-grain, regular, raw, enriched",
+          "label": "long-grain white rice",
+          "grams": 220,
+          "qty": 1.2,
+          "unit": "cup",
+          "prep": "rinsed and drained"
+        },
+        {
+          "id": "usda-row-4152",
+          "name": "Cheese, cheddar, sharp, sliced",
+          "label": "sharp cheddar",
+          "grams": 120,
+          "qty": null,
+          "unit": "",
+          "prep": "torn or chopped"
+        },
+        {
+          "id": "usda-row-402",
+          "name": "Soup, chicken broth, low sodium, canned",
+          "label": "low-sodium chicken broth",
+          "grams": 600,
+          "qty": 2.5,
+          "unit": "cup",
+          "prep": ""
+        },
+        {
+          "id": "usda-row-8769",
+          "name": "Onions, raw",
+          "label": "onion",
+          "grams": 150,
+          "qty": 1,
+          "unit": "medium onion",
+          "prep": "finely diced"
+        }
+      ],
+      "seasonings": [
+        "salt",
+        "black pepper",
+        "garlic",
+        "smoked paprika",
+        "dried thyme",
+        "lemon zest"
+      ],
+      "steps": [
+        "Heat the oven to 375\u00b0F (190\u00b0C) and set out a 9x13-inch baking dish.",
+        "Season {1} chicken with salt, pepper, smoked paprika, and dried thyme.",
+        "Heat a large nonstick skillet over medium-high heat and sear the chicken for 2\u20133 minutes per side until golden, then move it to a plate.",
+        "Lower the heat to medium, add {6} onion with a pinch of salt, and cook for 4\u20135 minutes until soft, scraping up the browned bits.",
+        "Stir in 3 minced garlic cloves and cook for 30 seconds until fragrant.",
+        "Add {3} rice and stir for 1 minute to coat it in the pan juices, then pour in {5} broth and bring to a simmer.",
+        "Pour the rice and broth into the baking dish, spread it evenly, and set the chicken on top.",
+        "Cover tightly with foil and bake for 25 minutes.",
+        "Uncover, tuck {2} broccoli into the rice around the chicken, cover again, and bake for 12\u201315 minutes more until the rice is tender and the liquid is absorbed.",
+        "Scatter {4} cheddar over the top and bake uncovered for 5 minutes until melted and bubbling.",
+        "Grate lemon zest over the top, rest for 5 minutes, and serve."
+      ],
+      "tip": "Toast the dried thyme and smoked paprika in the hot skillet for a few seconds before the broth goes in to bring out a deeper, smoky flavor.",
+      "credits": 967
+    },
+    "viewServings": 4,
+    "methodFor": "[4,[[\"usda-row-4123\",650],[\"usda-row-8145\",400],[\"usda-row-3901\",220],[\"usda-row-4152\",120],[\"usda-row-402\",600],[\"usda-row-8769\",150]]]",
+    "savedId": "a0cc313a-8d7a-479e-9225-fe026754fe42",
+    "ideaCount": 1
+  },
+  "recipes": [
+    {
+      "version": 2,
+      "name": "Cheesy Chicken, Broccoli & Rice Bake",
+      "description": "Golden-seared chicken thighs on garlicky broth-baked rice and tender broccoli, finished under a bubbling blanket of sharp cheddar.",
+      "servings": 4,
+      "perServing": {
+        "protein": 49.3765,
+        "netCarbs": 52.6015,
+        "calories": 593.375,
+        "fat": 18.5115,
+        "sugar": 3.6319999999999997,
+        "sodium": 429.825,
+        "carbs": 56.553999999999995,
+        "fiber": 3.9524999999999997
+      },
+      "gramsPerServing": 535,
+      "ingredients": [
+        {
+          "id": "usda-row-4123",
+          "name": "Chicken, broilers or fryers, dark meat, thigh, meat only, raw",
+          "label": "boneless skinless chicken thighs",
+          "grams": 650,
+          "qty": null,
+          "unit": "",
+          "prep": "trimmed, cut into large bite-size pieces"
+        },
+        {
+          "id": "usda-row-8145",
+          "name": "Broccoli, raw",
+          "label": "broccoli florets",
+          "grams": 400,
+          "qty": 4,
+          "unit": "cup",
+          "prep": "cut into bite-size florets"
+        },
+        {
+          "id": "usda-row-3901",
+          "name": "Rice, white, long-grain, regular, raw, enriched",
+          "label": "long-grain white rice",
+          "grams": 220,
+          "qty": 1.2,
+          "unit": "cup",
+          "prep": "rinsed and drained"
+        },
+        {
+          "id": "usda-row-4152",
+          "name": "Cheese, cheddar, sharp, sliced",
+          "label": "sharp cheddar",
+          "grams": 120,
+          "qty": null,
+          "unit": "",
+          "prep": "torn or chopped"
+        },
+        {
+          "id": "usda-row-402",
+          "name": "Soup, chicken broth, low sodium, canned",
+          "label": "low-sodium chicken broth",
+          "grams": 600,
+          "qty": 2.5,
+          "unit": "cup",
+          "prep": ""
+        },
+        {
+          "id": "usda-row-8769",
+          "name": "Onions, raw",
+          "label": "onion",
+          "grams": 150,
+          "qty": 1,
+          "unit": "medium onion",
+          "prep": "finely diced"
+        }
+      ],
+      "seasonings": [
+        "salt",
+        "black pepper",
+        "garlic",
+        "smoked paprika",
+        "dried thyme",
+        "lemon zest"
+      ],
+      "steps": [
+        "Heat the oven to 375\u00b0F (190\u00b0C) and set out a 9x13-inch baking dish.",
+        "Season {1} chicken with salt, pepper, smoked paprika, and dried thyme.",
+        "Heat a large nonstick skillet over medium-high heat and sear the chicken for 2\u20133 minutes per side until golden, then move it to a plate.",
+        "Lower the heat to medium, add {6} onion with a pinch of salt, and cook for 4\u20135 minutes until soft, scraping up the browned bits.",
+        "Stir in 3 minced garlic cloves and cook for 30 seconds until fragrant.",
+        "Add {3} rice and stir for 1 minute to coat it in the pan juices, then pour in {5} broth and bring to a simmer.",
+        "Pour the rice and broth into the baking dish, spread it evenly, and set the chicken on top.",
+        "Cover tightly with foil and bake for 25 minutes.",
+        "Uncover, tuck {2} broccoli into the rice around the chicken, cover again, and bake for 12\u201315 minutes more until the rice is tender and the liquid is absorbed.",
+        "Scatter {4} cheddar over the top and bake uncovered for 5 minutes until melted and bubbling.",
+        "Grate lemon zest over the top, rest for 5 minutes, and serve."
+      ],
+      "tip": "Toast the dried thyme and smoked paprika in the hot skillet for a few seconds before the broth goes in to bring out a deeper, smoky flavor.",
+      "credits": 967,
+      "shownServings": 4,
+      "id": "a0cc313a-8d7a-479e-9225-fe026754fe42",
+      "savedAt": "2026-10-13T20:13:20.956Z"
+    }
+  ]
+}

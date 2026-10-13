@@ -2,7 +2,7 @@ export default {
   slug: "builder",
   title: "Make a recipe with the Recipe Builder",
   summary: "From your targets to a written recipe sized to the gram.",
-  thumb: "/help/cronometer-1.png",
+  thumb: "/help/builder-2.png",
   intro:
     "Claude invents the dishes; every amount and nutrition number is worked out from USDA data, never by the AI. You need to be signed in, and each idea or written recipe uses one credit.",
   steps: [
@@ -16,6 +16,8 @@ export default {
     },
     {
       title: "Get ideas",
+      image: "/help/builder-1.png",
+      markers: [{ n: 3, x: 46, y: 49 }],
       text: "Pick how many ideas you want with the slider (one credit each) and select **Get ideas**. They arrive in 10 to 30 seconds.",
     },
     {
@@ -24,6 +26,8 @@ export default {
     },
     {
       title: "Choose one and fine-tune it",
+      image: "/help/builder-2.png",
+      markers: [{ n: 5, x: 31, y: 92 }],
       text: "Select **Cook this one**. Amounts are already sized to your targets. You can swap or remove ingredients and mark one as a must-use.",
     },
     {
@@ -32,6 +36,10 @@ export default {
     },
     {
       title: "Keep it",
+      image: "/help/builder-3.png",
+      imagePhone: "/help/builder-3-phone.png",
+      markers: [{ n: 7, x: 86, y: 8 }],
+      markersPhone: [{ n: 7, x: 63, y: 48 }],
       text: "Change the servings and every amount follows. **Save recipe** to keep it in your Recipe Book, or use **Copy**, **Copy ingredients**, or **Print**.",
     },
   ],

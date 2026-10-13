@@ -50,8 +50,13 @@
               {#if step.imagePhone}<source media="(max-width: 760px)" srcset={step.imagePhone} />{/if}
               <img src={step.image} alt={step.title} loading="lazy" />
             </picture>
+            <!-- With a phone screenshot, desktop markers hide on phones and the
+                 phone markers (positioned for that image) show instead. -->
             {#each step.markers ?? [] as m (m.n)}
-              <span class="shot-marker" style:left="{m.x}%" style:top="{m.y}%" aria-hidden="true">{m.n}</span>
+              <span class="shot-marker" class:wide-marker={step.imagePhone} style:left="{m.x}%" style:top="{m.y}%" aria-hidden="true">{m.n}</span>
+            {/each}
+            {#each step.markersPhone ?? [] as m (m.n)}
+              <span class="shot-marker narrow-marker" style:left="{m.x}%" style:top="{m.y}%" aria-hidden="true">{m.n}</span>
             {/each}
           </figure>
         {/if}

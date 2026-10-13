@@ -2,12 +2,13 @@ export default {
   slug: "start",
   title: "Getting started",
   summary: "What Macro Genie does and where to begin.",
-  thumb: "/help/cronometer-1.png",
+  thumb: "/help/start-1.png",
   intro:
     "Macro Genie works backwards from your numbers. Tell it the protein, carbs, calories, or anything else a dish has to hit, and it finds foods that fit and sizes every gram so each serving lands in range.",
   steps: [
     {
       title: "Explore foods for free",
+      image: "/help/macros-1.png",
       text: 'Open **Food Macros** to search 8,490 USDA foods by nutrition. No account needed. Set ranges like "at least 25 g protein" and see what fits.',
     },
     {

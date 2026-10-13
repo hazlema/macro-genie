@@ -2,7 +2,7 @@ export default {
   slug: "credits",
   title: "Credits",
   summary: "What uses a credit, refunds, and where to see your balance.",
-  thumb: "/help/cronometer-1.png",
+  thumb: "/help/credits-1.png",
   intro:
     "Food search, the Community, and chatting with your AI are free. The Recipe Builder uses credits because every idea calls Claude.",
   steps: [
@@ -20,6 +20,10 @@ export default {
     },
     {
       title: "See your balance",
+      image: "/help/credits-1.png",
+      imagePhone: "/help/credits-1-phone.png",
+      markers: [{ n: 4, x: 80, y: 4 }],
+      markersPhone: [{ n: 4, x: 70, y: 2 }],
       text: "Your credits show at the top of the page. On a phone, tap the credits button for your account menu.",
     },
     {

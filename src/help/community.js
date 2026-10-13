@@ -2,12 +2,14 @@ export default {
   slug: "community",
   title: "The Community",
   summary: "Browse, filter by macros, post recipes, and comment.",
-  thumb: "/help/cronometer-1.png",
+  thumb: "/help/community-1.png",
   intro:
     "Anyone can browse. Posting, liking, commenting, and reporting need an account.",
   steps: [
     {
       title: "Browse boards and forums",
+      image: "/help/community-1.png",
+      imagePhone: "/help/community-1-phone.png",
       text: "Recipe boards group shared recipes by meal; **General** and **Support** are forums for questions and chat.",
     },
     {
@@ -24,6 +26,8 @@ export default {
     },
     {
       title: "Comment",
+      image: "/help/community-2.png",
+      markers: [{ n: 5, x: 31, y: 86 }],
       text: 'Comments and threads support **bold**, *italic*, lists, links, and emoji. Type a colon and two letters (":fi") for emoji suggestions, or use the 😊 button.',
     },
     {

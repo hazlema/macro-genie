@@ -50,6 +50,15 @@ test("every image a guide points to exists, and markers sit on the image", () =>
         );
         assert.ok(s.image, `${g.slug}: markers need an image`);
       }
+    for (const s of g.steps) {
+      for (const m of s.markersPhone ?? [])
+        assert.ok(
+          m.x >= 0 && m.x <= 100 && m.y >= 0 && m.y <= 100,
+          `${g.slug} phone marker ${m.n}`,
+        );
+      if (s.markersPhone)
+        assert.ok(s.imagePhone, `${g.slug}: phone markers need a phone image`);
+    }
   }
 });
 
@@ -91,4 +100,11 @@ test("the policy pages say what the owner decided", async () => {
       /@[a-z0-9-]+\.[a-z]/i,
       "no email address on the site",
     );
+});
+
+test("steps with a phone screenshot and markers have phone markers too", () => {
+  for (const g of GUIDES)
+    for (const s of g.steps)
+      if (s.imagePhone && s.markers)
+        assert.ok(s.markersPhone, `${g.slug}: "${s.title}" needs markersPhone`);
 });
