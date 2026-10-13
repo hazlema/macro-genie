@@ -2,6 +2,7 @@
   import ReviewQueue from './ReviewQueue.svelte';
   import AdminUsers from './AdminUsers.svelte';
   import AdminLog from './AdminLog.svelte';
+  import AdminInbox from './AdminInbox.svelte';
   import { account, api } from '../lib/account.svelte.js';
   import { navigate } from '../lib/route.svelte.js';
 
@@ -9,7 +10,7 @@
   // the signed-in person can't use.
   let { adminTab = 'reviews' } = $props();
   let queue = $state(0);
-  const TABS = [['reviews', 'Reviews'], ['users', 'Users'], ['log', 'Log']];
+  const TABS = [['reviews', 'Reviews'], ['users', 'Users'], ['log', 'Log'], ['inbox', 'Inbox']];
   $effect(() => {
     if (!account.isMod) return;
     api('/api/community/counts').then((res) => { if (res.ok) queue = res.body.queue ?? 0; });
@@ -32,6 +33,8 @@
       <AdminUsers />
     {:else if adminTab === 'log'}
       <AdminLog />
+    {:else if adminTab === 'inbox'}
+      <AdminInbox />
     {:else}
       <ReviewQueue onchange={(count) => (queue = count)} />
     {/if}

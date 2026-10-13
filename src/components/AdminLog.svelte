@@ -4,7 +4,7 @@
   import { navigate } from '../lib/route.svelte.js';
 
   // Contributions, sign-ins, credits, and problems, newest first.
-  const CHIPS = [['all', 'All'], ['posts', 'Posts'], ['signins', 'Sign-ins'], ['credits', 'Credits'], ['problems', 'Problems']];
+  const CHIPS = [['all', 'All'], ['posts', 'Posts'], ['signins', 'Sign-ins'], ['credits', 'Credits'], ['messages', 'Messages'], ['problems', 'Problems']];
   const PROBLEMS = ['held', 'blocked', 'report', 'admin_action'];
   let chip = $state('all');
   let entries = $state(null);

@@ -1,5 +1,6 @@
 import { decide, reviewQueue } from "../../server/admin.js";
 import { listActivity } from "../../server/activity.js";
+import { listMessages, setMessageStatus } from "../../server/messages.js";
 import { UserFacingError } from "../../server/chef.js";
 import { fail } from "../../server/http.js";
 import { requireMod } from "../../server/roles.js";
@@ -108,6 +109,19 @@ export default async function handler(request) {
           }),
           noStore,
         );
+      case "GET messages":
+        return Response.json(
+          await listMessages(actor, {
+            status: url.searchParams.get("status") || "new",
+          }),
+          noStore,
+        );
+      case "POST messages/:id/status": {
+        const body = await json(request);
+        return Response.json(
+          await setMessageStatus(actor, idFrom(id), body.status),
+        );
+      }
       default:
         return Response.json({ error: "Not found." }, { status: 404 });
     }

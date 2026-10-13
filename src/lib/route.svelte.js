@@ -20,7 +20,7 @@ const PATHS = {
   saved: "/recipes",
 };
 
-const ADMIN_TABS = ["reviews", "users", "log"];
+const ADMIN_TABS = ["reviews", "users", "log", "inbox"];
 const PAGES = ["terms", "refunds", "privacy", "contact"];
 // Guide slugs are lowercase words; anything else shows the help hub.
 const SLUG = /^[a-z]+$/;

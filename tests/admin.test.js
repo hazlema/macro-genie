@@ -526,3 +526,34 @@ test("suspended users can't remove their own posts", async () => {
   await db.sql`UPDATE accounts SET suspended_at = now() WHERE id = ${sam.id}`;
   await assert.rejects(removeOwnPost(sam.id, post.id), /suspended/);
 });
+
+test("inbox endpoints: mods list and mark messages; others can't", async () => {
+  const { default: handler } = await import("../netlify/functions/admin.js");
+  const { sessionCookie } = await import("../server/session.js");
+  const { saveMessage } = await import("../server/messages.js");
+  const { mod } = await staff();
+  const plain = await person("Inbox Pat");
+  const cookie = (who) =>
+    sessionCookie(who.id, new Request("https://example.com/")).split(";")[0];
+  const { id } = await saveMessage({
+    name: "Visitor",
+    email: "q@example.com",
+    topic: "Bug",
+    body: "Something broke here",
+  });
+  const call = (path, who, body) =>
+    handler(
+      new Request(`https://example.com${path}`, {
+        method: body ? "POST" : "GET",
+        headers: { cookie: cookie(who), "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      }),
+    );
+  assert.equal((await call("/api/admin/messages", plain)).status, 403);
+  const list = await call("/api/admin/messages?status=new", mod);
+  assert.ok((await list.json()).messages.some((m) => m.id === id));
+  const done = await call(`/api/admin/messages/${id}/status`, mod, {
+    status: "done",
+  });
+  assert.deepEqual(await done.json(), { status: "done" });
+});
