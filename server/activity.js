@@ -8,6 +8,7 @@ export const CHIPS = {
   signins: ["joined", "sign_in"],
   credits: ["credits_purchase", "credits_adjust"],
   problems: ["held", "blocked", "report", "admin_action"],
+  messages: ["message"],
 };
 export const KINDS = Object.values(CHIPS).flat();
 
