@@ -30,7 +30,9 @@ const refunds = `**Unused credits.** Unused credits from a pack you bought can b
 
 const privacy = `**What we store.** Your Google account id, your display name, your credits and credit history, your community posts, comments, likes, and reports, and messages you send us.
 
-**What we don't.** We don't store your email or a password. When you sign in, Google tells us only an id and your first name, which becomes your display name (you can change it).
+**What we don't.** We don't keep a password, and your account doesn't hold your email: when you sign in, Google tells us only an id and your first name, which becomes your display name (you can change it).
+
+**Messages you send us.** If you use the contact form, we keep your message and the email you type with it so we can reply.
 
 **What stays in your browser.** Your Recipe Book, the foods you won't eat, and the recipe in progress are saved on your device, not on our servers.
 
@@ -40,7 +42,7 @@ const privacy = `**What we store.** Your Google account id, your display name, y
 
 **Chatting from your AI.** The MCP server only answers food and recipe questions. It's read-only and keeps nothing about you.
 
-**Deleting your data.** [Contact us](/contact) with the topic "Delete my data" and we'll remove your account and everything it owns.
+**Deleting your data.** [Contact us](/contact) with the topic "Delete my data" and we'll remove your account, everything it owns, and your messages to us.
 
 **Changes.** We'll update this page if anything changes; the date above changes when we do.`;
 

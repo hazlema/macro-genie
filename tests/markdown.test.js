@@ -94,3 +94,20 @@ test("links to our own pages render in place; protocol-relative links don't", ()
   assert.equal(renderMarkdown("[x](//evil.example/a)"), "<p>x</p>");
   assert.equal(renderMarkdown("[x](/\\evil.example)"), "<p>x</p>");
 });
+
+test("site links can't be disguised to leave the site", () => {
+  for (const evil of [
+    "[x](/&#47;evil.example)",
+    "[x](/&#92;evil.example)",
+    "[x](/&Tab;/evil.example)",
+    "[x](/&NewLine;/evil.example)",
+    "[x](</\t/evil.example>)",
+    "[x](/\\\\evil.example)",
+  ])
+    assert.doesNotMatch(renderMarkdown(evil), /<a /, evil);
+  assert.match(
+    renderMarkdown("[ok](/help/builder?x=1#top)"),
+    /<a href="\/help\/builder\?x=1#top">/,
+  );
+  assert.match(renderMarkdown("[ok](/contact)"), /<a href="\/contact">/);
+});

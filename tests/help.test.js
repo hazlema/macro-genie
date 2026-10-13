@@ -91,7 +91,7 @@ test("the policy pages say what the owner decided", async () => {
   for (const word of ["Netlify", "Neon", "Anthropic", "Google", "Stripe"])
     assert.match(POLICIES.privacy.body, new RegExp(word));
   assert.match(POLICIES.privacy.body, /no ads or trackers/i);
-  assert.match(POLICIES.privacy.body, /don't store your email/i);
+  assert.match(POLICIES.privacy.body, /account doesn't hold your email/i);
   assert.match(POLICIES.terms.body, /not medical advice/i);
   assert.match(POLICIES.terms.body, /no cash value/i);
   for (const p of Object.values(POLICIES))
@@ -107,4 +107,11 @@ test("steps with a phone screenshot and markers have phone markers too", () => {
     for (const s of g.steps)
       if (s.imagePhone && s.markers)
         assert.ok(s.markersPhone, `${g.slug}: "${s.title}" needs markersPhone`);
+});
+
+test("the privacy page is honest about emails sent with the contact form", async () => {
+  const { POLICIES } = await import("../src/help/policies.js");
+  assert.doesNotMatch(POLICIES.privacy.body, /We don't store your email/);
+  assert.match(POLICIES.privacy.body, /contact form/i);
+  assert.match(POLICIES.privacy.body, /email you type/i);
 });

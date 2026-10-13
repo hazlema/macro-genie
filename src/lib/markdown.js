@@ -38,10 +38,12 @@ function inline(tokens = []) {
         case "br":
           return "<br>";
         case "link": {
-          // A path on this site ("/help/builder") opens in place. "//host" and
-          // "/\\host" would leave the site, so they don't count.
-          const local = String(t.href ?? "").trim();
-          if (/^\/(?![\/\\])/.test(local))
+          // A path on this site ("/help/builder") opens in place. Only plain
+          // path characters count: entities (&#47;), backslashes, and
+          // whitespace can all turn into "//host" in the browser and leave
+          // the site.
+          const local = String(t.href ?? "");
+          if (/^\/(?![\/])[A-Za-z0-9\-._~%\/?#=+]*$/.test(local))
             return `<a href="${escape(local)}">${inline(t.tokens)}</a>`;
           const href = safeHref(t.href);
           return href
