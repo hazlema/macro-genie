@@ -6,6 +6,7 @@
 //   /builder           Recipe Builder
 //   /recipes           Recipe Book; /recipes/<id>  one saved recipe (this browser)
 //   /admin             Admin (Reviews); /admin/users, /admin/log
+//   /help, /help/<guide>   Help;  /terms /refunds /privacy /contact   policies
 const TABS = {
   foods: "foods",
   builder: "recipes",
@@ -20,15 +21,22 @@ const PATHS = {
 };
 
 const ADMIN_TABS = ["reviews", "users", "log"];
+const PAGES = ["terms", "refunds", "privacy", "contact"];
+// Guide slugs are lowercase words; anything else shows the help hub.
+const SLUG = /^[a-z]+$/;
 
 export function parse(pathname) {
   const [section = "", id = ""] = pathname.split("/").filter(Boolean);
   const tab =
     section === "admin"
       ? "admin"
-      : section
-        ? (TABS[section] ?? "community")
-        : "home";
+      : section === "help"
+        ? "help"
+        : PAGES.includes(section)
+          ? "page"
+          : section
+            ? (TABS[section] ?? "community")
+            : "home";
   return {
     tab,
     postId: tab === "community" && /^\d+$/.test(id) ? Number(id) : null,
@@ -36,10 +44,21 @@ export function parse(pathname) {
     ...(tab === "admin"
       ? { adminTab: ADMIN_TABS.includes(id) ? id : "reviews" }
       : {}),
+    ...(tab === "help" ? { helpSlug: SLUG.test(id) ? id : null } : {}),
+    ...(tab === "page" ? { page: section } : {}),
   };
 }
 
-export function pathFor({ tab, postId = null, recipeId = null, adminTab = null }) {
+export function pathFor({
+  tab,
+  postId = null,
+  recipeId = null,
+  adminTab = null,
+  helpSlug = null,
+  page = null,
+}) {
+  if (tab === "help") return helpSlug ? `/help/${helpSlug}` : "/help";
+  if (tab === "page") return `/${page}`;
   if (tab === "admin")
     return adminTab && adminTab !== "reviews" ? `/admin/${adminTab}` : "/admin";
   if (tab === "community" && postId) return `/community/${postId}`;

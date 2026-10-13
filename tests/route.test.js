@@ -53,5 +53,28 @@ test(
     assert.equal(pathFor({ tab: "admin" }), "/admin");
     assert.equal(pathFor({ tab: "admin", adminTab: "reviews" }), "/admin");
     assert.equal(pathFor({ tab: "admin", adminTab: "log" }), "/admin/log");
+    assert.deepEqual(parse("/help"), {
+      tab: "help",
+      postId: null,
+      recipeId: null,
+      helpSlug: null,
+    });
+    assert.equal(parse("/help/mcp").helpSlug, "mcp");
+    assert.equal(parse("/help/").helpSlug, null);
+    assert.equal(parse("/help/Not-A-Guide!").helpSlug, null);
+    assert.deepEqual(parse("/terms"), {
+      tab: "page",
+      postId: null,
+      recipeId: null,
+      page: "terms",
+    });
+    for (const p of ["refunds", "privacy", "contact"])
+      assert.equal(parse(`/${p}`).page, p);
+    assert.equal(pathFor({ tab: "help" }), "/help");
+    assert.equal(
+      pathFor({ tab: "help", helpSlug: "cronometer" }),
+      "/help/cronometer",
+    );
+    assert.equal(pathFor({ tab: "page", page: "privacy" }), "/privacy");
   },
 );
