@@ -15,6 +15,7 @@ let stripeFails;
 let anthropicCents;
 let anthropicFails;
 let fetched;
+let listCalls;
 
 const unix = (iso) => Math.floor(Date.parse(iso) / 1000);
 const pi = (meta) => ({ object: "payment_intent", metadata: meta });
@@ -23,7 +24,8 @@ const ours = (pack, credits, cents) => pi({ accountId: "1", pack, credits: Strin
 function fakeStripe() {
   return {
     balanceTransactions: {
-      list(params) {
+      list(params, options) {
+        listCalls.push(options);
         const data = txns.filter((t) => t.created >= params.created.gte && t.created < params.created.lt);
         return {
           async *[Symbol.asyncIterator]() {
@@ -61,6 +63,7 @@ beforeEach(async () => {
   anthropicCents = 0;
   anthropicFails = false;
   fetched = [];
+  listCalls = [];
   useStripe(fakeStripe());
   useFetch(fakeFetch);
   delete process.env.ANTHROPIC_ADMIN_KEY;
@@ -225,4 +228,23 @@ test("only admins see money", async () => {
   await db.sql`UPDATE accounts SET is_mod = true WHERE id = ${mod.id}`;
   await assert.rejects(moneyOverview(mod.id), (e) => e.status === 403);
   await assert.rejects(moneyOverview(null), (e) => e.status === 403);
+});
+
+test("Stripe month fetches time out at 10 s without retries", async () => {
+  await buildMonth("2026-10");
+  assert.deepEqual(listCalls, [{ timeout: 10_000, maxNetworkRetries: 0 }]);
+});
+
+test("with Stripe down, past months stop at the first incomplete one", async () => {
+  await addCost(admin.id, { name: "Netlify Pro", cents: 1900, period: "monthly", starts: "2026-07" });
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    stripeFails = true;
+    const o = await moneyOverview(admin.id, new Date("2026-10-14T12:00:00Z"));
+    assert.equal(listCalls.length, 2); // first unsaved past month, then the current one
+    assert.deepEqual(o.saved, []);
+  } finally {
+    console.error = quiet;
+  }
 });

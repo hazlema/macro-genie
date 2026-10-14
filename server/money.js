@@ -35,7 +35,7 @@ async function stripeMonth({ start, end }) {
     created: { gte: start.getTime() / 1000, lt: end.getTime() / 1000 },
     limit: 100,
     expand: ["data.source.payment_intent"],
-  });
+  }, { timeout: 10_000, maxNetworkRetries: 0 }); // a stuck page must not hold the tab for ~45 s
   for await (const t of list) {
     const meta = t.source?.payment_intent?.metadata;
     if (!meta?.accountId || !meta?.credits) continue;
@@ -190,14 +190,17 @@ async function saveFinishedMonths(current, now) {
   const saved = new Set(
     (await db.sql`SELECT to_char(month, 'YYYY-MM') AS month FROM money_months`).map((r) => r.month),
   );
+  // Walk back at most 12 months (saved or not), oldest unsaved first, and
+  // stop at the first incomplete one so an outage costs one attempt per open.
   const months = [];
-  for (let key = previousMonth(current); months.length < SAVED_MONTHS && key >= first; key = previousMonth(key))
+  let key = previousMonth(current);
+  for (let i = 0; i < SAVED_MONTHS && key >= first; i++, key = previousMonth(key))
     if (!saved.has(key)) months.unshift(key);
-  for (const key of months) {
-    const totals = await buildMonth(key, now);
-    if (!totals.complete) continue;
+  for (const month of months) {
+    const totals = await buildMonth(month, now);
+    if (!totals.complete) break;
     await db.sql`
-      INSERT INTO money_months (month, totals) VALUES (${`${key}-01`}, ${JSON.stringify(totals)})
+      INSERT INTO money_months (month, totals) VALUES (${`${month}-01`}, ${JSON.stringify(totals)})
       ON CONFLICT (month) DO NOTHING`;
   }
 }
