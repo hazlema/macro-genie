@@ -7,7 +7,10 @@ import { findOrCreateAccount, getAccount } from "../server/accounts.js";
 import { listActivity } from "../server/activity.js";
 import { PACKS, packById } from "../server/packs.js";
 import { useStripe } from "../server/stripe.js";
-import { applyRefund, confirmPurchase, fulfill, startCheckout } from "../server/payments.js";
+import { sessionCookie } from "../server/session.js";
+import { applyRefund, confirmPurchase, fulfill, handleWebhook, startCheckout } from "../server/payments.js";
+import credits from "../netlify/functions/credits.js";
+import webhook from "../netlify/functions/stripe-webhook.js";
 
 const WEBHOOK_SECRET = "whsec_test_secret";
 // The real library only signs and checks webhook payloads; nothing calls Stripe.
@@ -301,4 +304,81 @@ test("refunds for deleted accounts or payments that aren't ours are ignored", as
     await applyRefund({ payment_intent: null, amount: 500, amount_refunded: 500 }),
     { removed: 0 },
   );
+});
+
+const signed = (event) => {
+  const payload = JSON.stringify(event);
+  return {
+    payload,
+    signature: real.webhooks.generateTestHeaderString({ payload, secret: WEBHOOK_SECRET }),
+  };
+};
+const post = (path, body, init = {}) =>
+  new Request(`https://example.com${path}`, {
+    method: "POST",
+    body: typeof body === "string" ? body : JSON.stringify(body),
+    ...init,
+  });
+const asAccount = (accountId) => ({
+  headers: {
+    cookie: sessionCookie(accountId, new Request("https://example.com/")).split(";")[0],
+  },
+});
+
+test("webhooks with a bad or missing signature are refused", async () => {
+  const { payload } = signed({ id: "evt_1", type: "ping", data: { object: {} } });
+  await rejectsWith(handleWebhook(payload, "t=1,v1=bad"), 400);
+  await rejectsWith(handleWebhook(payload, null), 400);
+  const res = await webhook(post("/api/stripe/webhook", payload, { headers: { "stripe-signature": "nope" } }));
+  assert.equal(res.status, 400);
+});
+
+test("a completed-checkout webhook adds the credits; other events are acknowledged", async () => {
+  const { id } = await newAccount();
+  fake.sessions.set("cs_test_hook", paidSession("cs_test_hook", id, "small"));
+  for (const type of ["checkout.session.completed", "checkout.session.async_payment_succeeded"]) {
+    const { payload, signature } = signed({
+      id: `evt_${type}`,
+      type,
+      data: { object: { id: "cs_test_hook" } },
+    });
+    const res = await webhook(post("/api/stripe/webhook", payload, { headers: { "stripe-signature": signature } }));
+    assert.equal(res.status, 200);
+  }
+  assert.equal((await getAccount(id)).credits, 30);
+  const other = signed({ id: "evt_x", type: "customer.created", data: { object: {} } });
+  assert.deepEqual(await handleWebhook(other.payload, other.signature), { received: true });
+});
+
+test("a charge.refunded webhook takes credits back", async () => {
+  const { id } = await newAccount();
+  const charge = await bought(id, "large", "pi_hook");
+  const { payload, signature } = signed({
+    id: "evt_refund",
+    type: "charge.refunded",
+    data: { object: { id: "ch_1", ...charge(1200) } },
+  });
+  await handleWebhook(payload, signature);
+  assert.equal((await getAccount(id)).credits, 10);
+});
+
+test("the page API: packs, checkout, and confirm", async () => {
+  const packs = await credits(new Request("https://example.com/api/credits/packs"));
+  assert.deepEqual((await packs.json()).packs, PACKS);
+
+  const signedOut = await credits(post("/api/credits/checkout", { pack: "small" }));
+  assert.equal(signedOut.status, 401);
+
+  const { id } = await newAccount();
+  const started = await credits(post("/api/credits/checkout", { pack: "small" }, asAccount(id)));
+  assert.equal(started.status, 200);
+  assert.match((await started.json()).url, /^https:\/\/checkout\.stripe\.test\//);
+  assert.equal(fake.created[0].success_url, "https://example.com/credits?session={CHECKOUT_SESSION_ID}");
+
+  fake.sessions.set("cs_test_api", paidSession("cs_test_api", id, "small"));
+  const confirmed = await credits(post("/api/credits/confirm", { sessionId: "cs_test_api" }, asAccount(id)));
+  assert.deepEqual(await confirmed.json(), { paid: true, purchased: 20, credits: 30 });
+
+  const getCheckout = await credits(new Request("https://example.com/api/credits/checkout"));
+  assert.equal(getCheckout.status, 405);
 });

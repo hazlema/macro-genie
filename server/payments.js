@@ -187,3 +187,29 @@ export async function applyRefund(charge) {
   });
   return { removed: result.removed };
 }
+
+// Stripe's calls to /api/stripe/webhook. The signature proves Stripe sent it.
+export async function handleWebhook(rawBody, signature) {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error("stripe: STRIPE_WEBHOOK_SECRET is not set");
+    throw new UserFacingError(UNAVAILABLE, 503);
+  }
+  let event;
+  try {
+    event = stripe().webhooks.constructEvent(rawBody, signature ?? "", secret);
+  } catch (error) {
+    if (error instanceof UserFacingError) throw error;
+    throw new UserFacingError("Invalid signature.", 400);
+  }
+  switch (event.type) {
+    case "checkout.session.completed":
+    case "checkout.session.async_payment_succeeded":
+      await fulfill(event.data.object.id);
+      break;
+    case "charge.refunded":
+      await applyRefund(event.data.object);
+      break;
+  }
+  return { received: true };
+}
