@@ -53,6 +53,9 @@ export async function startCheckout(accountId, packId, origin) {
       client_reference_id: String(accountId),
       metadata,
       payment_intent_data: { metadata },
+      // Stripe as merchant of record is wanted before going live, but it adds
+      // tax on top of the price, which fulfill's amount check would refuse.
+      managed_payments: { enabled: false },
       success_url: `${origin}/credits?session={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/credits?cancelled=1`,
     }),

@@ -130,6 +130,7 @@ test("checkout asks Stripe for a one-time payment of the pack's price", async ()
   );
   assert.equal(params.cancel_url, "https://macro-genie.com/credits?cancelled=1");
   assert.equal(params.customer, undefined);
+  assert.deepEqual(params.managed_payments, { enabled: false });
 });
 
 test("checkout refuses unknown packs, signed-out visitors, and suspended accounts", async () => {
