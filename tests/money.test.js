@@ -220,6 +220,28 @@ test("Anthropic's actual cost, when there's an admin key", async () => {
   assert.equal(url.searchParams.get("ending_at"), "2026-09-01T00:00:00.000Z");
 });
 
+test("net counts Anthropic's actual bill when there is one, else the estimate", async () => {
+  await usage("idea", 0.05, "2026-08-10T00:00:00Z");
+  let m = await buildMonth("2026-08", new Date("2026-10-14T12:00:00Z"));
+  assert.equal(m.aiCountedIn, "estimate");
+  assert.equal(m.netCents, -5);
+  process.env.ANTHROPIC_ADMIN_KEY = "sk-ant-admin-test";
+  anthropicCents = 195;
+  m = await buildMonth("2026-08", new Date("2026-10-14T12:00:00Z"));
+  assert.equal(m.aiCountedIn, "actual");
+  assert.equal(m.netCents, -195);
+  anthropicFails = true;
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    m = await buildMonth("2026-08", new Date("2026-10-14T12:00:00Z"));
+  } finally {
+    console.error = quiet;
+  }
+  assert.equal(m.aiCountedIn, "estimate");
+  assert.equal(m.netCents, -5);
+});
+
 test("a failed source marks the month incomplete", async () => {
   const quiet = console.error;
   console.error = () => {};

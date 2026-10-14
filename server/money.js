@@ -153,6 +153,10 @@ export async function buildMonth(key, now = new Date()) {
   const feeCents = money?.feeCents ?? 0;
   const refundCents = money?.refundCents ?? 0;
   const { aiCentsPerCredit, paidCreditsSold, ...aiParts } = ai;
+  // Anthropic's bill covers everything on the key, local testing included,
+  // which is the site's real AI cost; the estimate stands in without it.
+  const actual = anthropic.status === "ok";
+  const aiCents = actual ? anthropic.cents : ai.estimateCents;
   return {
     month: key,
     complete: missing.length === 0,
@@ -164,7 +168,8 @@ export async function buildMonth(key, now = new Date()) {
     anthropic,
     fixed,
     fixedCents,
-    netCents: salesCents - feeCents - refundCents - ai.estimateCents - fixedCents,
+    aiCountedIn: actual ? "actual" : "estimate",
+    netCents: salesCents - feeCents - refundCents - aiCents - fixedCents,
     perCredit: {
       aiCents: aiCentsPerCredit,
       earnedCents:

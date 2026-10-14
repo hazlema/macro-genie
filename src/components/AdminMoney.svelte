@@ -94,7 +94,7 @@
         {#each m.fixed as f}
           <tr><th scope="row">{f.name}</th><td>{usd(-f.cents)}</td></tr>
         {/each}
-        <tr class="money-total"><th scope="row">Net</th><td>{signed(m.netCents)}</td></tr>
+        <tr class="money-total"><th scope="row">Net <span class="money-note">{m.aiCountedIn === 'actual' ? 'AI counted from Anthropic’s bill' : 'AI counted from the estimate'}</span></th><td>{signed(m.netCents)}</td></tr>
       </tbody>
     </table>
     <p class="money-stats">

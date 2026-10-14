@@ -23,7 +23,7 @@ To try credit purchases locally, delete any leftover `dist/` folder before `npm 
 
 Pay with the Stripe test card `4242 4242 4242 4242`.
 
-The admin **Money** tab compares the app's AI cost estimate with Anthropic's actual bill when `ANTHROPIC_ADMIN_KEY` (an `sk-ant-admin…` Admin API key from the Claude Console; it needs an organization, not an individual account) is in `.env` locally or in the Netlify environment in production. Without it, the tab shows the estimate only.
+The admin **Money** tab counts Anthropic's actual bill for the key (local testing included) in its net, next to the app's own AI cost estimate, when `ANTHROPIC_ADMIN_KEY` (an `sk-ant-admin…` Admin API key from the Claude Console; it needs an organization, not an individual account) is in `.env` locally or in the Netlify environment in production. Without it, the tab shows the estimate only.
 
 ## Deploy to Netlify
 
