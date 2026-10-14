@@ -1,3 +1,4 @@
+import { database } from "./db.js";
 import { renderRecipe } from "../src/lib/scale.js";
 import { esc, withBody, withHead } from "../src/seo/head.js";
 import { FIXED_PAGES, IMAGE, SITE } from "../src/seo/pages.js";
@@ -83,4 +84,66 @@ export function sitemapXml(posts) {
     ...posts.map((p) => `<url><loc>${SITE}/community/${Number(p.id)}</loc><lastmod>${day(p.createdAt)}</lastmod></url>`),
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`;
+}
+
+
+export const NO_STORE = { "Cache-Control": "no-store" };
+
+// Netlify's CDN keeps the page until a purge of one of its tags, or a day.
+// Browsers always ask the CDN again.
+export const cacheHeaders = (tags) => ({
+  "Netlify-CDN-Cache-Control": "public, durable, s-maxage=86400, stale-while-revalidate=604800",
+  "Cache-Control": "public, max-age=0, must-revalidate",
+  "Netlify-Cache-Tag": tags.join(","),
+});
+
+// The built index.html (with this deploy's hashed script names), fetched
+// from the site itself once per function instance; under npm run dev it's
+// Vite's page.
+let template = null;
+let loadTemplate = async (origin) => {
+  const res = await fetch(`${origin}/index.html`);
+  if (!res.ok) throw new Error(`index.html ${res.status}`);
+  return res.text();
+};
+export function useTemplate(fn) {
+  loadTemplate = fn;
+  template = null;
+}
+export async function getTemplate(origin) {
+  template ??= await loadTemplate(origin);
+  return template;
+}
+
+export async function livePost(id) {
+  const { rows } = await database().pool.query(
+    `SELECT p.id, p.name, p.meal_type, p.recipe, p.created_at, a.display_name AS author
+       FROM posts p JOIN accounts a ON a.id = p.account_id
+      WHERE p.id = $1 AND p.kind = 'recipe' AND p.status = 'live'`,
+    [id],
+  );
+  const r = rows[0];
+  return r
+    ? { id: Number(r.id), name: r.name, mealType: r.meal_type, recipe: r.recipe, createdAt: r.created_at, author: r.author, kind: "recipe", status: "live" }
+    : null;
+}
+
+export async function liveRecipes() {
+  const rows = await database().sql`
+    SELECT id, created_at FROM posts WHERE kind = 'recipe' AND status = 'live' ORDER BY id`;
+  return rows.map((r) => ({ id: Number(r.id), createdAt: r.created_at }));
+}
+
+// Adds one server-built page and its run time to this month, for the Money
+// tab. Never throws: a lost count only makes the estimate a little low.
+export async function recordPageBuild(ms) {
+  try {
+    await database().sql`
+      INSERT INTO page_builds (month, builds, ms)
+      VALUES (date_trunc('month', now() AT TIME ZONE 'UTC')::date, 1, ${Math.round(ms)})
+      ON CONFLICT (month) DO UPDATE
+        SET builds = page_builds.builds + 1, ms = page_builds.ms + EXCLUDED.ms`;
+  } catch (error) {
+    console.error("page_builds:", error.message);
+  }
 }

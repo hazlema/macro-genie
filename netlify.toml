@@ -40,10 +40,6 @@
   to = "/index.html"
   status = 200
 [[redirects]]
-  from = "/community/*"
-  to = "/index.html"
-  status = 200
-[[redirects]]
   from = "/recipes"
   to = "/index.html"
   status = 200
