@@ -3723,3 +3723,49 @@ dialog.dislikes[open] {
     display: inline-grid;
   }
 }
+
+/* Get more credits */
+.pack-list {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+}
+.pack-card {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 20px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  cursor: pointer;
+}
+.pack-card:hover:not(:disabled) {
+  border-color: #4a5356;
+}
+.pack-card:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.pack-card strong {
+  font-size: 1.3em;
+}
+.pack-price {
+  font-size: 1.6em;
+  font-weight: 700;
+}
+.pack-each,
+.credits-note {
+  color: var(--muted);
+  font-size: 14px;
+}
+.pack-action {
+  margin-top: 8px;
+  font-weight: 600;
+}

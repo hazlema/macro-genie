@@ -28,7 +28,7 @@ export default {
     },
     {
       title: "Getting more",
-      text: "Buying more credits is coming soon. Credits don't expire. See [Refunds](/refunds) for purchased credits.",
+      text: "Buy more on the [Get more credits](/credits) page: 20 credits for $3, 50 for $6, or 120 for $12. You pay by card through Stripe. Credits don't expire, and unused credits from a pack can be refunded within 30 days. See [Refunds](/refunds).",
     },
   ],
 };

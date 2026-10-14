@@ -13,6 +13,7 @@
   import Help from './components/Help.svelte';
   import PolicyPage from './components/PolicyPage.svelte';
   import ContactPage from './components/ContactPage.svelte';
+  import Credits from './components/Credits.svelte';
   import FooterLinks from './components/FooterLinks.svelte';
   import Landing from './components/Landing.svelte';
   import RecipeCard from './components/RecipeCard.svelte';
@@ -106,6 +107,7 @@
       <button class="text-button account-wide" onclick={() => navigate({ tab: 'help' })}>Help</button>
       {#if account.isMod}<button class="text-button account-wide" onclick={() => navigate({ tab: 'admin' })}>Admin</button>{/if}
       <span class="credit-pill account-wide" title="Each idea or written recipe uses one credit">{account.credits} {account.credits === 1 ? 'credit' : 'credits'}</span>
+      <button class="text-button account-wide" onclick={() => navigate({ tab: 'credits' })}>Get credits</button>
       <span class="account-name account-wide">{account.displayName}</span>
       <button class="text-button account-wide" onclick={signOut}>Sign out</button>
       <!-- Phones: one button on the logo's row; name and Sign out in a menu. -->
@@ -115,6 +117,7 @@
           <div class="account-pop" id="account-pop">
             <p>Signed in as <strong>{account.displayName}</strong></p>
             <p class="account-pop-note">Each idea or written recipe uses one credit.</p>
+            <button class="outline-button" onclick={() => { accountMenu = false; navigate({ tab: 'credits' }); }}>Get more credits</button>
             <button class="outline-button" onclick={() => { accountMenu = false; navigate({ tab: 'help' }); }}>Help</button>
             {#if account.isMod}<button class="outline-button" onclick={() => { accountMenu = false; navigate({ tab: 'admin' }); }}>Admin</button>{/if}
             <button class="outline-button" onclick={() => { accountMenu = false; signOut(); }}>Sign out</button>
@@ -176,6 +179,8 @@
   </div>
 {:else if tab === 'admin'}
   <Admin adminTab={route.adminTab} />
+{:else if tab === 'credits'}
+  <Credits />
 {:else if tab === 'page' && route.page === 'contact'}
   <ContactPage />
 {:else if tab === 'page'}

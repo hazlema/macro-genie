@@ -11,6 +11,7 @@
   import { prefs, save, saveRecipe } from '../lib/prefs.svelte.js';
   import { printRecipe } from '../lib/print.svelte.js';
   import { account, noteResponse } from '../lib/account.svelte.js';
+  import { navigate } from '../lib/route.svelte.js';
 
   let { foods, oneditdislikes, onviewsaved } = $props();
 
@@ -63,6 +64,13 @@
   const readyIdeas = $derived(ideas.filter(i => i.status === 'ready'));
 
   // Ideas are re-sized against the current targets, so cards stay honest when targets change.
+  function getCredits(e) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+    e.preventDefault();
+    navigate({ tab: 'credits' });
+    scrollTo(0, 0);
+  }
+
   function size(list) {
     try {
       const items = list.filter(i => byId.has(i.id)).map(i => ({ food: byId.get(i.id), grams: i.grams, required: i.required }));
@@ -266,7 +274,7 @@
           <label class="idea-count"><span>Ideas</span><input type="range" min="1" max="4" step="1" bind:value={ideaCount} aria-valuetext={`${ideaCount} ideas, ${ideaCount} credits`} /><strong>{ideaCount}</strong></label>
           <button class="primary-button" onclick={getIdeas} disabled={generating || !!recipe.error || account.credits < ideaCount}>{generating ? 'Thinking up ideas…' : `Get ${ideaCount} ${readyIdeas.length ? 'new ' : ''}${ideaCount === 1 ? 'idea' : 'ideas'} · ${ideaCount} ${ideaCount === 1 ? 'credit' : 'credits'}`}</button>
           {#if account.credits < ideaCount}
-            <span class="credit-short">Not enough credits: you have {account.credits}. {account.credits ? 'Try fewer ideas, or b' : 'B'}uying credits is coming soon.</span>
+            <span class="credit-short">Not enough credits: you have {account.credits}. {#if account.credits}Try fewer ideas, or <a href="/credits" onclick={getCredits}>get more credits</a>.{:else}<a href="/credits" onclick={getCredits}>Get more credits</a>.{/if}</span>
           {:else}
             <span>Ideas appear one by one, usually within half a minute.</span>
           {/if}
@@ -412,6 +420,7 @@
                 </div>
                 {#if account.signedIn}
                   <button class="primary-button" onclick={writeRecipe} disabled={account.credits < 1}>Write the recipe · 1 credit</button>
+                  {#if account.credits < 1}<span class="credit-short">Out of credits. <a href="/credits" onclick={getCredits}>Get more credits</a></span>{/if}
                 {:else}
                   <button class="primary-button" onclick={() => account.loginOpen = true}>Sign in to write it</button>
                 {/if}
