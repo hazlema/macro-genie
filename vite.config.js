@@ -64,6 +64,8 @@ export default defineConfig(({ command }) => {
     for (const [key, value] of Object.entries(auth)) process.env[key] ??= value;
     process.env.MACRO_GENIE_LOCAL = "1";
     process.env.MACRO_GENIE_LOCAL_KEY = local.ANTHROPIC_API_KEY ?? "";
+    // Lets the Money tab compare against Anthropic's real bill locally.
+    if (local.ANTHROPIC_ADMIN_KEY) process.env.ANTHROPIC_ADMIN_KEY ??= local.ANTHROPIC_ADMIN_KEY;
     console.log(
       local.ANTHROPIC_API_KEY
         ? "AI calls: your ANTHROPIC_API_KEY from .env (billed to Anthropic, not Netlify credits)"
