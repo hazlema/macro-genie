@@ -27,7 +27,7 @@ export const PACKS = [
 export const packById = (id) => PACKS.find((p) => p.id === id) ?? null;
 ```
 
-The client shows the same list. `/api/me` (or a new `GET /api/credits/packs`) returns it, so the prices exist only on the server.
+The client fetches the list from `GET /api/credits/packs`, so the prices exist only on the server.
 
 ## Server
 
@@ -62,7 +62,7 @@ New function `netlify/functions/credits.js`, wrapped in `withTiming` like the ot
 - `charge.refunded`:
   1. Get the pack metadata from the charge's PaymentIntent.
   2. Work out `target = round(credits × amount_refunded / amount)`. `amount_refunded` is the cumulative total.
-  3. Subtract the credits already taken back for this PaymentIntent (the sum of its `refund` ledger rows).
+  3. Subtract the credits already taken back for this PaymentIntent (the sum of its `refund_purchase` ledger rows, `ref LIKE '<payment_intent>:%'`).
   4. Take back the difference, but never more than the current balance (credits can't go below 0).
   5. The ledger row uses reason `refund_purchase` and ref `<payment_intent>:<amount_refunded>`, so a replayed event is a no-op.
   6. Write activity `credits_refund` ("refunded $3.60, removed 30 credits"). If the clamp kicked in, say so ("…removed 12 of 30; balance was 12").
