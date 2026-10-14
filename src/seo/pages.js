@@ -4,6 +4,9 @@ import { withHead } from "./head.js";
 // The pages search engines should find, each with its own title and
 // description. Community recipes are added by the sitemap function.
 export const SITE = "https://macro-genie.com";
+// The untouched built index.html, kept so the server can build recipe pages
+// from a template without the home page's tags.
+export const SHELL_PATH = "/seo/shell.html";
 export const IMAGE = `${SITE}/img/og.jpg`;
 
 export const FIXED_PAGES = [

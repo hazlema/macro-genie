@@ -19,6 +19,9 @@ export function withHead(template, { title, description, canonical, image, type 
     ...(extraHead ? [extraHead] : []),
   ].join("\n    ");
   return template
+    // A template that already has these (the built home page) would double them.
+    .replace(/<link\s+rel="canonical"[^>]*>\s*/g, () => "")
+    .replace(/<meta\s+(?:property="og:|name="twitter:|name="robots")[^>]*>\s*/g, () => "")
     .replace(/<title>[\s\S]*?<\/title>/, () => `<title>${esc(title)}</title>`)
     .replace(/<meta\s+name="description"[\s\S]*?\/>/, () => `<meta name="description" content="${esc(description)}" />`)
     .replace("</head>", () => `  ${tags}\n  </head>`);

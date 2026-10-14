@@ -1,7 +1,7 @@
 import { database } from "./db.js";
 import { renderRecipe } from "../src/lib/scale.js";
 import { esc, withBody, withHead } from "../src/seo/head.js";
-import { FIXED_PAGES, IMAGE, SITE } from "../src/seo/pages.js";
+import { FIXED_PAGES, IMAGE, SHELL_PATH, SITE } from "../src/seo/pages.js";
 
 // Search engines and link previews: a community recipe as a real page, the
 // plain app page for everything else, and the sitemap.
@@ -101,11 +101,15 @@ export const cacheHeaders = (tags) => ({
 // from the site itself once per function instance; under npm run dev it's
 // Vite's page.
 let template = null;
-let loadTemplate = async (origin) => {
-  const res = await fetch(`${origin}/index.html`);
-  if (!res.ok) throw new Error(`index.html ${res.status}`);
+// The build keeps an untouched copy at SHELL_PATH (index.html itself carries
+// the home page's tags); there's none under npm run dev, so fall back.
+export async function fetchTemplate(origin, fetcher = fetch) {
+  let res = await fetcher(`${origin}${SHELL_PATH}`);
+  if (res.status === 404) res = await fetcher(`${origin}/index.html`);
+  if (!res.ok) throw new Error(`template ${res.status}`);
   return res.text();
-};
+}
+let loadTemplate = fetchTemplate;
 export function useTemplate(fn) {
   loadTemplate = fn;
   template = null;

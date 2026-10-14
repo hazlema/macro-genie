@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { esc, withBody, withHead } from "../src/seo/head.js";
 import { FIXED_PAGES, IMAGE, SITE } from "../src/seo/pages.js";
 import { plainPage, postDescription, postPage, sitemapXml } from "../server/seo.js";
@@ -86,7 +86,7 @@ test("fixed pages: every indexed page, each with its own title and description",
 
 test("robots.txt blocks private paths and points at the sitemap", () => {
   const robots = readFileSync("public/robots.txt", "utf8");
-  for (const line of ["User-agent: *", "Disallow: /admin", "Disallow: /api/", "Disallow: /credits", "Disallow: /recipes", "Sitemap: https://macro-genie.com/sitemap.xml"])
+  for (const line of ["User-agent: *", "Disallow: /admin", "Disallow: /api/", "Disallow: /credits", "Disallow: /recipes", "Disallow: /seo/", "Sitemap: https://macro-genie.com/sitemap.xml"])
     assert.ok(robots.split("\n").includes(line), `missing ${line}`);
 });
 
@@ -193,4 +193,49 @@ test("the sitemap lists fixed pages and live recipes", () => {
   assert.ok(xml.includes("<url><loc>https://macro-genie.com/community/42</loc><lastmod>2026-10-12</lastmod></url>"));
   assert.equal((xml.match(/<url>/g) ?? []).length, FIXED_PAGES.length + 2);
   for (const p of ["/admin", "/credits", "/recipes", "/api"]) assert.ok(!xml.includes(`<loc>${SITE}${p}</loc>`), p);
+});
+
+const DIRTY = TEMPLATE.replace("</head>", `<link rel="canonical" href="https://macro-genie.com/" />
+<meta property="og:title" content="STALE" /><meta property="og:url" content="https://macro-genie.com/" />
+<meta name="twitter:card" content="summary" /><meta name="robots" content="index" /></head>`);
+const count = (html, re) => (html.match(re) ?? []).length;
+const assertClean = (html, canonical) => {
+  assert.equal(count(html, /rel="canonical"/g), 1);
+  assert.ok(html.includes(`rel="canonical" href="${canonical}"`));
+  assert.equal(count(html, /og:title/g), 1);
+  assert.equal(count(html, /og:url/g), 1);
+  assert.equal(count(html, /twitter:card/g), 1);
+  assert.ok(!html.includes("STALE") && !html.includes(`content="summary"`) && !html.includes(`content="index"`));
+};
+
+test("withHead, postPage and plainPage replace tags a template already carries", () => {
+  assertClean(withHead(DIRTY, { title: "T", description: "D", canonical: `${SITE}/foods`, image: IMAGE }), `${SITE}/foods`);
+  assertClean(plainPage(DIRTY, { path: "/community/abc" }), `${SITE}/community/abc`);
+  const post = { id: 7, name: "Bowl", mealType: "dinner", author: "Pat", createdAt: new Date("2026-10-12T15:00:00Z"), kind: "recipe", status: "live",
+    recipe: { name: "Bowl", description: "Good.", servings: 1, perServing: { calories: 500, protein: 40, carbs: 50, fat: 10 }, ingredients: [], seasonings: [], steps: ["Cook."] } };
+  assertClean(postPage(DIRTY, post), `${SITE}/community/7`);
+});
+
+test("the template loader prefers the clean shell and falls back to index.html on 404", async () => {
+  const { fetchTemplate } = await import("../server/seo.js");
+  const seen = [];
+  const make = (shellStatus) => async (url) => {
+    seen.push(url);
+    return url.endsWith("/seo/shell.html")
+      ? new Response("shell", { status: shellStatus })
+      : new Response("index", { status: 200 });
+  };
+  assert.equal(await fetchTemplate("https://x", make(200)), "shell");
+  seen.length = 0;
+  assert.equal(await fetchTemplate("https://x", make(404)), "index");
+  assert.deepEqual(seen, ["https://x/seo/shell.html", "https://x/index.html"]);
+  await assert.rejects(fetchTemplate("https://x", make(500)));
+});
+
+// Needs `npm run build` first; skipped when there's no dist.
+test("the build keeps a clean shell and the home page carries one canonical", { skip: !existsSync("dist/index.html") }, () => {
+  const shell = readFileSync("dist/seo/shell.html", "utf8");
+  assert.equal(count(shell, /rel="canonical"/g), 0);
+  assert.equal(count(shell, /og:title/g), 0);
+  assert.equal(count(readFileSync("dist/index.html", "utf8"), /rel="canonical"/g), 1);
 });

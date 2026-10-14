@@ -3,4 +3,5 @@ Disallow: /admin
 Disallow: /api/
 Disallow: /credits
 Disallow: /recipes
+Disallow: /seo/
 Sitemap: https://macro-genie.com/sitemap.xml

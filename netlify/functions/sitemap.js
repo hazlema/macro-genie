@@ -2,7 +2,7 @@ import { NO_STORE, cacheHeaders, liveRecipes, recordPageBuild, sitemapXml } from
 import { withTiming } from "../../server/timing.js";
 
 // /sitemap.xml: the fixed pages plus every live community recipe.
-export const config = { path: "/sitemap.xml", method: "GET" };
+export const config = { path: "/sitemap.xml", method: ["GET", "HEAD"] };
 
 async function handler() {
   const started = performance.now();

@@ -4,7 +4,7 @@ import netlify from "@netlify/vite-plugin";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { spawn } from "node:child_process";
-import { fixedPageFiles, seoRedirects } from "./src/seo/pages.js";
+import { SHELL_PATH, fixedPageFiles, seoRedirects } from "./src/seo/pages.js";
 
 // The Stripe events server/payments.js handles.
 const STRIPE_EVENTS = [
@@ -93,6 +93,8 @@ export default defineConfig(({ command }) => {
         apply: "build",
         closeBundle() {
           const template = readFileSync("dist/index.html", "utf8");
+          mkdirSync(dirname(`dist${SHELL_PATH}`), { recursive: true });
+          writeFileSync(`dist${SHELL_PATH}`, template);
           for (const { file, html } of fixedPageFiles(template)) {
             mkdirSync(dirname(`dist/${file}`), { recursive: true });
             writeFileSync(`dist/${file}`, html);

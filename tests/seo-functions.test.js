@@ -5,6 +5,8 @@ import { connect, useDatabase } from "../server/db.js";
 import { findOrCreateAccount } from "../server/accounts.js";
 import { useTemplate } from "../server/seo.js";
 import seoPost from "../netlify/functions/seo-post.js";
+import * as seoMod from "../netlify/functions/seo-post.js";
+import * as sitemapMod from "../netlify/functions/sitemap.js";
 import sitemap from "../netlify/functions/sitemap.js";
 
 const TEMPLATE = `<!doctype html><html><head><meta name="description" content="x" /><title>x</title></head><body><div id="app"></div></body></html>`;
@@ -129,4 +131,11 @@ test("a live recipe with malformed data gets the plain page, never cached, no 50
   } finally {
     console.error = quiet;
   }
+});
+
+test("HEAD requests are answered", async () => {
+  const id = await insertPost();
+  const res = await seoPost(new Request(`https://macro-genie.com/community/${id}`, { method: "HEAD" }));
+  assert.equal(res.status, 200);
+  for (const mod of [seoMod, sitemapMod]) assert.ok(mod.config.method.includes("HEAD") && mod.config.method.includes("GET"));
 });
