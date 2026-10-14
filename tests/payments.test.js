@@ -7,7 +7,7 @@ import { findOrCreateAccount, getAccount } from "../server/accounts.js";
 import { listActivity } from "../server/activity.js";
 import { PACKS, packById } from "../server/packs.js";
 import { useStripe } from "../server/stripe.js";
-import { confirmPurchase, fulfill, startCheckout } from "../server/payments.js";
+import { applyRefund, confirmPurchase, fulfill, startCheckout } from "../server/payments.js";
 
 const WEBHOOK_SECRET = "whsec_test_secret";
 // The real library only signs and checks webhook payloads; nothing calls Stripe.
@@ -242,4 +242,63 @@ test("the return page only confirms the signed-in account's own, real checkout",
     purchased: 20,
     credits: 30,
   });
+});
+
+// A pack bought by `accountId`, as its PaymentIntent and a charge refunded so far.
+async function bought(accountId, packId, pi) {
+  const pack = packById(packId);
+  fake.intents.set(pi, {
+    id: pi,
+    metadata: { accountId: String(accountId), pack: pack.id, credits: String(pack.credits) },
+  });
+  fake.sessions.set(`cs_${pi}`, paidSession(`cs_${pi}`, accountId, packId));
+  await fulfill(`cs_${pi}`);
+  return (refunded) => ({ payment_intent: pi, amount: pack.cents, amount_refunded: refunded });
+}
+
+test("a full refund takes the pack's credits back", async () => {
+  const { id } = await newAccount("Rae");
+  const charge = await bought(id, "medium", "pi_full");
+  assert.deepEqual(await applyRefund(charge(600)), { removed: 50 });
+  assert.equal((await getAccount(id)).credits, 10);
+  const log = await listActivity({ chip: "credits" });
+  assert.equal(log.entries[0].kind, "credits_refund");
+  assert.equal(log.entries[0].text, "refunded $6, removed 50 credits");
+});
+
+test("partial refunds take back credits in proportion, and replays do nothing", async () => {
+  const { id } = await newAccount();
+  const charge = await bought(id, "medium", "pi_part");
+  assert.deepEqual(await applyRefund(charge(360)), { removed: 30 });
+  assert.deepEqual(await applyRefund(charge(360)), { removed: 0 });
+  assert.deepEqual(await applyRefund(charge(600)), { removed: 20 });
+  assert.equal((await getAccount(id)).credits, 10);
+});
+
+test("a refund never takes the balance below zero", async () => {
+  const { id } = await newAccount();
+  const charge = await bought(id, "small", "pi_spent");
+  await db.sql`UPDATE accounts SET credits = 5 WHERE id = ${id}`;
+  assert.deepEqual(await applyRefund(charge(300)), { removed: 5 });
+  assert.equal((await getAccount(id)).credits, 0);
+  assert.match(
+    (await listActivity({ chip: "credits" })).entries[0].text,
+    /removed 5 of 20; balance was 5/,
+  );
+});
+
+test("refunds for deleted accounts or payments that aren't ours are ignored", async () => {
+  const { id } = await newAccount();
+  const charge = await bought(id, "small", "pi_gone");
+  await db.sql`DELETE FROM accounts WHERE id = ${id}`;
+  assert.deepEqual(await applyRefund(charge(300)), { removed: 0 });
+  fake.intents.set("pi_other", { id: "pi_other", metadata: {} });
+  assert.deepEqual(
+    await applyRefund({ payment_intent: "pi_other", amount: 500, amount_refunded: 500 }),
+    { removed: 0 },
+  );
+  assert.deepEqual(
+    await applyRefund({ payment_intent: null, amount: 500, amount_refunded: 500 }),
+    { removed: 0 },
+  );
 });

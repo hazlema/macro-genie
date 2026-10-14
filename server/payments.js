@@ -1,5 +1,6 @@
 import { addCredits, getAccount } from "./accounts.js";
 import { logActivity } from "./activity.js";
+import { transaction } from "./db.js";
 import { UserFacingError } from "./chef.js";
 import { packById } from "./packs.js";
 import { requireActive } from "./roles.js";
@@ -126,4 +127,63 @@ export async function confirmPurchase(accountId, sessionId) {
   if (Number(session.metadata?.accountId) !== accountId)
     throw new UserFacingError("That payment belongs to another account.", 403);
   return fulfill(session);
+}
+
+// A refund from the Stripe dashboard takes back credits in proportion to the
+// money returned. Stripe reports the total refunded so far, so each event
+// tops up to that total. Never below zero: credits already spent stay spent.
+export async function applyRefund(charge) {
+  const pi =
+    typeof charge.payment_intent === "string"
+      ? charge.payment_intent
+      : charge.payment_intent?.id;
+  if (!pi || !charge.amount) return { removed: 0 };
+  const intent = await callStripe((s) => s.paymentIntents.retrieve(pi));
+  const accountId = Number(intent.metadata?.accountId) || null;
+  const pack = packById(intent.metadata?.pack);
+  if (!accountId || !pack) return { removed: 0 };
+  const target = Math.min(
+    pack.credits,
+    Math.round((pack.credits * charge.amount_refunded) / charge.amount),
+  );
+  const result = await transaction(async (client) => {
+    const held = await client.query(
+      `SELECT credits, display_name FROM accounts WHERE id = $1 FOR UPDATE`,
+      [accountId],
+    );
+    const account = held.rows[0];
+    if (!account) return null;
+    const taken = await client.query(
+      `SELECT COALESCE(-SUM(change), 0) AS taken FROM credit_ledger
+        WHERE reason = 'refund_purchase' AND split_part(ref, ':', 1) = $1`,
+      [pi],
+    );
+    const wanted = target - Number(taken.rows[0].taken);
+    if (wanted <= 0) return null;
+    const balance = Number(account.credits);
+    const removed = Math.min(wanted, balance);
+    const logged = await client.query(
+      `INSERT INTO credit_ledger (account_id, change, reason, ref)
+       VALUES ($1, $2, 'refund_purchase', $3)
+       ON CONFLICT (reason, ref) DO NOTHING RETURNING id`,
+      [accountId, -removed, `${pi}:${charge.amount_refunded}`],
+    );
+    if (!logged.rows[0]) return null;
+    await client.query(
+      `UPDATE accounts SET credits = credits - $2 WHERE id = $1`,
+      [accountId, removed],
+    );
+    return { removed, wanted, balance, name: account.display_name };
+  });
+  if (!result) return { removed: 0 };
+  await logActivity({
+    kind: "credits_refund",
+    accountId,
+    actorName: result.name,
+    text:
+      result.removed === result.wanted
+        ? `refunded ${dollars(charge.amount_refunded)}, removed ${result.removed} credits`
+        : `refunded ${dollars(charge.amount_refunded)}, removed ${result.removed} of ${result.wanted}; balance was ${result.balance}`,
+  });
+  return { removed: result.removed };
 }
