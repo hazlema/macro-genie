@@ -82,7 +82,7 @@
             {:else}<span class="method-error">Couldn’t reach Anthropic</span>{/if}
           </td>
         </tr>
-        {#each m.fixed as f (f.name)}
+        {#each m.fixed as f}
           <tr><th scope="row">{f.name}</th><td>{usd(-f.cents)}</td></tr>
         {/each}
         <tr class="money-total"><th scope="row">Net</th><td>{signed(m.netCents)}</td></tr>

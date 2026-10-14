@@ -3781,6 +3781,7 @@ dialog.dislikes[open] {
 .money-lines td { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 1rem; vertical-align: top; }
 .money-note { display: block; font-size: 0.85em; color: var(--muted); }
 .money-compare th, .money-compare td { font-style: italic; }
+.money-lines td .money-note, .money-lines td .method-error { white-space: normal; overflow-wrap: anywhere; }
 .money-total th, .money-total td { border-top: 1px solid var(--line); font-weight: 600; padding-top: 0.5rem; }
 .money-stats { margin: 0.4rem 0; font-size: 0.95em; overflow-wrap: anywhere; }
 .money-costs { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
