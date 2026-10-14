@@ -136,7 +136,9 @@ async function aiMonth({ start, end }) {
 
 // What the server-built SEO pages cost, estimated from their count and run
 // time. Shown for information: the real Netlify dollars are the plan and
-// top-ups typed in as fixed costs.
+// top-ups typed in as fixed costs. The estimate runs a little low: it leaves
+// out cold starts, the shell self-fetch, and cached CDN hits, which still
+// count as Netlify web requests.
 async function netlifyMonth(key) {
   const rows = await database().sql`
     SELECT builds, ms FROM page_builds WHERE month = ${`${key}-01`}`;
@@ -162,7 +164,10 @@ export async function buildMonth(key, now = new Date()) {
     }),
     aiMonth(bounds),
     listCosts(),
-    netlifyMonth(key),
+    netlifyMonth(key).catch((error) => {
+      console.error("money: netlify", error);
+      return null;
+    }),
   ]);
   const fixed = costs
     .map((c) => ({ name: c.name, cents: shareOf(c, key) }))

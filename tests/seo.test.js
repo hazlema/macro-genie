@@ -233,8 +233,9 @@ test("the template loader prefers the clean shell and falls back to index.html o
 });
 
 // Needs `npm run build` first; skipped when there's no dist.
-test("the build keeps a clean shell and the home page carries one canonical", { skip: !existsSync("dist/index.html") }, () => {
+test("the build keeps a clean shell and the home page carries one canonical", { skip: !existsSync("dist/seo/shell.html") }, () => {
   const shell = readFileSync("dist/seo/shell.html", "utf8");
+  assert.ok(shell.includes('<div id="app"></div>'), "withBody needs this exact mount point");
   assert.equal(count(shell, /rel="canonical"/g), 0);
   assert.equal(count(shell, /og:title/g), 0);
   assert.equal(count(readFileSync("dist/index.html", "utf8"), /rel="canonical"/g), 1);

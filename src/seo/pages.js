@@ -18,7 +18,7 @@ export const FIXED_PAGES = [
   ...GUIDES.map((g) => ({ path: `/help/${g.slug}`, title: `${g.title} — Macro Genie`, description: g.summary.length >= 50 ? g.summary : `${g.summary} A Macro Genie help guide.` })),
   { path: "/terms", title: "Terms — Macro Genie", description: "The terms for using Macro Genie: accounts, credits, community posts, and what the AI-written recipes are and aren't." },
   { path: "/refunds", title: "Refunds — Macro Genie", description: "Macro Genie's refund policy: unused credits from a pack can be refunded within 30 days. How to ask, and how long it takes." },
-  { path: "/privacy", title: "Privacy — Macro Genie", description: "What Macro Genie keeps about you (a Google id and a first name, no email) and what it never collects." },
+  { path: "/privacy", title: "Privacy — Macro Genie", description: "What Macro Genie keeps about you: your account holds a Google id and a first name, never your email." },
   { path: "/contact", title: "Contact — Macro Genie", description: "Questions, refunds or problems with Macro Genie? Send a message and we'll reply by email." },
 ];
 

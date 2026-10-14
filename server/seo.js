@@ -92,8 +92,10 @@ export const NO_STORE = { "Cache-Control": "no-store" };
 
 // Netlify's CDN keeps the page until a purge of one of its tags, or a day.
 // Browsers always ask the CDN again.
-export const cacheHeaders = (tags) => ({
-  "Netlify-CDN-Cache-Control": "public, durable, s-maxage=86400, stale-while-revalidate=604800",
+// Netlify-Vary makes ?fbclid= and ?utm_* variants share one cache entry.
+export const cacheHeaders = (tags, { maxAge = 86400 } = {}) => ({
+  "Netlify-CDN-Cache-Control": `public, durable, s-maxage=${maxAge}, stale-while-revalidate=604800`,
+  "Netlify-Vary": "query=v",
   "Cache-Control": "public, max-age=0, must-revalidate",
   "Netlify-Cache-Tag": tags.join(","),
 });
@@ -163,14 +165,18 @@ export function usePurge(fn) {
 }
 
 // After a post goes live, comes down or is deleted: its page and the
-// sitemap are rebuilt on the next visit. Never throws; a missed purge
-// leaves the old copy for a day at most.
+// sitemap are rebuilt on the next visit. Never throws. Netlify allows each
+// tag to be purged twice per 5 seconds, and "sitemap" is in every call, so
+// the post's own tags go first in a call of their own. A dropped sitemap
+// purge heals within the sitemap's hour; a missed post purge within a day.
 export async function purgePost(ids) {
   const list = [ids].flat().map(Number).filter((n) => Number.isSafeInteger(n) && n > 0);
   if (!list.length) return;
-  try {
-    await purge([...list.map((id) => `post-${id}`), "sitemap"]);
-  } catch (error) {
-    console.error("purge:", error.message);
+  for (const tags of [list.map((id) => `post-${id}`), ["sitemap"]]) {
+    try {
+      await purge(tags);
+    } catch (error) {
+      console.error("purge:", error.message);
+    }
   }
 }

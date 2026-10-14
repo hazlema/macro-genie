@@ -261,7 +261,7 @@ function resolveFood(ref, dislikes) {
 }
 
 // What's wrong with a submitted idea, in words the model can act on.
-export function reviewSubmission(submission, request) {
+export function reviewSubmission(submission, request, { clashBounced = false } = {}) {
   const problems = [];
   const ingredients = Array.isArray(submission?.ingredients)
     ? submission.ingredients
@@ -283,11 +283,15 @@ export function reviewSubmission(submission, request) {
   // A clash with fewer than two asked-for foods comes from foods the model
   // picked itself, so it goes back to be fixed. With two or more, the clash
   // may be the person's own combination, and the honest rating stands.
-  if (submission?.pairing === "clashes" && wanted(request).length < 2)
+  const fixable = problems.length;
+  // Sent back once per idea; after that the model's rating stands.
+  const clash =
+    !clashBounced && submission?.pairing === "clashes" && wanted(request).length < 2;
+  if (clash)
     problems.push(
       "You rated this dish clashes, but you chose the foods that clash. Swap them for foods that suit the dish and submit again.",
     );
-  return { problems, usable };
+  return { problems, usable, clash, idProblems: fixable > 0 };
 }
 
 // The foods asked for, minus any that are also on the dislike list.
@@ -434,6 +438,7 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
   const usage = emptyUsage(model);
   const started = Date.now();
   let logged = false;
+  let clashBounced = false;
   const log = (...args) => {
     logged = true;
     return logUsage(...args);
@@ -461,7 +466,7 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
       // Anything wrong with the idea (ids guessed before the search came back,
       // disliked foods, missing grams) goes back to the model to fix.
       const review = submit
-        ? reviewSubmission(submit.input, req)
+        ? reviewSubmission(submit.input, req, { clashBounced })
         : { problems: [], usable: 0 };
       const lastTurn =
         turn === MAX_TURNS - 1 || Date.now() - started > LAST_START_MS;
@@ -479,6 +484,7 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
           throw error;
         }
       }
+      if (review.clash) clashBounced = true;
       messages.push({ role: "assistant", content: response.content });
       if (!calls.length) {
         messages.push({
@@ -502,7 +508,7 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
                 is_error: true,
                 content:
                   call.name === "submit_idea"
-                    ? `Not accepted. ${review.problems.join(" ")} Use only the bare ids that find_foods returned, like usda-row-1234. Search for anything missing, then call submit_idea again.`
+                    ? `Not accepted. ${review.problems.join(" ")} ${review.idProblems ? "Use only the bare ids that find_foods returned, like usda-row-1234. Search for anything missing, then" : "Then"} call submit_idea again.`
                     : "Unknown tool.",
               },
         ),

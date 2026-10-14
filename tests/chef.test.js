@@ -577,6 +577,7 @@ test("a clash from foods the AI chose goes back once to be fixed", async () => {
     const reply = api.calls[1].messages.at(-1).content[0];
     assert.equal(reply.is_error, true);
     assert.match(reply.content, /you chose/i);
+    assert.doesNotMatch(reply.content, /bare ids/i, "a clash alone gets no id advice");
 
     // Nothing named at all: every food is the AI's pick.
     const none = fakeApi([submit("clashes"), submit("mixed")]);
@@ -589,10 +590,10 @@ test("a clash from foods the AI chose goes back once to be fixed", async () => {
     assert.equal(two.calls.length, 1);
     assert.equal(theirs.pairing, "clashes");
 
-    // A clash on the last allowed turn is accepted rather than failing.
+    // Sent back once only: a second clash is accepted as rated.
     const stubborn = fakeApi(Array.from({ length: 5 }, () => submit("clashes")));
     const last = await generateIdea(shrimpOnly, stubborn);
-    assert.equal(stubborn.calls.length, 5);
+    assert.equal(stubborn.calls.length, 2);
     assert.equal(last.pairing, "clashes");
   } finally {
     console.log = quiet;

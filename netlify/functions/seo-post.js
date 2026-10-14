@@ -4,7 +4,7 @@ import { withTiming } from "../../server/timing.js";
 // /community/<id> as a real page for search engines and link previews.
 // Live recipes get their content and preview tags; anything else gets the
 // app with noindex. The app then loads over it as usual.
-export const config = { path: "/community/:id", method: ["GET", "HEAD"] };
+export const config = { path: ["/community/:id", "/community/:id/"], method: ["GET", "HEAD"] };
 
 const html = (body, headers) =>
   new Response(body, { headers: { "Content-Type": "text/html; charset=utf-8", ...headers } });

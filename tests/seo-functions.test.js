@@ -52,6 +52,7 @@ test("a live recipe is a cached real page", async () => {
   assert.equal(res.headers.get("netlify-cdn-cache-control"), "public, durable, s-maxage=86400, stale-while-revalidate=604800");
   assert.equal(res.headers.get("cache-control"), "public, max-age=0, must-revalidate");
   assert.equal(res.headers.get("netlify-cache-tag"), `post-${id},posts`);
+  assert.equal(res.headers.get("netlify-vary"), "query=v");
   const html = await res.text();
   assert.match(html, /<title>Bowl — Macro Genie<\/title>/);
   assert.ok(!html.includes("noindex"));
@@ -96,6 +97,22 @@ test("database trouble falls back to the plain page, never cached", async () => 
   }
 });
 
+test("a dropped sitemap purge still clears the post's own tags", async () => {
+  const seen = [];
+  usePurge(async (tags) => {
+    if (tags.includes("sitemap")) throw new Error("429");
+    seen.push(tags);
+  });
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    await purgePost(9);
+  } finally {
+    console.error = quiet;
+  }
+  assert.deepEqual(seen, [["post-9"]]);
+});
+
 test("the sitemap lists live recipes only, cached under its tag", async () => {
   const live = await insertPost();
   const held = await insertPost({ status: "held" });
@@ -104,6 +121,8 @@ test("the sitemap lists live recipes only, cached under its tag", async () => {
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "application/xml; charset=utf-8");
   assert.equal(res.headers.get("netlify-cache-tag"), "sitemap");
+  assert.equal(res.headers.get("netlify-vary"), "query=v");
+  assert.equal(res.headers.get("netlify-cdn-cache-control"), "public, durable, s-maxage=3600, stale-while-revalidate=604800");
   const xml = await res.text();
   assert.ok(xml.includes(`/community/${live}</loc><lastmod>2026-10-12</lastmod>`));
   assert.ok(!xml.includes(`/community/${held}<`) && !xml.includes(`/community/${thread}<`));
@@ -140,14 +159,21 @@ test("HEAD requests are answered", async () => {
   for (const mod of [seoMod, sitemapMod]) assert.ok(mod.config.method.includes("HEAD") && mod.config.method.includes("GET"));
 });
 
-test("purgePost clears each post and the sitemap, and never throws", async () => {
+test("a trailing slash still finds the post", async () => {
+  const id = await insertPost();
+  const res = await get(seoPost, `/community/${id}/`);
+  assert.equal(res.headers.get("netlify-cache-tag"), `post-${id},posts`);
+  assert.deepEqual(seoMod.config.path, ["/community/:id", "/community/:id/"]);
+});
+
+test("purgePost clears each post and the sitemap in separate calls, and never throws", async () => {
   const seen = [];
   usePurge(async (tags) => { seen.push(tags); });
   await purgePost(5);
   await purgePost([6, 7]);
-  assert.deepEqual(seen, [["post-5", "sitemap"], ["post-6", "post-7", "sitemap"]]);
+  assert.deepEqual(seen, [["post-5"], ["sitemap"], ["post-6", "post-7"], ["sitemap"]]);
   await purgePost([]);
-  assert.equal(seen.length, 2, "nothing to clear, no call");
+  assert.equal(seen.length, 4, "nothing to clear, no call");
   const quiet = console.error;
   console.error = () => {};
   try {

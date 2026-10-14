@@ -359,6 +359,20 @@ test("with Stripe down, past months stop at the first incomplete one", async () 
   }
 });
 
+test("a failing page_builds query leaves the month intact, without the estimate", async () => {
+  const quiet = console.error;
+  console.error = () => {};
+  await db.sql`ALTER TABLE page_builds RENAME TO page_builds_off`;
+  try {
+    const m = await buildMonth("2026-08", new Date("2026-10-14T12:00:00Z"));
+    assert.equal(m.netlifyPages, null);
+    assert.equal(m.month, "2026-08");
+  } finally {
+    await db.sql`ALTER TABLE page_builds_off RENAME TO page_builds`;
+    console.error = quiet;
+  }
+});
+
 test("Netlify pages estimate: compute + requests, shown but not in net", async () => {
   // 1,000 builds taking 3,600,000 ms in all = 1 GB-hour → 10 credits, plus
   // 1,000 requests → 0.2 credits. At 1¢ a credit: 10.2¢.
