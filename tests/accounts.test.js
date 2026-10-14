@@ -8,6 +8,7 @@ import {
   addCredits,
   findOrCreateAccount,
   getAccount,
+  refundCredit,
   spendCredit,
 } from "../server/accounts.js";
 import { withCredit } from "../server/credits.js";
@@ -70,6 +71,7 @@ test("credits can't be overspent, even by many requests at once", async () => {
     Array.from({ length: 15 }, () => spendCredit(id, "idea")),
   );
   assert.equal(results.filter((r) => r !== null).length, 10);
+  assert.equal(typeof results.find((r) => r !== null).credits, "number");
   assert.equal((await getAccount(id)).credits, 0);
   assert.equal(await spendCredit(id, "idea"), null);
 });
@@ -234,4 +236,52 @@ test("sign-ins are logged (first time as joined), and banned Google accounts can
   const rows =
     await db.sql`SELECT id FROM accounts WHERE google_sub = 'g-banned'`;
   assert.equal(rows.length, 0, "no account was created");
+});
+
+const paidOf = async (id) =>
+  Number((await db.sql`SELECT paid_credits FROM accounts WHERE id = ${id}`)[0].paid_credits);
+
+test("free credits are spent before paid ones", async () => {
+  const { id } = await findOrCreateAccount({ sub: "g-paid-1", displayName: "Fay" });
+  assert.equal(await addCredits(id, 20, "purchase", "cs_paid_1", { paid: true }), 30);
+  assert.equal(await paidOf(id), 20);
+  for (let i = 0; i < 10; i++) {
+    const spend = await spendCredit(id, "idea");
+    assert.equal(spend.paid, false);
+  }
+  assert.equal(await paidOf(id), 20);
+  const paidSpend = await spendCredit(id, "recipe");
+  assert.deepEqual(
+    { credits: paidSpend.credits, paid: paidSpend.paid },
+    { credits: 19, paid: true },
+  );
+  assert.ok(Number.isInteger(paidSpend.ledgerId));
+  assert.equal(await paidOf(id), 19);
+  const [row] = await db.sql`SELECT change, paid FROM credit_ledger WHERE id = ${paidSpend.ledgerId}`;
+  assert.deepEqual({ change: row.change, paid: row.paid }, { change: -1, paid: true });
+});
+
+test("a failed job's credit goes back to the pool it came from", async () => {
+  const { id } = await findOrCreateAccount({ sub: "g-paid-2", displayName: "Gil" });
+  await addCredits(id, 20, "purchase", "cs_paid_2", { paid: true });
+  for (let i = 0; i < 10; i++) await spendCredit(id, "idea");
+  const spend = await spendCredit(id, "idea");
+  assert.equal(await paidOf(id), 19);
+  await refundCredit(id, "idea", spend.paid);
+  assert.equal(await paidOf(id), 20);
+  const free = await findOrCreateAccount({ sub: "g-paid-3", displayName: "Hal" });
+  const freeSpend = await spendCredit(free.id, "idea");
+  await refundCredit(free.id, "idea", freeSpend.paid);
+  assert.equal(await paidOf(free.id), 0);
+});
+
+test("admin removals take free credits first; grants are free", async () => {
+  const { id } = await findOrCreateAccount({ sub: "g-paid-4", displayName: "Ivy" });
+  await addCredits(id, 20, "purchase", "cs_paid_4", { paid: true });
+  assert.equal(await addCredits(id, -5, "admin:tidy"), 25);
+  assert.equal(await paidOf(id), 20);
+  assert.equal(await addCredits(id, -15, "admin:tidy"), 10);
+  assert.equal(await paidOf(id), 10);
+  assert.equal(await addCredits(id, 7, "admin:gift"), 17);
+  assert.equal(await paidOf(id), 10);
 });

@@ -13,8 +13,8 @@ export async function withCredit(request, reason, job) {
       401,
     );
   await requireActive(accountId);
-  const left = await spendCredit(accountId, reason);
-  if (left === null) {
+  const spend = await spendCredit(accountId, reason);
+  if (spend === null) {
     const account = await getAccount(accountId);
     if (!account)
       throw new UserFacingError(
@@ -25,9 +25,9 @@ export async function withCredit(request, reason, job) {
   }
   try {
     const result = await job();
-    return { ...result, credits: left };
+    return { ...result, credits: spend.credits };
   } catch (error) {
-    await refundCredit(accountId, reason);
+    await refundCredit(accountId, reason, spend.paid);
     throw error;
   }
 }

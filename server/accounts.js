@@ -42,43 +42,59 @@ export async function getAccount(id) {
 
 // Takes one credit, or returns null when there isn't one to take. The check
 // and the spend are one statement, so parallel requests can't overspend.
+// Free credits go first; `paid` says whether this one had been bought.
 export async function spendCredit(accountId, reason) {
   return transaction(async (client) => {
     const spent = await client.query(
-      `UPDATE accounts SET credits = credits - 1
-       WHERE id = $1 AND credits >= 1
-       RETURNING credits`,
+      `WITH old AS (
+         SELECT credits - paid_credits AS free FROM accounts
+          WHERE id = $1 AND credits >= 1 FOR UPDATE
+       )
+       UPDATE accounts a
+          SET credits = a.credits - 1,
+              paid_credits = a.paid_credits - CASE WHEN old.free > 0 THEN 0 ELSE 1 END
+         FROM old
+        WHERE a.id = $1
+       RETURNING a.credits, old.free = 0 AS paid`,
       [accountId],
     );
     if (!spent.rows[0]) return null;
-    await client.query(
-      `INSERT INTO credit_ledger (account_id, change, reason) VALUES ($1, -1, $2)`,
-      [accountId, reason],
+    const { credits, paid } = spent.rows[0];
+    const logged = await client.query(
+      `INSERT INTO credit_ledger (account_id, change, reason, paid)
+       VALUES ($1, -1, $2, $3) RETURNING id`,
+      [accountId, reason, paid],
     );
-    return Number(spent.rows[0].credits);
+    return { credits: Number(credits), ledgerId: Number(logged.rows[0].id), paid };
   });
 }
 
-// Gives back a credit for a job that failed.
-export async function refundCredit(accountId, reason) {
-  return addCredits(accountId, 1, `refund:${reason}`);
+// Gives back a credit for a job that failed, to the pool it came from.
+export async function refundCredit(accountId, reason, paid = false) {
+  return addCredits(accountId, 1, `refund:${reason}`, null, { paid });
 }
 
-// Adds credits. With a ref (e.g. a Stripe event id), the same (reason, ref)
-// is only ever applied once; a repeat returns null and changes nothing.
-export async function addCredits(accountId, amount, reason, ref = null) {
+// Adds credits (or removes them, with a negative amount). With a ref (e.g. a
+// Stripe session id), the same (reason, ref) is only ever applied once; a
+// repeat returns null and changes nothing. `paid` marks bought credits.
+// Removals take free credits first: paid ones only go when they'd exceed
+// the new balance.
+export async function addCredits(accountId, amount, reason, ref = null, { paid = false } = {}) {
   return transaction(async (client) => {
     const logged = await client.query(
-      `INSERT INTO credit_ledger (account_id, change, reason, ref)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO credit_ledger (account_id, change, reason, ref, paid)
+       VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (reason, ref) DO NOTHING
        RETURNING id`,
-      [accountId, amount, reason, ref],
+      [accountId, amount, reason, ref, paid],
     );
     if (!logged.rows[0]) return null;
     const updated = await client.query(
-      `UPDATE accounts SET credits = credits + $2 WHERE id = $1 RETURNING credits`,
-      [accountId, amount],
+      `UPDATE accounts
+          SET credits = credits + $2,
+              paid_credits = LEAST(paid_credits + $3, credits + $2)
+        WHERE id = $1 RETURNING credits`,
+      [accountId, amount, paid ? amount : 0],
     );
     return Number(updated.rows[0].credits);
   });

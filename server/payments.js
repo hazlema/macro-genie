@@ -111,7 +111,7 @@ export async function fulfill(sessionOrId) {
     });
     return { paid: true, purchased: 0, credits: 0 };
   }
-  const after = await addCredits(accountId, credits, "purchase", session.id);
+  const after = await addCredits(accountId, credits, "purchase", session.id, { paid: true });
   if (after !== null)
     await logActivity({
       kind: "credits_purchase",
@@ -188,14 +188,17 @@ export async function applyRefund(charge) {
     const balance = Number(account.credits);
     const removed = Math.min(wanted, balance);
     const logged = await client.query(
-      `INSERT INTO credit_ledger (account_id, change, reason, ref)
-       VALUES ($1, $2, 'refund_purchase', $3)
+      `INSERT INTO credit_ledger (account_id, change, reason, ref, paid)
+       VALUES ($1, $2, 'refund_purchase', $3, true)
        ON CONFLICT (reason, ref) DO NOTHING RETURNING id`,
       [accountId, -removed, `${pi}:${charge.amount_refunded}`],
     );
     if (!logged.rows[0]) return null;
     await client.query(
-      `UPDATE accounts SET credits = credits - $2 WHERE id = $1`,
+      `UPDATE accounts
+          SET credits = credits - $2,
+              paid_credits = GREATEST(0, LEAST(paid_credits - $2, credits - $2))
+        WHERE id = $1`,
       [accountId, removed],
     );
     return { removed, wanted, balance, name: account.display_name };

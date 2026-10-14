@@ -87,6 +87,8 @@ after(async () => {
 let n = 0;
 const newAccount = (name = "Pat") =>
   findOrCreateAccount({ sub: `pay-${++n}`, displayName: name });
+const paidOf = async (id) =>
+  Number((await db.sql`SELECT paid_credits FROM accounts WHERE id = ${id}`)[0].paid_credits);
 const rejectsWith = (promise, status, pattern) =>
   assert.rejects(
     promise,
@@ -193,6 +195,7 @@ test("a paid checkout adds its credits once, however many times it's fulfilled",
   assert.deepEqual(await fulfill("cs_test_a"), { paid: true, purchased: 50, credits: 60 });
   assert.deepEqual(await fulfill("cs_test_a"), { paid: true, purchased: 50, credits: 60 });
   assert.equal((await getAccount(id)).credits, 60);
+  assert.equal(await paidOf(id), 50);
   assert.deepEqual(await ledger("cs_test_a"), [{ change: 50, reason: "purchase" }]);
   const log = await listActivity({ chip: "credits" });
   assert.equal(log.entries.filter((e) => e.text === "bought 50 credits ($6)").length, 1);
@@ -310,6 +313,7 @@ test("a full refund takes the pack's credits back", async () => {
   const charge = await bought(id, "medium", "pi_full");
   assert.deepEqual(await applyRefund(charge(600)), { removed: 50 });
   assert.equal((await getAccount(id)).credits, 10);
+  assert.equal(await paidOf(id), 0);
   const log = await listActivity({ chip: "credits" });
   assert.equal(log.entries[0].kind, "credits_refund");
   assert.equal(log.entries[0].text, "refunded $6, removed 50 credits");
@@ -319,6 +323,7 @@ test("partial refunds take back credits in proportion, and replays do nothing", 
   const { id } = await newAccount();
   const charge = await bought(id, "medium", "pi_part");
   assert.deepEqual(await applyRefund(charge(360)), { removed: 30 });
+  assert.equal(await paidOf(id), 20);
   assert.deepEqual(await applyRefund(charge(360)), { removed: 0 });
   assert.deepEqual(await applyRefund(charge(600)), { removed: 20 });
   assert.equal((await getAccount(id)).credits, 10);
@@ -327,7 +332,7 @@ test("partial refunds take back credits in proportion, and replays do nothing", 
 test("a refund never takes the balance below zero", async () => {
   const { id } = await newAccount();
   const charge = await bought(id, "small", "pi_spent");
-  await db.sql`UPDATE accounts SET credits = 5 WHERE id = ${id}`;
+  await db.sql`UPDATE accounts SET credits = 5, paid_credits = 5 WHERE id = ${id}`;
   assert.deepEqual(await applyRefund(charge(300)), { removed: 5 });
   assert.equal((await getAccount(id)).credits, 0);
   assert.match(
