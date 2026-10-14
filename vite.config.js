@@ -1,8 +1,10 @@
 import { defineConfig, loadEnv } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import netlify from "@netlify/vite-plugin";
-import { copyFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { spawn } from "node:child_process";
+import { fixedPageFiles, seoRedirects } from "./src/seo/pages.js";
 
 // The Stripe events server/payments.js handles.
 const STRIPE_EVENTS = [
@@ -83,6 +85,19 @@ export default defineConfig(({ command }) => {
         name: "static-food-data",
         closeBundle() {
           copyFileSync("foods.json", "dist/foods.json");
+        },
+      },
+      // One HTML file per fixed page, with its own title and preview tags.
+      {
+        name: "seo-pages",
+        apply: "build",
+        closeBundle() {
+          const template = readFileSync("dist/index.html", "utf8");
+          for (const { file, html } of fixedPageFiles(template)) {
+            mkdirSync(dirname(`dist/${file}`), { recursive: true });
+            writeFileSync(`dist/${file}`, html);
+          }
+          writeFileSync("dist/_redirects", seoRedirects());
         },
       },
     ],
