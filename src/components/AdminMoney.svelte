@@ -94,6 +94,12 @@
         {#each m.fixed as f}
           <tr><th scope="row">{f.name}</th><td>{usd(-f.cents)}</td></tr>
         {/each}
+        {#if m.netlifyPages}
+          <tr class="money-compare">
+            <th scope="row">Netlify pages (estimate) <span class="money-note">{m.netlifyPages.builds} built · ≈ {m.netlifyPages.credits} credits · not in net</span></th>
+            <td>{usd(-Math.round(m.netlifyPages.cents))}</td>
+          </tr>
+        {/if}
         <tr class="money-total"><th scope="row">Net <span class="money-note">{m.aiCountedIn === 'actual' ? 'AI counted from Anthropic’s bill' : 'AI counted from the estimate'}</span></th><td>{signed(m.netCents)}</td></tr>
       </tbody>
     </table>

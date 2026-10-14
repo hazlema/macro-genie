@@ -76,6 +76,7 @@ beforeEach(async () => {
   await db.sql`DELETE FROM credit_ledger`;
   await db.sql`DELETE FROM fixed_costs`;
   await db.sql`DELETE FROM money_months`;
+  await db.sql`DELETE FROM page_builds`;
 });
 after(async () => {
   await db?.pool.end();
@@ -356,4 +357,15 @@ test("with Stripe down, past months stop at the first incomplete one", async () 
   } finally {
     console.error = quiet;
   }
+});
+
+test("Netlify pages estimate: compute + requests, shown but not in net", async () => {
+  // 1,000 builds taking 3,600,000 ms in all = 1 GB-hour → 10 credits, plus
+  // 1,000 requests → 0.2 credits. At 1¢ a credit: 10.2¢.
+  await db.sql`INSERT INTO page_builds (month, builds, ms) VALUES ('2026-08-01', 1000, 3600000)`;
+  const m = await buildMonth("2026-08", new Date("2026-10-14T12:00:00Z"));
+  assert.deepEqual(m.netlifyPages, { builds: 1000, credits: 10.2, cents: 10.2 });
+  assert.equal(m.netCents, 0, "the estimate isn't subtracted");
+  const empty = await buildMonth("2026-07", new Date("2026-10-14T12:00:00Z"));
+  assert.deepEqual(empty.netlifyPages, { builds: 0, credits: 0, cents: 0 });
 });

@@ -31,6 +31,12 @@ export function useFetch(fn) {
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
+// Netlify's credit prices (April 2026) and what a credit costs this site
+// ($5 for 500 in the owner's top-up). Functions run with 1 GB.
+const CREDITS_PER_GB_HOUR = 10;
+const CREDITS_PER_10K_REQUESTS = 2;
+const CENTS_PER_CREDIT = 1;
+
 // Our credit pack charges and refunds in the month. Other things sold on
 // the same Stripe account have no pack metadata and are skipped.
 async function stripeMonth({ start, end }) {
@@ -128,10 +134,22 @@ async function aiMonth({ start, end }) {
   };
 }
 
+// What the server-built SEO pages cost, estimated from their count and run
+// time. Shown for information: the real Netlify dollars are the plan and
+// top-ups typed in as fixed costs.
+async function netlifyMonth(key) {
+  const rows = await database().sql`
+    SELECT builds, ms FROM page_builds WHERE month = ${`${key}-01`}`;
+  const builds = Number(rows[0]?.builds ?? 0);
+  const ms = Number(rows[0]?.ms ?? 0);
+  const credits = round2((ms / 3_600_000) * CREDITS_PER_GB_HOUR + (builds / 10_000) * CREDITS_PER_10K_REQUESTS);
+  return { builds, credits, cents: round2(credits * CENTS_PER_CREDIT) };
+}
+
 export async function buildMonth(key, now = new Date()) {
   const bounds = monthBounds(key);
   const missing = [];
-  const [money, anthropic, ai, costs] = await Promise.all([
+  const [money, anthropic, ai, costs, netlifyPages] = await Promise.all([
     stripeMonth(bounds).catch((error) => {
       console.error("money: stripe", error);
       missing.push("stripe");
@@ -144,6 +162,7 @@ export async function buildMonth(key, now = new Date()) {
     }),
     aiMonth(bounds),
     listCosts(),
+    netlifyMonth(key),
   ]);
   const fixed = costs
     .map((c) => ({ name: c.name, cents: shareOf(c, key) }))
@@ -169,6 +188,7 @@ export async function buildMonth(key, now = new Date()) {
     fixed,
     fixedCents,
     aiCountedIn: actual ? "actual" : "estimate",
+    netlifyPages,
     netCents: salesCents - feeCents - refundCents - aiCents - fixedCents,
     perCredit: {
       aiCents: aiCentsPerCredit,
