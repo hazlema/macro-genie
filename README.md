@@ -19,6 +19,14 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 Without it, everything works except the Recipe Builder's ideas and recipe writing, which say the key is missing. `npm run build` validates the food file and creates `dist/`. `npm run preview` serves that production build locally. `npm run check` checks Svelte, and `npm test` runs the search and MCP integration tests.
 
+To try credit purchases locally, delete any leftover `dist/` folder before `npm run dev`: the Netlify dev plugin otherwise serves the old built `index.html` for redirected paths such as `/credits`. With Stripe test keys in `.env`, run this in a second terminal to forward webhooks to the dev server:
+
+```sh
+stripe listen --forward-to localhost:5173/api/stripe/webhook
+```
+
+Pay with the Stripe test card `4242 4242 4242 4242`.
+
 ## Deploy to Netlify
 
 Connect this GitHub repository to Netlify. The included `netlify.toml` supplies:
@@ -35,9 +43,10 @@ Push changes to the branch connected to Netlify to rebuild both the website and 
 
 The Recipe Builder needs a free account: "Login / Create Account" signs in with Google, and new accounts get 10 credits. Each idea or written recipe uses one credit; a job that fails is refunded. Food search, the Recipe Book, browsing the Community, and the MCP server need no account.
 
-- **Stored:** Google's account id, a first name for display, the credit balance, and later a Stripe customer id, in Postgres (Neon, via `DATABASE_URL`). A credit ledger records each change with its reason. No password, and accounts hold no email (the contact form keeps the email a sender types, with their message).
+- **Stored:** Google's account id, a first name for display, the credit balance (no Stripe customer id: purchases are one-time Checkout payments), in Postgres (Neon, via `DATABASE_URL`). A credit ledger records each change with its reason. No password, and accounts hold no email (the contact form keeps the email a sender types, with their message).
 - **Environment variables** (Functions scope): `GOOGLE_CLIENT_ID` (a Google Cloud OAuth "Web application" client; authorized JavaScript origins `http://localhost`, `http://localhost:5173`, and the site's URL) and `SESSION_SECRET` (any random string of 32+ characters; signs the session cookie).
 - **Database:** `DATABASE_URL` points at Postgres (production: a Netlify secret; locally: a Neon dev branch in `.env`). Migrations in `db/migrations/` are applied by `npm run db:migrate`, which also runs during production Netlify builds. After creating or resetting a dev branch, run `npm run db:migrate`. `sslmode=require` is upgraded to `verify-full` in code (`server/db.js`).
+- **Buying credits:** the Get more credits page (`/credits`) sells three packs: 20 credits for $3, 50 for $6, and 120 for $12 (`server/packs.js`). `POST /api/credits/checkout` starts a hosted Stripe Checkout, and the page confirms the payment on return through `POST /api/credits/confirm`. Stripe also calls `POST /api/stripe/webhook` (`netlify/functions/stripe-webhook.js`), which adds a purchase's credits once per Checkout session, and takes back credits in proportion when a charge is refunded (never below zero). Environment variables (Functions scope): `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
 - **Writing in the Community:** threads and comments use a rich-text editor (Tiptap, loaded only when a writing box opens) that saves Markdown: bold, italic, lists, and links. Emoji: the 😊 picker, `:shortcode:` with suggestions after two letters, and a few emoticons (`:)`, `:D`, `<3`…). Text is stored as Markdown with real emoji characters and shown through a small allow-list renderer (`src/lib/markdown.js`); anything else, including HTML, shows as plain text. Links to other sites must be http(s) and open in a new tab; plain paths on this site (`/help/builder`) open in place. Any post with a link waits for a moderator.
 - **Admin page (`/admin`):** for moderators and admins. Reviews (the moderation queue), Users (find someone; mods can suspend and remove their community posts, admins can also add or remove credits with a reason, set roles, and delete and ban), and Log (recipe posts, sign-ins, credit changes, and problems such as held posts, reports, and admin actions; kept 90 days). Roles live on the account (`is_admin`, `is_mod`); accounts listed in `ADMIN_SUBS` are owners, always admins, and can't be changed from the page. Suspended accounts can browse but not post, comment, like, report, or use credits. Delete and ban erases the account and keeps only its Google id on a ban list.
 - **Help (`/help`):** nine illustrated guides (`src/help/*.js`, Markdown text, screenshots in `public/help/`), plus Terms, Refunds, Privacy, and a contact form at `/contact` whose messages appear in Admin → Inbox. `npm run screenshots` re-takes the screenshots from the running dev site (Sam with 10 credits is mocked; the Builder state comes from `scripts/help-fixtures/prefs.json`). `npm run placeholders` writes "Screenshot needed" images for shots only the owner can take.
