@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { esc, withBody, withHead } from "../src/seo/head.js";
 import { FIXED_PAGES, IMAGE, SITE } from "../src/seo/pages.js";
+import { plainPage, postDescription, postPage, sitemapXml } from "../server/seo.js";
 import { GUIDES } from "../src/help/index.js";
 
 const TEMPLATE = `<!doctype html>
@@ -107,4 +108,89 @@ test("the build's _redirects rewrite each fixed path to its file, without changi
   assert.ok(lines.includes("/help/start /seo/help--start.html 200"));
   assert.ok(lines.includes("/help /seo/help.html 200"));
   assert.ok(!lines.some((l) => l.startsWith("/ ") || l.includes("/community/")));
+});
+
+
+const recipe = {
+  version: 2,
+  name: "Chicken Burrito Bowl",
+  description: "Smoky chicken over rice with black beans.",
+  servings: 2,
+  perServing: { calories: 520.4, protein: 45.2, carbs: 48.6, netCarbs: 40.1, fat: 14.9, sugar: 3, sodium: 600 },
+  gramsPerServing: 400,
+  ingredients: [
+    { id: "a", name: "Chicken breast", label: "chicken breast", grams: 300, qty: null, unit: "", prep: "diced" },
+    { id: "b", name: "Rice, cooked", label: "cooked rice", grams: 300, qty: null, unit: "", prep: "" },
+  ],
+  seasonings: ["salt"],
+  steps: ["Brown {1} in a hot pan.", "Serve over {2}."],
+  tip: "",
+};
+const post = { id: 42, name: recipe.name, mealType: "dinner", author: "Pat", createdAt: new Date("2026-10-12T15:00:00Z"), recipe, kind: "recipe", status: "live" };
+
+test("a recipe page carries the recipe for crawlers and previews", () => {
+  const html = postPage(TEMPLATE, post);
+  assert.match(html, /<title>Chicken Burrito Bowl — Macro Genie<\/title>/);
+  assert.ok(html.includes(`<link rel="canonical" href="https://macro-genie.com/community/42" />`));
+  assert.ok(html.includes(`<meta property="og:type" content="article" />`));
+  assert.ok(html.includes("520 cal · 45 g protein"));
+  assert.ok(!html.includes(`name="robots"`));
+  const body = html.slice(html.indexOf(`<div id="app">`));
+  assert.ok(body.includes("<h1>Chicken Burrito Bowl</h1>"));
+  assert.ok(body.includes("chicken breast"));
+  assert.ok(body.includes("<li>Brown 300 g in a hot pan.</li>"), "steps have amounts filled in");
+  assert.ok(body.includes("Pat"));
+  assert.ok(!/like|comment/i.test(body));
+  const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(ld["@type"], "Recipe");
+  assert.equal(ld.name, "Chicken Burrito Bowl");
+  assert.equal(ld.recipeCategory, "dinner");
+  assert.equal(ld.recipeYield, "2 servings");
+  assert.equal(ld.author.name, "Pat");
+  assert.equal(ld.datePublished, "2026-10-12");
+  assert.equal(ld.recipeIngredient.length, 2);
+  assert.equal(ld.recipeInstructions[0]["@type"], "HowToStep");
+  assert.deepEqual(ld.nutrition, {
+    "@type": "NutritionInformation",
+    servingSize: "1 serving",
+    calories: "520 kcal",
+    proteinContent: "45 g",
+    carbohydrateContent: "49 g",
+    fatContent: "15 g",
+  });
+});
+
+test("hostile recipe text stays inert in head, body and JSON-LD", () => {
+  const evil = `</script><script>alert(1)</script> "><img src=x onerror=alert(2)> $&`;
+  const html = postPage(TEMPLATE, { ...post, name: evil, author: evil, recipe: { ...recipe, name: evil, description: evil, steps: [evil] } });
+  assert.ok(!html.includes("<script>alert(1)"));
+  assert.ok(!html.includes("<img src=x"));
+  const ldText = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1];
+  assert.ok(!ldText.includes("<"), "no raw < inside JSON-LD");
+  assert.equal(JSON.parse(ldText).name, evil);
+  assert.ok(html.includes("$&amp;"), "the $& stays literal (escaped)");
+});
+
+test("postDescription is short and leads with the macros", () => {
+  const d = postDescription({ ...post, recipe: { ...recipe, description: "word ".repeat(80) } });
+  assert.ok(d.startsWith("Chicken Burrito Bowl · dinner · 520 cal · 45 g protein per serving."));
+  assert.ok(d.length <= 160 && d.endsWith("…"));
+});
+
+test("the plain page is the app with noindex", () => {
+  const html = plainPage(TEMPLATE, { path: "/community/7" });
+  assert.ok(html.includes(`<meta name="robots" content="noindex" />`));
+  assert.ok(html.includes(`<link rel="canonical" href="https://macro-genie.com/community/7" />`));
+  assert.ok(html.includes(`<div id="app"></div>`));
+});
+
+test("the sitemap lists fixed pages and live recipes", () => {
+  const xml = sitemapXml([{ id: 42, createdAt: new Date("2026-10-12T15:00:00Z") }, { id: 7, createdAt: new Date("2026-10-11T01:00:00Z") }]);
+  assert.ok(xml.startsWith(`<?xml version="1.0" encoding="UTF-8"?>`));
+  assert.ok(xml.includes(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`));
+  assert.ok(xml.includes("<url><loc>https://macro-genie.com/</loc></url>"));
+  assert.ok(xml.includes("<url><loc>https://macro-genie.com/help/start</loc></url>"));
+  assert.ok(xml.includes("<url><loc>https://macro-genie.com/community/42</loc><lastmod>2026-10-12</lastmod></url>"));
+  assert.equal((xml.match(/<url>/g) ?? []).length, FIXED_PAGES.length + 2);
+  for (const p of ["/admin", "/credits", "/recipes", "/api"]) assert.ok(!xml.includes(`<loc>${SITE}${p}</loc>`), p);
 });
