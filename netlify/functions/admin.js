@@ -1,6 +1,8 @@
 import { decide, reviewQueue } from "../../server/admin.js";
 import { listActivity } from "../../server/activity.js";
+import { addCost, deleteCost, updateCost } from "../../server/costs.js";
 import { listMessages, setMessageStatus } from "../../server/messages.js";
+import { moneyOverview } from "../../server/money.js";
 import { UserFacingError } from "../../server/chef.js";
 import { fail } from "../../server/http.js";
 import { requireMod } from "../../server/roles.js";
@@ -123,6 +125,16 @@ async function handler(request) {
           await setMessageStatus(actor, idFrom(id), body.status),
         );
       }
+      case "GET money":
+        return Response.json(await moneyOverview(actor), noStore);
+      case "POST money/costs":
+        return Response.json(await addCost(actor, await json(request)));
+      case "PATCH money/costs/:id":
+        return Response.json(
+          await updateCost(actor, idFrom(id), await json(request)),
+        );
+      case "DELETE money/costs/:id":
+        return Response.json(await deleteCost(actor, idFrom(id)));
       default:
         return Response.json({ error: "Not found." }, { status: 404 });
     }

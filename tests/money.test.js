@@ -6,6 +6,8 @@ import { addCredits, findOrCreateAccount, spendCredit } from "../server/accounts
 import { useStripe } from "../server/stripe.js";
 import { addCost } from "../server/costs.js";
 import { buildMonth, monthBounds, monthKey, moneyOverview, previousMonth, useFetch } from "../server/money.js";
+import adminFn from "../netlify/functions/admin.js";
+import { sessionCookie } from "../server/session.js";
 
 let server;
 let db;
@@ -49,6 +51,7 @@ const fakeFetch = async (url) => {
 };
 
 before(async () => {
+  process.env.SESSION_SECRET = "x".repeat(40);
   server = new NetlifyDB();
   const connectionString = await server.start();
   await server.applyMigrations("./db/migrations");
@@ -82,6 +85,47 @@ after(async () => {
 const usage = (step, usd, at, ledgerId = null, failed = false) =>
   db.sql`INSERT INTO ai_usage (step, model, cost_usd, created_at, ledger_id, failed)
          VALUES (${step}, 'claude-opus-5-5', ${usd}, ${at}, ${ledgerId}, ${failed})`;
+
+const call = (path, { method = "GET", body, as } = {}) => {
+  const base = new Request(`https://example.com${path}`);
+  return adminFn(
+    new Request(`https://example.com${path}`, {
+      method,
+      headers: {
+        ...(as ? { cookie: sessionCookie(as, base).split(";")[0] } : {}),
+        ...(body ? { "content-type": "application/json" } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+  );
+};
+
+test("the money API: admins only, costs editable", async () => {
+  const mod = await findOrCreateAccount({ sub: "money-mod-2", displayName: "Mae" });
+  await db.sql`UPDATE accounts SET is_mod = true WHERE id = ${mod.id}`;
+  assert.equal((await call("/api/admin/money")).status, 401);
+  assert.equal((await call("/api/admin/money", { as: mod.id })).status, 403);
+  const res = await call("/api/admin/money", { as: admin.id });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("cache-control"), "no-store");
+  const body = await res.json();
+  assert.equal(body.current.month, monthKey(new Date()));
+  const made = await call("/api/admin/money/costs", {
+    method: "POST",
+    as: admin.id,
+    body: { name: "Netlify Pro", cents: 1900, period: "monthly", starts: "2026-10" },
+  });
+  assert.equal(made.status, 200);
+  const cost = await made.json();
+  const edited = await call(`/api/admin/money/costs/${cost.id}`, {
+    method: "PATCH",
+    as: admin.id,
+    body: { ...cost, ends: "2026-12" },
+  });
+  assert.equal((await edited.json()).ends, "2026-12");
+  assert.equal((await call(`/api/admin/money/costs/${cost.id}`, { method: "DELETE", as: mod.id })).status, 403);
+  assert.equal((await call(`/api/admin/money/costs/${cost.id}`, { method: "DELETE", as: admin.id })).status, 200);
+});
 
 test("month keys and bounds are UTC calendar months", () => {
   assert.equal(monthKey(new Date("2026-10-31T23:59:59Z")), "2026-10");

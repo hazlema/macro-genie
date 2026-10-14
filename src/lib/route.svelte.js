@@ -5,7 +5,7 @@
 //   /foods             Food Macros
 //   /builder           Recipe Builder
 //   /recipes           Recipe Book; /recipes/<id>  one saved recipe (this browser)
-//   /admin             Admin (Reviews); /admin/users, /admin/log
+//   /admin             Admin (Reviews); /admin/users, /admin/log, /admin/inbox, /admin/money
 //   /help, /help/<guide>   Help;  /terms /refunds /privacy /contact   policies
 //   /credits           Get more credits (Stripe Checkout returns here)
 const TABS = {
@@ -23,7 +23,7 @@ const PATHS = {
   credits: "/credits",
 };
 
-const ADMIN_TABS = ["reviews", "users", "log", "inbox"];
+const ADMIN_TABS = ["reviews", "users", "log", "inbox", "money"];
 const PAGES = ["terms", "refunds", "privacy", "contact"];
 // Guide slugs are lowercase words; anything else shows the help hub.
 const SLUG = /^[a-z]+$/;

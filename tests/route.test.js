@@ -50,6 +50,7 @@ test(
     assert.equal(parse("/admin/users").adminTab, "users");
     assert.equal(parse("/admin/log").adminTab, "log");
     assert.equal(parse("/admin/inbox").adminTab, "inbox");
+    assert.equal(parse("/admin/money").adminTab, "money");
     assert.equal(parse("/admin/whatever").adminTab, "reviews");
     assert.equal(pathFor({ tab: "admin" }), "/admin");
     assert.equal(pathFor({ tab: "admin", adminTab: "reviews" }), "/admin");
