@@ -73,7 +73,7 @@
     <table class="money-lines">
       <tbody>
         {#if m.sales}
-          <tr><th scope="row">Credit sales <span class="money-note">{m.sales.count} packs{#each Object.entries(m.sales.packs) as [pack, n] (pack)} · {n} {pack}{/each}</span></th><td>{usd(m.sales.cents)}</td></tr>
+          <tr><th scope="row">Credit sales <span class="money-note">{m.sales.count} {m.sales.count === 1 ? 'pack' : 'packs'}{#each Object.entries(m.sales.packs) as [pack, n] (pack)}{` · ${n} ${pack}`}{/each}</span></th><td>{usd(m.sales.cents)}</td></tr>
           <tr><th scope="row">Stripe fees</th><td>{usd(-m.stripeFeeCents)}</td></tr>
           <tr><th scope="row">Refunds</th><td>{usd(-m.refundCents)}</td></tr>
         {:else}
