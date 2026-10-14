@@ -5,7 +5,7 @@
 
   // Contributions, sign-ins, credits, and problems, newest first.
   const CHIPS = [['all', 'All'], ['posts', 'Posts'], ['signins', 'Sign-ins'], ['credits', 'Credits'], ['messages', 'Messages'], ['problems', 'Problems']];
-  const PROBLEMS = ['held', 'blocked', 'report', 'admin_action'];
+  const PROBLEMS = ['held', 'blocked', 'report', 'admin_action', 'payment_problem'];
   let chip = $state('all');
   let entries = $state(null);
   let more = $state(false);

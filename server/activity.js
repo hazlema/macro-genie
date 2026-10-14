@@ -6,8 +6,8 @@ import { database } from "./db.js";
 export const CHIPS = {
   posts: ["recipe_post"],
   signins: ["joined", "sign_in"],
-  credits: ["credits_purchase", "credits_adjust"],
-  problems: ["held", "blocked", "report", "admin_action"],
+  credits: ["credits_purchase", "credits_refund", "credits_adjust"],
+  problems: ["held", "blocked", "report", "admin_action", "payment_problem"],
   messages: ["message"],
 };
 export const KINDS = Object.values(CHIPS).flat();
