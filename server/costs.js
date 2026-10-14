@@ -38,7 +38,8 @@ function checked(body) {
   const starts = String(body?.starts ?? "");
   if (!MONTH.test(starts))
     throw new UserFacingError("Pick the month it starts.");
-  const ends = body?.ends ? String(body.ends) : null;
+  // A one-off has no end month.
+  const ends = body?.period !== "once" && body?.ends ? String(body.ends) : null;
   if (ends !== null && !MONTH.test(ends))
     throw new UserFacingError("Pick the month it ends, or leave it empty.");
   if (ends !== null && ends < starts)

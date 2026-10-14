@@ -425,85 +425,97 @@ export async function generateIdea(input, api = client(), model = ideaModel()) {
   const messages = [{ role: "user", content: ideaPrompt(req) }];
   const usage = emptyUsage(model);
   const started = Date.now();
-  for (let turn = 0; turn < MAX_TURNS; turn++) {
-    const timeout = BUDGET_MS - (Date.now() - started);
-    if (timeout < 5_000) break;
-    const response = await measure("ai", () =>
-      api.beta.messages.create(
-        request(model, {
-          max_tokens: 8000,
-          system: SYSTEM,
-          tools: TOOLS,
-          messages,
-        }),
-        { timeout },
-      ),
-    );
-    addUsage(usage, response);
-    checkStop(response);
-    const calls = response.content.filter((b) => b.type === "tool_use");
-    const submit = calls.find((c) => c.name === "submit_idea");
-    // Anything wrong with the idea (ids guessed before the search came back,
-    // disliked foods, missing grams) goes back to the model to fix.
-    const review = submit
-      ? reviewSubmission(submit.input, req)
-      : { problems: [], usable: 0 };
-    const lastTurn =
-      turn === MAX_TURNS - 1 || Date.now() - started > LAST_START_MS;
-    if (submit && (!review.problems.length || (lastTurn && review.usable))) {
-      try {
-        const idea = finishIdea(submit.input, req);
-        const line = logUsage("idea", usage, { ms: Date.now() - started });
-        return { ...idea, usage: { model: line.model, costUsd: line.costUsd } };
-      } catch (error) {
-        logUsage("idea", usage, {
-          ms: Date.now() - started,
-          failed: error.message,
-          problems: review.problems.slice(0, 8),
-        });
-        throw error;
+  let logged = false;
+  const log = (...args) => {
+    logged = true;
+    return logUsage(...args);
+  };
+  // A throw before any line was logged (refusal, API error) still cost money.
+  try {
+    for (let turn = 0; turn < MAX_TURNS; turn++) {
+      const timeout = BUDGET_MS - (Date.now() - started);
+      if (timeout < 5_000) break;
+      const response = await measure("ai", () =>
+        api.beta.messages.create(
+          request(model, {
+            max_tokens: 8000,
+            system: SYSTEM,
+            tools: TOOLS,
+            messages,
+          }),
+          { timeout },
+        ),
+      );
+      addUsage(usage, response);
+      checkStop(response);
+      const calls = response.content.filter((b) => b.type === "tool_use");
+      const submit = calls.find((c) => c.name === "submit_idea");
+      // Anything wrong with the idea (ids guessed before the search came back,
+      // disliked foods, missing grams) goes back to the model to fix.
+      const review = submit
+        ? reviewSubmission(submit.input, req)
+        : { problems: [], usable: 0 };
+      const lastTurn =
+        turn === MAX_TURNS - 1 || Date.now() - started > LAST_START_MS;
+      if (submit && (!review.problems.length || (lastTurn && review.usable))) {
+        try {
+          const idea = finishIdea(submit.input, req);
+          const line = log("idea", usage, { ms: Date.now() - started });
+          return { ...idea, usage: { model: line.model, costUsd: line.costUsd } };
+        } catch (error) {
+          log("idea", usage, {
+            ms: Date.now() - started,
+            failed: error.message,
+            problems: review.problems.slice(0, 8),
+          });
+          throw error;
+        }
       }
-    }
-    messages.push({ role: "assistant", content: response.content });
-    if (!calls.length) {
+      messages.push({ role: "assistant", content: response.content });
+      if (!calls.length) {
+        messages.push({
+          role: "user",
+          content: "Please call submit_idea with your dish now.",
+        });
+        continue;
+      }
       messages.push({
         role: "user",
-        content: "Please call submit_idea with your dish now.",
+        content: calls.map((call) =>
+          call.name === "find_foods"
+            ? {
+                type: "tool_result",
+                tool_use_id: call.id,
+                content: findFoodsResult(call.input.queries ?? [], req.dislikes),
+              }
+            : {
+                type: "tool_result",
+                tool_use_id: call.id,
+                is_error: true,
+                content:
+                  call.name === "submit_idea"
+                    ? `Not accepted. ${review.problems.join(" ")} Use only the bare ids that find_foods returned, like usda-row-1234. Search for anything missing, then call submit_idea again.`
+                    : "Unknown tool.",
+              },
+        ),
       });
-      continue;
     }
-    messages.push({
-      role: "user",
-      content: calls.map((call) =>
-        call.name === "find_foods"
-          ? {
-              type: "tool_result",
-              tool_use_id: call.id,
-              content: findFoodsResult(call.input.queries ?? [], req.dislikes),
-            }
-          : {
-              type: "tool_result",
-              tool_use_id: call.id,
-              is_error: true,
-              content:
-                call.name === "submit_idea"
-                  ? `Not accepted. ${review.problems.join(" ")} Use only the bare ids that find_foods returned, like usda-row-1234. Search for anything missing, then call submit_idea again.`
-                  : "Unknown tool.",
-            },
-      ),
+    const outOfTime = Date.now() - started > LAST_START_MS;
+    log("idea", usage, {
+      ms: Date.now() - started,
+      failed: outOfTime ? "out of time" : "too many steps",
     });
+    throw new UserFacingError(
+      outOfTime
+        ? "This idea took too long. Try again."
+        : "This idea took too many steps. Try again.",
+      outOfTime ? 504 : 502,
+    );
+  } catch (error) {
+    if (!logged)
+      logUsage("idea", usage, { ms: Date.now() - started, failed: error.message });
+    throw error;
   }
-  const outOfTime = Date.now() - started > LAST_START_MS;
-  logUsage("idea", usage, {
-    ms: Date.now() - started,
-    failed: outOfTime ? "out of time" : "too many steps",
-  });
-  throw new UserFacingError(
-    outOfTime
-      ? "This idea took too long. Try again."
-      : "This idea took too many steps. Try again.",
-    outOfTime ? 504 : 502,
-  );
 }
 
 const RECIPE_TOOL = {
@@ -660,48 +672,60 @@ export async function writeRecipe(
   ];
   const usage = emptyUsage(model);
   const started = Date.now();
-  for (let turn = 0; turn < 2; turn++) {
-    const timeout = BUDGET_MS - (Date.now() - started);
-    if (timeout < 5_000) break;
-    const response = await measure("ai", () =>
-      api.beta.messages.create(
-        request(model, {
-          max_tokens: 6000,
-          system: RECIPE_SYSTEM,
-          tools: [RECIPE_TOOL],
-          messages,
-        }),
-        { timeout },
-      ),
-    );
-    addUsage(usage, response);
-    checkStop(response);
-    const submit = response.content.find(
-      (b) => b.type === "tool_use" && b.name === "submit_recipe",
-    );
-    if (submit?.input?.steps?.length) {
-      const recipe = buildRecipe(submit.input, req, items, solved);
-      const line = logUsage("recipe", usage, { ms: Date.now() - started });
-      return { ...recipe, usage: { model: line.model, costUsd: line.costUsd } };
+  let logged = false;
+  const log = (...args) => {
+    logged = true;
+    return logUsage(...args);
+  };
+  // A throw before any line was logged (refusal, API error) still cost money.
+  try {
+    for (let turn = 0; turn < 2; turn++) {
+      const timeout = BUDGET_MS - (Date.now() - started);
+      if (timeout < 5_000) break;
+      const response = await measure("ai", () =>
+        api.beta.messages.create(
+          request(model, {
+            max_tokens: 6000,
+            system: RECIPE_SYSTEM,
+            tools: [RECIPE_TOOL],
+            messages,
+          }),
+          { timeout },
+        ),
+      );
+      addUsage(usage, response);
+      checkStop(response);
+      const submit = response.content.find(
+        (b) => b.type === "tool_use" && b.name === "submit_recipe",
+      );
+      if (submit?.input?.steps?.length) {
+        const recipe = buildRecipe(submit.input, req, items, solved);
+        const line = log("recipe", usage, { ms: Date.now() - started });
+        return { ...recipe, usage: { model: line.model, costUsd: line.costUsd } };
+      }
+      messages.push({ role: "assistant", content: response.content });
+      messages.push({
+        role: "user",
+        content: submit
+          ? [
+              {
+                type: "tool_result",
+                tool_use_id: submit.id,
+                is_error: true,
+                content: "The steps are missing. Submit the full recipe again.",
+              },
+            ]
+          : "Please submit the recipe with submit_recipe now.",
+      });
     }
-    messages.push({ role: "assistant", content: response.content });
-    messages.push({
-      role: "user",
-      content: submit
-        ? [
-            {
-              type: "tool_result",
-              tool_use_id: submit.id,
-              is_error: true,
-              content: "The steps are missing. Submit the full recipe again.",
-            },
-          ]
-        : "Please submit the recipe with submit_recipe now.",
-    });
+    log("recipe", usage, { ms: Date.now() - started, failed: "no recipe" });
+    throw new UserFacingError(
+      "The recipe didn't come back complete. Try again.",
+      502,
+    );
+  } catch (error) {
+    if (!logged)
+      logUsage("recipe", usage, { ms: Date.now() - started, failed: error.message });
+    throw error;
   }
-  logUsage("recipe", usage, { ms: Date.now() - started, failed: "no recipe" });
-  throw new UserFacingError(
-    "The recipe didn't come back complete. Try again.",
-    502,
-  );
 }

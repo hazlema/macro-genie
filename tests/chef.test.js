@@ -273,6 +273,43 @@ test("API errors map to messages a visitor or site owner can act on", async () =
   }
 });
 
+test("a job that throws before any usage line still logs its cost once", async () => {
+  const logged = [];
+  const original = console.log;
+  console.log = (line) => logged.push(JSON.parse(line));
+  try {
+    const cut = { stop_reason: "max_tokens", content: [], usage: { input_tokens: 500, output_tokens: 8000 } };
+    await assert.rejects(generateIdea(base, fakeApi([cut])), /ran too long/);
+    assert.equal(logged.length, 1);
+    assert.equal(logged[0].step, "idea");
+    assert.match(logged[0].failed, /ran too long/);
+    assert.equal(logged[0].output, 8000);
+
+    logged.length = 0;
+    const request = { name: "Gratin", servings: 2, ingredients: [{ id: pumpkin.id, grams: 230 }] };
+    await assert.rejects(writeRecipe(request, fakeApi([cut])), /ran too long/);
+    assert.equal(logged.length, 1);
+    assert.equal(logged[0].step, "recipe");
+    assert.ok(logged[0].failed);
+
+    logged.length = 0; // an API error on a later turn keeps the earlier turn's tokens
+    const search = toolUse("t0", "find_foods", { queries: ["pumpkin"] });
+    search.usage = { input_tokens: 1000, output_tokens: 200 };
+    const api = fakeApi([search]);
+    const create = api.beta.messages.create;
+    api.beta.messages.create = async (params) => {
+      if (api.calls.length >= 1) throw new Error("overloaded");
+      return create(params);
+    };
+    await assert.rejects(generateIdea(base, api), /overloaded/);
+    assert.equal(logged.length, 1);
+    assert.equal(logged[0].input, 1000);
+    assert.equal(logged[0].failed, "overloaded");
+  } finally {
+    console.log = original;
+  }
+});
+
 test("idea cost is logged per job and the model follows IDEA_MODEL", async () => {
   const logged = [];
   const original = console.log;

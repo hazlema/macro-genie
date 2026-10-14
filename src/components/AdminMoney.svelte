@@ -1,16 +1,19 @@
 <script>
+  import { tick } from 'svelte';
   import { api } from '../lib/account.svelte.js';
 
   // Admin → Money: is the site paying for itself? The current month is live;
   // past months were saved when they ended. Amounts are cents from the server.
   let data = $state(null);
   let error = $state('');
+  let actionError = $state(''); // save/delete failures, shown beside the form's buttons
+  let formEl = $state(null);
   let busy = $state(false);
   let editing = $state(null); // a cost being edited, or a blank one being added
 
   const usd = (cents) => `${cents < 0 ? '−' : ''}$${(Math.abs(cents) / 100).toFixed(2)}`;
   const signed = (cents) => `${cents >= 0 ? '+' : '−'}$${(Math.abs(cents) / 100).toFixed(2)}`;
-  const cents = (n) => (n === null ? '—' : `${n.toFixed(1)}¢`);
+  const cents = (n) => (n === null ? '—' : `${n.toFixed(2)}¢`);
   const label = (key) => new Date(`${key}-01T00:00:00Z`).toLocaleString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
   const PERIOD = { monthly: 'monthly', yearly: 'yearly (spread over 12 months)', once: 'one-off' };
   const thisMonth = () => new Date().toISOString().slice(0, 7);
@@ -22,35 +25,41 @@
   }
   load();
 
-  function edit(cost) {
+  async function edit(cost) {
+    actionError = '';
     editing = cost
       ? { ...cost, dollars: (cost.cents / 100).toFixed(2), ends: cost.ends ?? '' }
       : { id: null, name: '', dollars: '', period: 'monthly', starts: thisMonth(), ends: '' };
+    await tick();
+    formEl?.scrollIntoView({ block: 'nearest' });
+    formEl?.querySelector('input')?.focus();
   }
 
   async function save(e) {
     e.preventDefault();
     busy = true;
+    actionError = '';
     const body = {
       name: editing.name,
       cents: Math.round(Number(editing.dollars) * 100),
       period: editing.period,
       starts: editing.starts,
-      ends: editing.ends || null,
+      ends: editing.period === 'once' ? null : editing.ends || null,
     };
     const res = editing.id
       ? await api(`/api/admin/money/costs/${editing.id}`, { method: 'PATCH', body })
       : await api('/api/admin/money/costs', { method: 'POST', body });
     busy = false;
-    if (!res.ok) { error = res.error; return; }
+    if (!res.ok) { actionError = res.error; return; }
     editing = null;
     await load();
   }
 
   async function remove(cost) {
     if (!confirm(`Delete “${cost.name}”? Saved months keep their numbers.`)) return;
+    actionError = '';
     const res = await api(`/api/admin/money/costs/${cost.id}`, { method: 'DELETE' });
-    if (!res.ok) { error = res.error; return; }
+    if (!res.ok) { actionError = res.error; return; }
     await load();
   }
 </script>
@@ -127,7 +136,7 @@
     {/if}
 
     {#if editing}
-      <form class="money-cost-form" onsubmit={save}>
+      <form class="money-cost-form" bind:this={formEl} onsubmit={save}>
         <label>Name <input bind:value={editing.name} maxlength="80" required placeholder="Netlify Pro" /></label>
         <label>Amount ($) <input bind:value={editing.dollars} inputmode="decimal" required placeholder="19.00" /></label>
         <label>How often
@@ -141,12 +150,14 @@
         {#if editing.period !== 'once'}
           <label>Ends (optional) <input type="month" bind:value={editing.ends} /></label>
         {/if}
+        {#if actionError}<p class="method-error" role="alert">{actionError}</p>{/if}
         <div class="money-cost-actions">
           <button class="primary-button" disabled={busy}>{editing.id ? 'Save' : 'Add cost'}</button>
           <button type="button" class="outline-button" onclick={() => (editing = null)}>Cancel</button>
         </div>
       </form>
     {:else}
+      {#if actionError}<p class="method-error" role="alert">{actionError}</p>{/if}
       <button class="outline-button" onclick={() => edit(null)}>Add a cost</button>
     {/if}
   {/if}

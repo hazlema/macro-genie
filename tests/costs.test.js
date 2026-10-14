@@ -91,3 +91,9 @@ test("bad cost input is refused with a plain message", async () => {
   await rejectsWith(addCost(admin.id, { ...ok, ends: "2026-09" }), 400, /end/i);
   assert.equal((await listCosts()).filter((c) => c.name === "Domain").length, 0);
 });
+
+test("a one-off cost has no end month, even if one is sent", async () => {
+  const added = await addCost(admin.id, { name: "Logo", cents: 5000, period: "once", starts: "2026-10", ends: "2026-01" });
+  assert.equal(added.ends, null);
+  assert.ok((await listCosts()).some((c) => c.id === added.id && c.ends === null));
+});

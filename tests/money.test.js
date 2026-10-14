@@ -241,11 +241,12 @@ test("a failed source marks the month incomplete", async () => {
 });
 
 test("finished months are saved once and don't change later", async () => {
-  await addCost(admin.id, { name: "Netlify Pro", cents: 1900, period: "monthly", starts: "2026-08" });
-  const now = new Date("2026-10-14T12:00:00Z");
+  await addCost(admin.id, { name: "Netlify Pro", cents: 1900, period: "monthly", starts: "2026-10" });
+  await usage("idea", 0.04, "2026-10-05T00:00:00Z");
+  const now = new Date("2027-01-14T12:00:00Z");
   const first = await moneyOverview(admin.id, now);
-  assert.equal(first.current.month, "2026-10");
-  assert.deepEqual(first.saved.map((m) => m.month), ["2026-09", "2026-08"]);
+  assert.equal(first.current.month, "2027-01");
+  assert.deepEqual(first.saved.map((m) => m.month), ["2026-12", "2026-11", "2026-10"]);
   await db.sql`UPDATE fixed_costs SET cents = 5000`;
   const again = await moneyOverview(admin.id, now);
   assert.equal(again.saved[0].fixedCents, 1900);
@@ -253,8 +254,8 @@ test("finished months are saved once and don't change later", async () => {
 });
 
 test("an incomplete month isn't saved until it loads fully", async () => {
-  await addCost(admin.id, { name: "Netlify Pro", cents: 1900, period: "monthly", starts: "2026-09" });
-  const now = new Date("2026-10-14T12:00:00Z");
+  await usage("idea", 0.04, "2026-12-05T00:00:00Z");
+  const now = new Date("2027-01-14T12:00:00Z");
   const quiet = console.error;
   console.error = () => {};
   try {
@@ -264,7 +265,49 @@ test("an incomplete month isn't saved until it loads fully", async () => {
     console.error = quiet;
   }
   stripeFails = false;
-  assert.deepEqual((await moneyOverview(admin.id, now)).saved.map((m) => m.month), ["2026-09"]);
+  assert.deepEqual((await moneyOverview(admin.id, now)).saved.map((m) => m.month), ["2026-12"]);
+});
+
+test("history starts at the first AI use or purchase, never before 2026-10", async () => {
+  const now = new Date("2027-01-14T12:00:00Z");
+  await addCost(admin.id, { name: "Old bill", cents: 1900, period: "monthly", starts: "2026-01" });
+  assert.deepEqual((await moneyOverview(admin.id, now)).saved, []); // a back-dated bill saves nothing
+  await usage("idea", 0.04, "2026-09-20T00:00:00Z");
+  const o = await moneyOverview(admin.id, now);
+  assert.deepEqual(o.saved.map((m) => m.month), ["2026-12", "2026-11", "2026-10"]);
+});
+
+test("a month is saved only 2 days after it ends (Anthropic's report lags)", async () => {
+  await usage("idea", 0.04, "2026-10-05T00:00:00Z");
+  assert.deepEqual((await moneyOverview(admin.id, new Date("2026-11-01T12:00:00Z"))).saved, []);
+  assert.deepEqual(
+    (await moneyOverview(admin.id, new Date("2026-11-03T00:00:00Z"))).saved.map((m) => m.month),
+    ["2026-10"],
+  );
+});
+
+test("at most 3 past months are saved per request, oldest first", async () => {
+  await usage("idea", 0.04, "2026-10-05T00:00:00Z");
+  const now = new Date("2027-03-14T12:00:00Z"); // 2026-10 .. 2027-02 to save
+  assert.deepEqual((await moneyOverview(admin.id, now)).saved.map((m) => m.month), ["2026-12", "2026-11", "2026-10"]);
+  assert.deepEqual(
+    (await moneyOverview(admin.id, now)).saved.map((m) => m.month),
+    ["2027-02", "2027-01", "2026-12", "2026-11", "2026-10"],
+  );
+});
+
+test("credits spent count only from the first AI usage row on", async () => {
+  const { id } = await findOrCreateAccount({ sub: "money-user-4", displayName: "Ed" });
+  await addCredits(id, 10, "purchase", "cs_money_4", { paid: true });
+  await spendCredit(id, "idea"); // before AI cost was recorded
+  await db.sql`UPDATE credit_ledger SET created_at = '2026-10-02T00:00:00Z' WHERE account_id = ${id}`;
+  assert.equal((await buildMonth("2026-10")).perCredit.aiCents, null); // no usage rows: nothing spent
+  const s = await spendCredit(id, "idea");
+  await db.sql`UPDATE credit_ledger SET created_at = '2026-10-10T00:00:00Z' WHERE id = ${s.ledgerId}`;
+  await usage("idea", 0.04, "2026-10-10T00:00:00Z", s.ledgerId);
+  const m = await buildMonth("2026-10");
+  assert.equal(m.ai.free.credits + m.ai.paid.credits, 1);
+  assert.equal(m.perCredit.aiCents, 4);
 });
 
 test("only admins see money", async () => {
@@ -280,12 +323,12 @@ test("Stripe month fetches time out at 10 s without retries", async () => {
 });
 
 test("with Stripe down, past months stop at the first incomplete one", async () => {
-  await addCost(admin.id, { name: "Netlify Pro", cents: 1900, period: "monthly", starts: "2026-07" });
+  await usage("idea", 0.04, "2026-10-05T00:00:00Z");
   const quiet = console.error;
   console.error = () => {};
   try {
     stripeFails = true;
-    const o = await moneyOverview(admin.id, new Date("2026-10-14T12:00:00Z"));
+    const o = await moneyOverview(admin.id, new Date("2027-01-14T12:00:00Z"));
     assert.equal(listCalls.length, 2); // first unsaved past month, then the current one
     assert.deepEqual(o.saved, []);
   } finally {

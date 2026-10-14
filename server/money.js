@@ -8,6 +8,10 @@ import { stripe } from "./stripe.js";
 // current month is worked out live; finished months are saved once.
 
 const SAVED_MONTHS = 12;
+// Costs are tracked from launch; nothing earlier is ever saved.
+const HISTORY_START = "2026-10";
+const BACKFILL_PER_REQUEST = 3;
+const DAY = 86_400_000;
 const STEPS = ["idea", "recipe", "moderation"];
 
 export const monthKey = (date) => date.toISOString().slice(0, 7);
@@ -95,6 +99,7 @@ async function aiMonth({ start, end }) {
     SELECT COALESCE(paid, false) AS paid, COALESCE(sum(-change), 0)::int AS credits
       FROM credit_ledger
      WHERE created_at >= ${start.toISOString()} AND created_at < ${end.toISOString()}
+       AND created_at >= (SELECT min(created_at) FROM ai_usage)
        AND reason IN ('idea', 'recipe', 'refund:idea', 'refund:recipe')
      GROUP BY 1`;
   const sold = await db.sql`
@@ -170,19 +175,23 @@ export async function buildMonth(key, now = new Date()) {
   };
 }
 
-// The first month anything happened: AI use, a purchase, or a fixed cost.
+// The first month with AI use or a purchase, never before HISTORY_START.
+// Fixed costs don't count: a bill dated in the past mustn't freeze old
+// months with only that bill in them.
 async function firstMonth() {
   const rows = await database().sql`
     SELECT to_char(LEAST(
       (SELECT min(created_at) FROM ai_usage),
-      (SELECT min(created_at) FROM credit_ledger WHERE reason = 'purchase'),
-      (SELECT min(starts)::timestamptz FROM fixed_costs)
+      (SELECT min(created_at) FROM credit_ledger WHERE reason = 'purchase')
     ) AT TIME ZONE 'UTC', 'YYYY-MM') AS month`;
-  return rows[0]?.month ?? null;
+  const month = rows[0]?.month;
+  if (!month) return null;
+  return month > HISTORY_START ? month : HISTORY_START;
 }
 
 // Saves finished months that aren't saved yet, oldest first, back to the
-// first month with data (at most 12). Incomplete ones wait for next time.
+// first month with data (at most 12 back, 3 saved per call). Incomplete
+// ones wait for next time.
 async function saveFinishedMonths(current, now) {
   const first = await firstMonth();
   if (!first) return;
@@ -192,11 +201,13 @@ async function saveFinishedMonths(current, now) {
   );
   // Walk back at most 12 months (saved or not), oldest unsaved first, and
   // stop at the first incomplete one so an outage costs one attempt per open.
+  // Anthropic's cost report lags, so a month waits 2 days after it ends.
   const months = [];
   let key = previousMonth(current);
   for (let i = 0; i < SAVED_MONTHS && key >= first; i++, key = previousMonth(key))
-    if (!saved.has(key)) months.unshift(key);
-  for (const month of months) {
+    if (!saved.has(key) && now.getTime() >= monthBounds(key).end.getTime() + 2 * DAY)
+      months.unshift(key);
+  for (const month of months.slice(0, BACKFILL_PER_REQUEST)) {
     const totals = await buildMonth(month, now);
     if (!totals.complete) break;
     await db.sql`
@@ -208,13 +219,14 @@ async function saveFinishedMonths(current, now) {
 export async function moneyOverview(actorId, now = new Date()) {
   await requireAdmin(actorId);
   const current = monthKey(now);
-  await saveFinishedMonths(current, now);
+  // The live month doesn't wait on the backfill.
+  const [currentMonth] = await Promise.all([buildMonth(current, now), saveFinishedMonths(current, now)]);
   const saved = await database().sql`
     SELECT totals FROM money_months
      WHERE month < ${`${current}-01`}
      ORDER BY month DESC LIMIT ${SAVED_MONTHS}`;
   return {
-    current: await buildMonth(current, now),
+    current: currentMonth,
     saved: saved.map((r) => r.totals),
     costs: await listCosts(),
   };
