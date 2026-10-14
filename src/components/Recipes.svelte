@@ -63,7 +63,6 @@
   const generating = $derived(ideas.some(i => i.status === 'pending'));
   const readyIdeas = $derived(ideas.filter(i => i.status === 'ready'));
 
-  // Ideas are re-sized against the current targets, so cards stay honest when targets change.
   function getCredits(e) {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
     e.preventDefault();
@@ -71,6 +70,7 @@
     scrollTo(0, 0);
   }
 
+  // Ideas are re-sized against the current targets, so cards stay honest when targets change.
   function size(list) {
     try {
       const items = list.filter(i => byId.has(i.id)).map(i => ({ food: byId.get(i.id), grams: i.grams, required: i.required }));

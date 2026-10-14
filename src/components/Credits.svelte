@@ -10,6 +10,7 @@
   let confirming = $state(false);
   let notice = $state('');
   let error = $state('');
+  let notAdded = $state(false);
 
   const price = (cents) => `$${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
   const each = (p) => `${Math.round(p.cents / p.credits)}¢ per credit`;
@@ -31,6 +32,7 @@
     confirming = false;
     if (!res.ok) { error = res.error; return; }
     await refreshAccount();
+    if (res.body.paid && !res.body.purchased) { notAdded = true; return; }
     notice = res.body.paid
       ? `Added ${res.body.purchased} credits. You now have ${account.credits}.`
       : 'Your payment is processing. Credits appear as soon as Stripe confirms it.';
@@ -38,7 +40,7 @@
 
   async function buy(pack) {
     if (!account.signedIn) { account.loginOpen = true; return; }
-    buying = pack.id; error = ''; notice = '';
+    buying = pack.id; error = ''; notice = ''; notAdded = false;
     const res = await api('/api/credits/checkout', { method: 'POST', body: { pack: pack.id } });
     if (!res.ok) { buying = ''; error = res.error; return; }
     location.assign(res.body.url);
@@ -65,6 +67,7 @@
   {#if confirming}<p class="post-note" role="status">Confirming your payment…</p>{/if}
   {#if notice}<p class="post-note" role="status">{notice}</p>{/if}
   {#if error}<p class="method-error" role="alert">{error}</p>{/if}
+  {#if notAdded}<p class="method-error" role="alert">We got your payment but couldn’t add the credits automatically. <a href="/contact" onclick={(e) => go(e, { tab: 'page', page: 'contact' })}>Contact us</a> and we’ll sort it out.</p>{/if}
   {#if account.suspended}<p class="method-error">Your account is suspended, so you can’t buy credits.</p>{/if}
   <ul class="pack-list">
     {#each packs as pack (pack.id)}

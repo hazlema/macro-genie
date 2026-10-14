@@ -36,7 +36,7 @@ const privacy = `**What we store.** Your Google account id, your display name, y
 
 **What stays in your browser.** Your Recipe Book, the foods you won't eat, and the recipe in progress are saved on your device, not on our servers.
 
-**Who handles data for us.** Netlify hosts the site. Neon stores the database. Anthropic's Claude writes recipe ideas and recipes from the foods and targets you send. Google handles sign-in. Stripe will process payments, and we never see card numbers.
+**Who handles data for us.** Netlify hosts the site. Neon stores the database. Anthropic's Claude writes recipe ideas and recipes from the foods and targets you send. Google handles sign-in. Stripe processes payments, and we never see card numbers.
 
 **No ads or trackers.** We don't show ads, sell data, or use tracking scripts.
 
