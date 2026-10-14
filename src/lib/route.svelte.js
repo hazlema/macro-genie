@@ -7,17 +7,20 @@
 //   /recipes           Recipe Book; /recipes/<id>  one saved recipe (this browser)
 //   /admin             Admin (Reviews); /admin/users, /admin/log
 //   /help, /help/<guide>   Help;  /terms /refunds /privacy /contact   policies
+//   /credits           Get more credits (Stripe Checkout returns here)
 const TABS = {
   foods: "foods",
   builder: "recipes",
   community: "community",
   recipes: "saved",
+  credits: "credits",
 };
 const PATHS = {
   foods: "/foods",
   recipes: "/builder",
   community: "/community",
   saved: "/recipes",
+  credits: "/credits",
 };
 
 const ADMIN_TABS = ["reviews", "users", "log", "inbox"];

@@ -51,3 +51,39 @@
   from = "/recipes/*"
   to = "/index.html"
   status = 200
+[[redirects]]
+  from = "/help"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/help/*"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/admin"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/admin/*"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/terms"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/refunds"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/privacy"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/contact"
+  to = "/index.html"
+  status = 200
+[[redirects]]
+  from = "/credits"
+  to = "/index.html"
+  status = 200

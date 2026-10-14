@@ -77,5 +77,11 @@ test(
       "/help/cronometer",
     );
     assert.equal(pathFor({ tab: "page", page: "privacy" }), "/privacy");
+    assert.deepEqual(parse("/credits"), {
+      tab: "credits",
+      postId: null,
+      recipeId: null,
+    });
+    assert.equal(pathFor({ tab: "credits" }), "/credits");
   },
 );

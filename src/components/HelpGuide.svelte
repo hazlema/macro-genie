@@ -1,7 +1,7 @@
 <script>
   import Markdown from './Markdown.svelte';
   import { GUIDES } from '../help/index.js';
-  import { navigate } from '../lib/route.svelte.js';
+  import { navigate, parse } from '../lib/route.svelte.js';
 
   // One guide: numbered steps, each with its screenshot and numbered markers.
   let { guide } = $props();
@@ -25,8 +25,7 @@
     const a = e.target.closest?.('a[href^="/"]');
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
     e.preventDefault();
-    const [section, slug] = a.getAttribute('href').split('/').filter(Boolean);
-    navigate(section === 'help' ? { tab: 'help', helpSlug: slug ?? null } : { tab: 'page', page: section });
+    navigate(parse(a.getAttribute('href')));
     scrollTo(0, 0);
   }
 </script>

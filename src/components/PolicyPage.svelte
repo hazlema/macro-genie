@@ -2,7 +2,7 @@
   import Markdown from './Markdown.svelte';
   import { POLICIES } from '../help/policies.js';
 
-  import { navigate } from '../lib/route.svelte.js';
+  import { navigate, parse } from '../lib/route.svelte.js';
 
   let { page } = $props();
   const policy = $derived(POLICIES[page]);
@@ -11,8 +11,7 @@
     const a = e.target.closest?.('a[href^="/"]');
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
     e.preventDefault();
-    const [section, slug] = a.getAttribute('href').split('/').filter(Boolean);
-    navigate(section === 'help' ? { tab: 'help', helpSlug: slug ?? null } : { tab: 'page', page: section });
+    navigate(parse(a.getAttribute('href')));
     scrollTo(0, 0);
   }
 </script>
