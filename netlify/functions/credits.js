@@ -16,8 +16,9 @@ export const config = {
 async function handler(request) {
   const { pathname, origin } = new URL(request.url);
   try {
+    // Without a Stripe key (before launch) the page shows "opens soon".
     if (pathname === "/api/credits/packs")
-      return Response.json({ packs: PACKS });
+      return Response.json({ packs: PACKS, open: !!process.env.STRIPE_SECRET_KEY });
     if (request.method !== "POST")
       return new Response("Use POST.", { status: 405, headers: { Allow: "POST" } });
     const body = await request.json().catch(() => {

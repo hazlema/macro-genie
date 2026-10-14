@@ -460,6 +460,20 @@ test("the page API: packs, checkout, and confirm", async () => {
   const packs = await credits(new Request("https://example.com/api/credits/packs"));
   assert.deepEqual((await packs.json()).packs, PACKS);
 
+  // Before live Stripe keys exist, the page shows the packs as coming soon.
+  const key = process.env.STRIPE_SECRET_KEY;
+  try {
+    process.env.STRIPE_SECRET_KEY = "sk_test_x";
+    const open = await credits(new Request("https://example.com/api/credits/packs"));
+    assert.equal((await open.json()).open, true);
+    delete process.env.STRIPE_SECRET_KEY;
+    const soon = await credits(new Request("https://example.com/api/credits/packs"));
+    assert.equal((await soon.json()).open, false);
+  } finally {
+    if (key === undefined) delete process.env.STRIPE_SECRET_KEY;
+    else process.env.STRIPE_SECRET_KEY = key;
+  }
+
   const signedOut = await credits(post("/api/credits/checkout", { pack: "small" }));
   assert.equal(signedOut.status, 401);
 

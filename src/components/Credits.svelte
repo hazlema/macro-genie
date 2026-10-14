@@ -6,6 +6,7 @@
   // Get more credits. Buying goes to Stripe's checkout page, which sends people
   // back here with ?session=… (paid) or ?cancelled=1.
   let packs = $state([]);
+  let open = $state(true);
   let buying = $state('');
   let confirming = $state(false);
   let notice = $state('');
@@ -21,7 +22,7 @@
     if (session || query.has('cancelled')) history.replaceState({}, '', '/credits');
     if (query.has('cancelled')) notice = 'Checkout cancelled. You weren’t charged.';
     const list = await api('/api/credits/packs');
-    if (list.ok) packs = list.body.packs;
+    if (list.ok) ({ packs, open } = list.body);
     else error = list.error;
     if (session) await confirm(session);
   });
@@ -69,14 +70,15 @@
   {#if error}<p class="method-error" role="alert">{error}</p>{/if}
   {#if notAdded}<p class="method-error" role="alert">We got your payment but couldn’t add the credits automatically. <a href="/contact" onclick={(e) => go(e, { tab: 'page', page: 'contact' })}>Contact us</a> and we’ll sort it out.</p>{/if}
   {#if account.suspended}<p class="method-error">Your account is suspended, so you can’t buy credits.</p>{/if}
+  {#if !open}<p class="post-note" role="status">Buying credits opens soon. Until then, these are the packs and prices.</p>{/if}
   <ul class="pack-list">
     {#each packs as pack (pack.id)}
       <li>
-        <button class="pack-card" onclick={() => buy(pack)} disabled={!!buying || account.suspended}>
+        <button class="pack-card" onclick={() => buy(pack)} disabled={!open || !!buying || account.suspended}>
           <strong>{pack.credits} credits</strong>
           <span class="pack-price">{price(pack.cents)}</span>
           <span class="pack-each">{each(pack)}</span>
-          <span class="pack-action">{buying === pack.id ? 'Opening checkout…' : account.signedIn ? 'Buy' : 'Sign in to buy'}</span>
+          <span class="pack-action">{!open ? 'Opens soon' : buying === pack.id ? 'Opening checkout…' : account.signedIn ? 'Buy' : 'Sign in to buy'}</span>
         </button>
       </li>
     {/each}
