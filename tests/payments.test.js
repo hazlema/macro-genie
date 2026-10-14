@@ -48,6 +48,12 @@ function fakeStripe() {
           if (!sessions.has(id)) throw missing();
           return sessions.get(id);
         },
+        async list({ payment_intent, limit = 10 }) {
+          const data = [...sessions.values()].filter(
+            (s) => s.payment_intent === payment_intent,
+          );
+          return { data: data.slice(0, limit) };
+        },
       },
     },
     paymentIntents: {
@@ -114,7 +120,7 @@ test("checkout asks Stripe for a one-time payment of the pack's price", async ()
       },
     },
   ]);
-  const metadata = { accountId: String(id), pack: "medium", credits: "50" };
+  const metadata = { accountId: String(id), pack: "medium", credits: "50", cents: "600" };
   assert.equal(params.client_reference_id, String(id));
   assert.deepEqual(params.metadata, metadata);
   assert.deepEqual(params.payment_intent_data, { metadata });
@@ -163,18 +169,22 @@ const paidSession = (id, accountId, packId = "medium", over = {}) => {
   return {
     id,
     payment_status: "paid",
+    payment_intent: `pi_of_${id}`,
     amount_total: pack.cents,
     currency: "usd",
     metadata: {
       accountId: String(accountId),
       pack: pack.id,
       credits: String(pack.credits),
+      cents: String(pack.cents),
     },
     ...over,
   };
 };
 const ledger = (ref) =>
   db.sql`SELECT change, reason FROM credit_ledger WHERE ref = ${ref}`;
+const problemCount = async () =>
+  (await db.sql`SELECT count(*)::int AS n FROM activity_log WHERE kind = 'payment_problem'`)[0].n;
 
 test("a paid checkout adds its credits once, however many times it's fulfilled", async () => {
   const { id } = await newAccount("Quinn");
@@ -221,6 +231,33 @@ test("a paid amount that doesn't match its pack adds nothing and is logged as a 
   assert.match(problems.entries[0].text, /cs_test_odd/);
 });
 
+test("a pack bought before a price change still adds what was paid for", async () => {
+  const { id } = await newAccount();
+  fake.sessions.set(
+    "cs_test_retired",
+    paidSession("cs_test_retired", id, "medium", {
+      metadata: { accountId: String(id), pack: "retired", credits: "50", cents: "600" },
+    }),
+  );
+  assert.deepEqual(await fulfill("cs_test_retired"), { paid: true, purchased: 50, credits: 60 });
+  assert.equal(
+    (await listActivity({ chip: "credits" })).entries[0].text,
+    "bought 50 credits ($6)",
+  );
+});
+
+test("a paid checkout that isn't ours adds nothing and logs nothing", async () => {
+  const { id } = await newAccount();
+  fake.sessions.set(
+    "cs_test_arcade",
+    paidSession("cs_test_arcade", id, "small", { metadata: {} }),
+  );
+  const problems = await problemCount();
+  assert.deepEqual(await fulfill("cs_test_arcade"), { paid: true, purchased: 0, credits: 0 });
+  assert.equal(await problemCount(), problems);
+  assert.equal((await ledger("cs_test_arcade")).length, 0);
+});
+
 test("a payment for an account that was deleted is logged, not added", async () => {
   const { id } = await newAccount();
   fake.sessions.set("cs_test_gone", paidSession("cs_test_gone", id));
@@ -252,9 +289,17 @@ async function bought(accountId, packId, pi) {
   const pack = packById(packId);
   fake.intents.set(pi, {
     id: pi,
-    metadata: { accountId: String(accountId), pack: pack.id, credits: String(pack.credits) },
+    metadata: {
+      accountId: String(accountId),
+      pack: pack.id,
+      credits: String(pack.credits),
+      cents: String(pack.cents),
+    },
   });
-  fake.sessions.set(`cs_${pi}`, paidSession(`cs_${pi}`, accountId, packId));
+  fake.sessions.set(
+    `cs_${pi}`,
+    paidSession(`cs_${pi}`, accountId, packId, { payment_intent: pi }),
+  );
   await fulfill(`cs_${pi}`);
   return (refunded) => ({ payment_intent: pi, amount: pack.cents, amount_refunded: refunded });
 }
@@ -304,6 +349,49 @@ test("refunds for deleted accounts or payments that aren't ours are ignored", as
     await applyRefund({ payment_intent: null, amount: 500, amount_refunded: 500 }),
     { removed: 0 },
   );
+});
+
+test("a refund for a payment that never added credits takes nothing", async () => {
+  const { id } = await newAccount();
+  await bought(id, "small", "pi_seed"); // other credits the refund mustn't touch
+  fake.intents.set("pi_odd", {
+    id: "pi_odd",
+    metadata: { accountId: String(id), pack: "large", credits: "120", cents: "1200" },
+  });
+  fake.sessions.set(
+    "cs_pi_odd",
+    paidSession("cs_pi_odd", id, "large", { payment_intent: "pi_odd", amount_total: 300 }),
+  );
+  await fulfill("cs_pi_odd");
+  assert.equal((await getAccount(id)).credits, 30);
+  assert.deepEqual(
+    await applyRefund({ payment_intent: "pi_odd", amount: 300, amount_refunded: 300 }),
+    { removed: 0 },
+  );
+  assert.equal((await getAccount(id)).credits, 30);
+  assert.match(
+    (await listActivity({ chip: "problems" })).entries[0].text,
+    /refund for pi_odd but no credits were added for it; nothing taken back/,
+  );
+});
+
+test("a refund arriving before the checkout was fulfilled takes nothing", async () => {
+  const { id } = await newAccount();
+  await bought(id, "medium", "pi_seed2");
+  fake.intents.set("pi_early", {
+    id: "pi_early",
+    metadata: { accountId: String(id), pack: "medium", credits: "50", cents: "600" },
+  });
+  fake.sessions.set(
+    "cs_pi_early",
+    paidSession("cs_pi_early", id, "medium", { payment_intent: "pi_early" }),
+  );
+  assert.deepEqual(
+    await applyRefund({ payment_intent: "pi_early", amount: 600, amount_refunded: 600 }),
+    { removed: 0 },
+  );
+  assert.equal((await getAccount(id)).credits, 60);
+  assert.match((await listActivity({ chip: "problems" })).entries[0].text, /pi_early/);
 });
 
 const signed = (event) => {

@@ -35,6 +35,7 @@ export async function startCheckout(accountId, packId, origin) {
     accountId: String(accountId),
     pack: pack.id,
     credits: String(pack.credits),
+    cents: String(pack.cents),
   };
   const session = await callStripe((s) =>
     s.checkout.sessions.create({
@@ -64,27 +65,35 @@ const balanceOf = async (accountId) =>
 
 // Adds a paid checkout's credits. The webhook and the return page both call
 // this; the ledger's unique (reason, ref) means only the first one counts.
-// Only Stripe's own copy of the session is trusted, never the browser.
+// Only Stripe's own copy of the session is trusted, never the browser. The
+// session is judged against the pack as it was sold (its metadata), so a
+// later price change never refuses credits to someone who already paid.
 export async function fulfill(sessionOrId) {
   const session =
     typeof sessionOrId === "string"
       ? await callStripe((s) => s.checkout.sessions.retrieve(sessionOrId))
       : sessionOrId;
-  const accountId = Number(session.metadata?.accountId) || null;
-  if (session.payment_status !== "paid")
+  const paid = session.payment_status === "paid";
+  const metadata = session.metadata ?? {};
+  // The Stripe account sells other things too; those sessions aren't ours.
+  if (!metadata.accountId || !metadata.credits)
+    return { paid, purchased: 0, credits: 0 };
+  const accountId = Number(metadata.accountId) || null;
+  if (!paid)
     return { paid: false, purchased: 0, credits: await balanceOf(accountId) };
-  const pack = packById(session.metadata?.pack);
+  const credits = Number(metadata.credits);
+  const cents = Number(metadata.cents);
   const problem = (text) =>
     logActivity({ kind: "payment_problem", accountId, actorName: "Stripe", text });
   if (
     !accountId ||
-    !pack ||
-    pack.credits !== Number(session.metadata?.credits) ||
-    pack.cents !== session.amount_total ||
+    !Number.isInteger(credits) ||
+    credits <= 0 ||
+    session.amount_total !== cents ||
     session.currency !== "usd"
   ) {
     await problem(
-      `paid checkout ${session.id} (${session.amount_total} ${session.currency}) doesn't match a pack; no credits added`,
+      `paid checkout ${session.id} (${session.amount_total} ${session.currency}) doesn't match its pack (${metadata.pack}); no credits added`,
     );
     return { paid: true, purchased: 0, credits: await balanceOf(accountId) };
   }
@@ -99,17 +108,17 @@ export async function fulfill(sessionOrId) {
     });
     return { paid: true, purchased: 0, credits: 0 };
   }
-  const after = await addCredits(accountId, pack.credits, "purchase", session.id);
+  const after = await addCredits(accountId, credits, "purchase", session.id);
   if (after !== null)
     await logActivity({
       kind: "credits_purchase",
       accountId,
       actorName: account.displayName,
-      text: `bought ${pack.credits} credits (${dollars(pack.cents)})`,
+      text: `bought ${credits} credits (${dollars(cents)})`,
     });
   return {
     paid: true,
-    purchased: pack.credits,
+    purchased: credits,
     credits: after ?? (await balanceOf(accountId)),
   };
 }
@@ -131,7 +140,8 @@ export async function confirmPurchase(accountId, sessionId) {
 
 // A refund from the Stripe dashboard takes back credits in proportion to the
 // money returned. Stripe reports the total refunded so far, so each event
-// tops up to that total. Never below zero: credits already spent stay spent.
+// tops up to that total. Only credits this payment actually added can be
+// taken back, and never below zero: credits already spent stay spent.
 export async function applyRefund(charge) {
   const pi =
     typeof charge.payment_intent === "string"
@@ -140,19 +150,31 @@ export async function applyRefund(charge) {
   if (!pi || !charge.amount) return { removed: 0 };
   const intent = await callStripe((s) => s.paymentIntents.retrieve(pi));
   const accountId = Number(intent.metadata?.accountId) || null;
-  const pack = packById(intent.metadata?.pack);
-  if (!accountId || !pack) return { removed: 0 };
-  const target = Math.min(
-    pack.credits,
-    Math.round((pack.credits * charge.amount_refunded) / charge.amount),
+  if (!accountId || !intent.metadata?.credits) return { removed: 0 };
+  const found = await callStripe((s) =>
+    s.checkout.sessions.list({ payment_intent: pi, limit: 1 }),
   );
+  const sessionId = found?.data?.[0]?.id ?? null;
   const result = await transaction(async (client) => {
+    const bought = sessionId
+      ? await client.query(
+          `SELECT change FROM credit_ledger
+            WHERE reason = 'purchase' AND ref = $1 AND account_id = $2`,
+          [sessionId, accountId],
+        )
+      : { rows: [] };
+    const purchased = Number(bought.rows[0]?.change ?? 0);
+    if (purchased <= 0) return { nothingAdded: true };
     const held = await client.query(
       `SELECT credits, display_name FROM accounts WHERE id = $1 FOR UPDATE`,
       [accountId],
     );
     const account = held.rows[0];
     if (!account) return null;
+    const target = Math.min(
+      purchased,
+      Math.round((purchased * charge.amount_refunded) / charge.amount),
+    );
     const taken = await client.query(
       `SELECT COALESCE(-SUM(change), 0) AS taken FROM credit_ledger
         WHERE reason = 'refund_purchase' AND split_part(ref, ':', 1) = $1`,
@@ -176,6 +198,16 @@ export async function applyRefund(charge) {
     return { removed, wanted, balance, name: account.display_name };
   });
   if (!result) return { removed: 0 };
+  if (result.nothingAdded) {
+    // activity_log.account_id references accounts, so a deleted id can't be logged.
+    await logActivity({
+      kind: "payment_problem",
+      accountId: (await getAccount(accountId)) ? accountId : null,
+      actorName: "Stripe",
+      text: `refund for ${pi} but no credits were added for it; nothing taken back`,
+    });
+    return { removed: 0 };
+  }
   await logActivity({
     kind: "credits_refund",
     accountId,
