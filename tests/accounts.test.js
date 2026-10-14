@@ -12,6 +12,7 @@ import {
   spendCredit,
 } from "../server/accounts.js";
 import { withCredit } from "../server/credits.js";
+import { emptyUsage, logUsage } from "../server/usage.js";
 import {
   readSession,
   sessionCookie,
@@ -284,4 +285,67 @@ test("admin removals take free credits first; grants are free", async () => {
   assert.equal(await paidOf(id), 10);
   assert.equal(await addCredits(id, 7, "admin:gift"), 17);
   assert.equal(await paidOf(id), 10);
+});
+
+const usageRows = (ledgerId) =>
+  db.sql`SELECT step, model, input, output, cost_usd, failed FROM ai_usage WHERE ledger_id = ${ledgerId}`;
+const lastSpend = async (id) =>
+  Number(
+    (
+      await db.sql`SELECT max(id) AS id FROM credit_ledger WHERE account_id = ${id} AND change = -1`
+    )[0].id,
+  );
+
+test("an AI job's usage is saved against the credit that paid for it", async () => {
+  const { id } = await findOrCreateAccount({ sub: "g-use-1", displayName: "Jo" });
+  const signedIn = req("/api/idea", {
+    headers: { cookie: sessionCookie(id, req("/")).split(";")[0] },
+  });
+  await withCredit(signedIn, "idea", async () => {
+    const total = { ...emptyUsage("claude-opus-5-5"), calls: 1, input: 1000, output: 200 };
+    logUsage("idea", total, { ms: 5 });
+    return { name: "Dish" };
+  });
+  const rows = await usageRows(await lastSpend(id));
+  assert.equal(rows.length, 1);
+  assert.deepEqual(
+    { step: rows[0].step, input: rows[0].input, output: rows[0].output, failed: rows[0].failed },
+    { step: "idea", input: 1000, output: 200, failed: false },
+  );
+  assert.equal(Number(rows[0].cost_usd), 0.008); // 1000×$4 + 200×$20 per million
+});
+
+test("a failed job's usage is saved as failed, and the credit comes back", async () => {
+  const { id } = await findOrCreateAccount({ sub: "g-use-2", displayName: "Kit" });
+  const signedIn = req("/api/recipe", {
+    headers: { cookie: sessionCookie(id, req("/")).split(";")[0] },
+  });
+  await assert.rejects(
+    withCredit(signedIn, "recipe", async () => {
+      logUsage("recipe", { ...emptyUsage("claude-opus-5-5"), calls: 1, input: 500 }, { failed: "no recipe" });
+      throw new Error("no recipe");
+    }),
+  );
+  const rows = await usageRows(await lastSpend(id));
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].failed, true);
+  assert.equal((await getAccount(id)).credits, 10);
+});
+
+test("a usage row that can't be saved doesn't break the job", async () => {
+  const { id } = await findOrCreateAccount({ sub: "g-use-3", displayName: "Lu" });
+  const signedIn = req("/api/idea", {
+    headers: { cookie: sessionCookie(id, req("/")).split(";")[0] },
+  });
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    const result = await withCredit(signedIn, "idea", async () => {
+      logUsage("not-a-step", emptyUsage("claude-opus-5-5")); // fails the CHECK
+      return { name: "Still fine" };
+    });
+    assert.equal(result.name, "Still fine");
+  } finally {
+    console.error = quiet;
+  }
 });

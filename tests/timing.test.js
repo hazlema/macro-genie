@@ -82,7 +82,9 @@ test("AI calls (moderation) show up as ai time", async () => {
     },
   };
   const quiet = console.log;
+  const quietError = console.error; // no database here, so the usage row can't save
   console.log = () => {};
+  console.error = () => {};
   try {
     const handler = withTiming(async () => {
       await moderate("comment", "hello", slowHaiku);
@@ -95,5 +97,6 @@ test("AI calls (moderation) show up as ai time", async () => {
     assert.ok(ai >= 25, header);
   } finally {
     console.log = quiet;
+    console.error = quietError;
   }
 });

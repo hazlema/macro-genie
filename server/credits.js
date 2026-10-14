@@ -2,6 +2,7 @@ import { getAccount, refundCredit, spendCredit } from "./accounts.js";
 import { UserFacingError } from "./chef.js";
 import { requireActive } from "./roles.js";
 import { readSession } from "./session.js";
+import { collectUsage, saveUsage } from "./usage.js";
 
 // Runs an AI job for the signed-in account, paid with one credit. The credit
 // is taken first and given back if the job fails, so no one pays for errors.
@@ -23,11 +24,14 @@ export async function withCredit(request, reason, job) {
       );
     throw new UserFacingError("Not enough credits.", 402);
   }
+  const lines = [];
   try {
-    const result = await job();
+    const result = await collectUsage(lines, job);
     return { ...result, credits: spend.credits };
   } catch (error) {
     await refundCredit(accountId, reason, spend.paid);
     throw error;
+  } finally {
+    await saveUsage(lines, spend.ledgerId);
   }
 }

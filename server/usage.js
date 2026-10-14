@@ -1,3 +1,10 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+import { database } from "./db.js";
+
+// The usage lines logged while a credit-paid job runs, so withCredit can
+// save them against the credit that paid.
+const collecting = new AsyncLocalStorage();
+
 // Approximate list prices in USD per million tokens (October 2026). Used for
 // cost logging only; the billing dashboard is the source of truth.
 export const PRICES = {
@@ -50,5 +57,24 @@ export function logUsage(step, total, extra = {}) {
     ...extra,
   };
   console.log(JSON.stringify(line));
+  collecting.getStore()?.push(line);
   return line;
+}
+
+export const collectUsage = (lines, work) => collecting.run(lines, work);
+
+// Saves usage lines for the Money tab. Never throws: a lost row only
+// makes the estimate a little low, while a thrown error would fail the job.
+export async function saveUsage(lines, ledgerId = null) {
+  for (const line of lines) {
+    try {
+      await database().sql`
+        INSERT INTO ai_usage (step, model, input, output, cache_read, cache_write, cost_usd, ledger_id, failed)
+        VALUES (${line.step}, ${line.model}, ${line.input}, ${line.output},
+                ${line.cacheRead}, ${line.cacheWrite}, ${line.costUsd},
+                ${ledgerId}, ${Boolean(line.failed)})`;
+    } catch (error) {
+      console.error("ai_usage:", error.message);
+    }
+  }
 }

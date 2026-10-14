@@ -1,5 +1,5 @@
 import { client } from "./chef.js";
-import { addUsage, emptyUsage, logUsage } from "./usage.js";
+import { addUsage, emptyUsage, logUsage, saveUsage } from "./usage.js";
 import { measure } from "./timing.js";
 
 // Haiku checks community posts, comments, and display names before they go
@@ -94,7 +94,8 @@ export async function moderate(kind, text, api) {
       "The automatic check couldn't run, so this waits for review.",
     );
   } finally {
-    logUsage("moderation", usage, { kind });
+    // Moderation never runs inside withCredit, so it saves its own line.
+    await saveUsage([logUsage("moderation", usage, { kind })]);
   }
 }
 

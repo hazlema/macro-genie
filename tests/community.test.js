@@ -148,6 +148,17 @@ test("moderation failures are held for review, never waved through", async () =>
   assert.equal(api.calls[0].model, "claude-haiku-5-5");
 });
 
+
+test("each moderation check saves a usage row without a credit", async () => {
+  const before = Number((await db.sql`SELECT count(*) AS n FROM ai_usage WHERE step = 'moderation'`)[0].n);
+  await moderate("comment", "hi", haiku("fine"));
+  await moderate("comment", "hi", haiku("throw"));
+  const rows = await db.sql`SELECT ledger_id FROM ai_usage WHERE step = 'moderation' ORDER BY id DESC LIMIT 2`;
+  const after = Number((await db.sql`SELECT count(*) AS n FROM ai_usage WHERE step = 'moderation'`)[0].n);
+  assert.equal(after - before, 2);
+  assert.ok(rows.every((r) => r.ledger_id === null));
+});
+
 test("Haiku sees link addresses hidden behind Markdown link text", async () => {
   const api = haiku("fine");
   await moderate(
