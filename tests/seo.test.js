@@ -171,6 +171,13 @@ test("hostile recipe text stays inert in head, body and JSON-LD", () => {
   assert.ok(html.includes("$&amp;"), "the $& stays literal (escaped)");
 });
 
+test("one serving reads in the singular", () => {
+  const html = postPage(TEMPLATE, { ...post, recipe: { ...recipe, servings: 1 } });
+  const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(ld.recipeYield, "1 serving");
+  assert.ok(html.includes("· 1 serving ·"));
+});
+
 test("postDescription is short and leads with the macros", () => {
   const d = postDescription({ ...post, recipe: { ...recipe, description: "word ".repeat(80) } });
   assert.ok(d.startsWith("Chicken Burrito Bowl · dinner · 520 cal · 45 g protein per serving."));

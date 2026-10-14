@@ -8,6 +8,7 @@ import { FIXED_PAGES, IMAGE, SHELL_PATH, SITE } from "../src/seo/pages.js";
 // plain app page for everything else, and the sitemap.
 
 const round = (n) => Math.round(Number(n) || 0);
+const servingsText = (n) => `${n} ${Number(n) === 1 ? "serving" : "servings"}`;
 const day = (date) => new Date(date).toISOString().slice(0, 10);
 // JSON inside <script>: "<" can't close the tag once it's <.
 const jsonLd = (value) => JSON.stringify(value).replace(/</g, "\\u003c");
@@ -31,7 +32,7 @@ function recipeLd(post, shown) {
     author: { "@type": "Person", name: post.author },
     datePublished: day(post.createdAt),
     recipeCategory: post.mealType,
-    recipeYield: `${post.recipe.servings} servings`,
+    recipeYield: servingsText(post.recipe.servings),
     recipeIngredient: shown.ingredients.map((i) => (i.prep ? `${i.text}, ${i.prep}` : i.text)),
     recipeInstructions: shown.steps.map((text) => ({ "@type": "HowToStep", text })),
     nutrition: {
@@ -53,7 +54,7 @@ export function postPage(template, post) {
     `<article>`,
     `<h1>${esc(post.name)}</h1>`,
     `<p>${esc(post.recipe.description ?? "")}</p>`,
-    `<p>${esc(post.mealType)} · ${esc(post.recipe.servings)} servings · per serving: ${round(n.calories)} cal, ${round(n.protein)} g protein, ${round(n.carbs)} g carbs, ${round(n.fat)} g fat</p>`,
+    `<p>${esc(post.mealType)} · ${esc(servingsText(post.recipe.servings))} · per serving: ${round(n.calories)} cal, ${round(n.protein)} g protein, ${round(n.carbs)} g carbs, ${round(n.fat)} g fat</p>`,
     `<h2>Ingredients</h2><ul>${shown.ingredients.map((i) => `<li>${esc(i.prep ? `${i.text}, ${i.prep}` : i.text)}</li>`).join("")}</ul>`,
     `<h2>Steps</h2><ol>${shown.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>`,
     `<p>Shared by ${esc(post.author)} on ${day(post.createdAt)}</p>`,
