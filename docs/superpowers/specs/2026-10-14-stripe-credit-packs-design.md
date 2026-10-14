@@ -108,7 +108,7 @@ Without `STRIPE_SECRET_KEY`, the /credits page still renders, and Buy returns "P
 ## Owner setup checklist
 
 1. Log into dashboard.stripe.com (the agentArcade account) and switch to **Test mode**. Copy the test secret key into `.env` as `STRIPE_SECRET_KEY`.
-2. Install the Stripe CLI, run `stripe login`, then `stripe listen --forward-to localhost:8888/api/stripe/webhook`. Put the printed `whsec_…` into `.env` as `STRIPE_WEBHOOK_SECRET`.
+2. Install the Stripe CLI, run `stripe login`, then `stripe listen --forward-to localhost:5173/api/stripe/webhook`. Put the printed `whsec_…` into `.env` as `STRIPE_WEBHOOK_SECRET`.
 3. Optional: change the account's public business name to "Macro Genie" so the checkout page and receipts show it rather than agentArcade, and set the support email and URL to macro-genie.com/contact.
 4. Before going live:
    - finish account activation (business details, bank, identity);
