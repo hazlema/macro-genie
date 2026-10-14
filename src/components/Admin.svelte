@@ -3,6 +3,7 @@
   import AdminUsers from './AdminUsers.svelte';
   import AdminLog from './AdminLog.svelte';
   import AdminInbox from './AdminInbox.svelte';
+  import AdminMoney from './AdminMoney.svelte';
   import { account, api } from '../lib/account.svelte.js';
   import { navigate } from '../lib/route.svelte.js';
 
@@ -10,7 +11,8 @@
   // the signed-in person can't use.
   let { adminTab = 'reviews' } = $props();
   let queue = $state(0);
-  const TABS = [['reviews', 'Reviews'], ['users', 'Users'], ['log', 'Log'], ['inbox', 'Inbox']];
+  const TABS = [['reviews', 'Reviews'], ['users', 'Users'], ['log', 'Log'], ['inbox', 'Inbox'], ['money', 'Money']];
+  const tabs = $derived(TABS.filter(([id]) => id !== 'money' || account.isAdmin));
   $effect(() => {
     if (!account.isMod) return;
     api('/api/community/counts').then((res) => { if (res.ok) queue = res.body.queue ?? 0; });
@@ -25,7 +27,7 @@
   {:else}
     <h1>Admin</h1>
     <div class="admin-tabs" role="tablist" aria-label="Admin sections">
-      {#each TABS as [id, label] (id)}
+      {#each tabs as [id, label] (id)}
         <button role="tab" aria-selected={adminTab === id} class:current={adminTab === id} onclick={() => navigate({ tab: 'admin', adminTab: id })}>{label}{#if id === 'reviews' && queue}<span class="queue-count" aria-label={`${queue} waiting`}>{queue}</span>{/if}</button>
       {/each}
     </div>
@@ -35,6 +37,8 @@
       <AdminLog />
     {:else if adminTab === 'inbox'}
       <AdminInbox />
+    {:else if adminTab === 'money' && account.isAdmin}
+      <AdminMoney />
     {:else}
       <ReviewQueue onchange={(count) => (queue = count)} />
     {/if}

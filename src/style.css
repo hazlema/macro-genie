@@ -3769,3 +3769,23 @@ dialog.dislikes[open] {
   margin-top: 8px;
   font-weight: 600;
 }
+
+/* Admin → Money */
+.admin-money { display: grid; gap: 0.75rem; min-width: 0; }
+.money-month { border: 1px solid var(--line); border-radius: 12px; padding: 0.25rem 1rem; background: var(--panel); }
+.money-month summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; padding: 0.75rem 0; cursor: pointer; font-weight: 600; }
+.money-net { font-variant-numeric: tabular-nums; }
+.money-net.loss { color: var(--coral); }
+.money-lines { width: 100%; border-collapse: collapse; }
+.money-lines th { text-align: left; font-weight: normal; padding: 0.3rem 0; overflow-wrap: anywhere; }
+.money-lines td { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 1rem; vertical-align: top; }
+.money-note { display: block; font-size: 0.85em; color: var(--muted); }
+.money-compare th, .money-compare td { font-style: italic; }
+.money-total th, .money-total td { border-top: 1px solid var(--line); font-weight: 600; padding-top: 0.5rem; }
+.money-stats { margin: 0.4rem 0; font-size: 0.95em; overflow-wrap: anywhere; }
+.money-costs { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+.money-costs li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; min-width: 0; overflow-wrap: anywhere; }
+.money-cost-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.money-cost-form { display: grid; gap: 0.6rem; max-width: 28rem; }
+.money-cost-form label { display: grid; gap: 0.25rem; }
+.money-cost-form input, .money-cost-form select { min-width: 0; max-width: 100%; }
