@@ -98,7 +98,7 @@ export class UserFacingError extends Error {
 const SYSTEM = `You design dishes for Macro Genie, a site where people find food by nutrition numbers. A person gives you per-serving nutrition targets, foods they want in the dish, and foods they won't eat. You propose one dish.
 
 How to work:
-1. Call find_foods once with every ingredient you are considering. The food data is USDA SR Legacy, so search with plain words in its style: "pumpkin canned", "cheese gruyere", "chicken thigh roasted", "cream heavy whipping", "egg whole raw".
+1. Decide what dish this is first, then the ingredients it needs. Call find_foods once with every ingredient you are considering. The food data is USDA SR Legacy, so search with plain words in its style: "pumpkin canned", "cheese gruyere", "chicken thigh roasted", "cream heavy whipping", "egg whole raw".
 2. Choose ingredients from the results by id. Give grams for the whole dish, not per serving.
 3. After you have the find_foods results, call submit_idea with the dish. That is your final answer. Never guess ids: only use ids that find_foods returned.
 
@@ -109,6 +109,7 @@ Rules:
 - Seasonings are for things with negligible calories only: salt, pepper, dried or fresh herbs, spices, garlic, vinegar, citrus zest, water. Everything with real calories must be an ingredient from find_foods.
 - Aim for amounts that roughly fit the targets. The site adjusts the grams afterwards to hit the numbers exactly, so don't do precise arithmetic.
 - It must taste great. Think about fat, acid, salt, texture, and browning.
+- Every food you add must suit the foods they asked for and each other, the way a cook would combine them. Never submit a dish you would rate "clashes" because of foods you chose: swap those foods first.
 - Name the dish the way a good menu would. The description is one sentence a hungry person would want to read.
 - Rate the pairing honestly, as a chef would, not to please them: "great" when cooks would recognize these flavors, seasons, and textures together; "mixed" when some parts are unusual but can work (say how); "clashes" when these foods rarely belong in one dish (for example summer fruit with fall squash). If the clash comes from foods they asked for, still rate it and name those foods.`;
 
@@ -239,7 +240,7 @@ export function ideaPrompt(request) {
     `Foods they want in it: ${wanted(request).join(", ") || "none named; surprise them"}`,
     `Foods they won't eat: ${request.dislikes.length ? request.dislikes.join(", ") : "none"}`,
     request.note ? `Their note: ${request.note}` : "",
-    `Variation: lean towards ${ANGLES[request.angle]}, unless that clashes with their note or foods.`,
+    `Variation: lean towards ${ANGLES[request.angle]}, unless that doesn't suit their note or foods; then choose a style that does.`,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -279,6 +280,13 @@ export function reviewSubmission(submission, request) {
       problems.push(`${food.name} needs grams greater than 0.`);
     else usable++;
   }
+  // A clash with fewer than two asked-for foods comes from foods the model
+  // picked itself, so it goes back to be fixed. With two or more, the clash
+  // may be the person's own combination, and the honest rating stands.
+  if (submission?.pairing === "clashes" && wanted(request).length < 2)
+    problems.push(
+      "You rated this dish clashes, but you chose the foods that clash. Swap them for foods that suit the dish and submit again.",
+    );
   return { problems, usable };
 }
 

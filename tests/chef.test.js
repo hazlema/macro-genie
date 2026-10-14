@@ -556,6 +556,49 @@ test("production uses CLAUDE_API_KEY straight to Anthropic, ignoring the gateway
   }
 });
 
+test("a clash from foods the AI chose goes back once to be fixed", async () => {
+  const quiet = console.log;
+  console.log = () => {};
+  try {
+    const submit = (pairing) =>
+      toolUse("t", "submit_idea", {
+        name: "Shrimp Bake",
+        description: "",
+        ingredients: [{ id: pumpkin.id, grams: 200, required: false }],
+        seasonings: [],
+        pairing,
+        pairing_note: "",
+      });
+    const shrimpOnly = { ...base, want: ["shrimp"], dislikes: [] };
+    const api = fakeApi([submit("clashes"), submit("great")]);
+    const idea = await generateIdea(shrimpOnly, api);
+    assert.equal(api.calls.length, 2);
+    assert.equal(idea.pairing, "great");
+    const reply = api.calls[1].messages.at(-1).content[0];
+    assert.equal(reply.is_error, true);
+    assert.match(reply.content, /you chose/i);
+
+    // Nothing named at all: every food is the AI's pick.
+    const none = fakeApi([submit("clashes"), submit("mixed")]);
+    assert.equal((await generateIdea({ ...shrimpOnly, want: [] }, none)).pairing, "mixed");
+    assert.equal(none.calls.length, 2);
+
+    // Two or more named foods: the clash may be theirs, so it stands.
+    const two = fakeApi([submit("clashes")]);
+    const theirs = await generateIdea({ ...shrimpOnly, want: ["shrimp", "strawberries"] }, two);
+    assert.equal(two.calls.length, 1);
+    assert.equal(theirs.pairing, "clashes");
+
+    // A clash on the last allowed turn is accepted rather than failing.
+    const stubborn = fakeApi(Array.from({ length: 5 }, () => submit("clashes")));
+    const last = await generateIdea(shrimpOnly, stubborn);
+    assert.equal(stubborn.calls.length, 5);
+    assert.equal(last.pairing, "clashes");
+  } finally {
+    console.log = quiet;
+  }
+});
+
 test("each idea carries an honest pairing rating; there are four variations", async () => {
   const quiet = console.log;
   console.log = () => {};
