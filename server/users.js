@@ -2,6 +2,7 @@ import { addCredits } from "./accounts.js";
 import { logActivity } from "./activity.js";
 import { UserFacingError } from "./chef.js";
 import { database, transaction } from "./db.js";
+import { purgePost } from "./seo.js";
 import { isOwnerSub, requireAdmin, requireMod } from "./roles.js";
 
 // What mods and admins can do to an account from the Users tab. Every action
@@ -96,6 +97,7 @@ export async function removeCommunityContent(actorId, id) {
   const actor = await requireMod(actorId);
   const t = await target(id);
   guard(actor, actorId, t);
+  let removedIds = [];
   const counts = await transaction(async (c) => {
     const posts = await c.query(
       `UPDATE posts SET status = 'removed', moderation_note = 'Removed by a moderator'
@@ -123,11 +125,13 @@ export async function removeCommunityContent(actorId, id) {
           `UPDATE posts SET comment_count = GREATEST(comment_count - $2, 0) WHERE id = $1`,
           [r.post_id, r.live],
         );
+    removedIds = posts.rows.map((r) => Number(r.id));
     return {
       posts: posts.rowCount,
       comments: comments.rows.reduce((sum, r) => sum + r.n, 0),
     };
   });
+  await purgePost(removedIds);
   await note(
     actorId,
     actor,
@@ -205,7 +209,10 @@ export async function deleteAndBan(actorId, id, confirm) {
   guard(actor, actorId, t);
   if (String(confirm ?? "").trim() !== t.display_name)
     throw new UserFacingError("Type their display name exactly to confirm.");
+  let postIds = [];
   await transaction(async (c) => {
+    const owned = await c.query(`SELECT id FROM posts WHERE account_id = $1`, [id]);
+    postIds = owned.rows.map((r) => Number(r.id));
     // Cascading deletes would leave their likes and live comments counted on
     // other people's posts, so take those off first.
     await c.query(
@@ -227,6 +234,7 @@ export async function deleteAndBan(actorId, id, confirm) {
     );
     await c.query(`DELETE FROM accounts WHERE id = $1`, [id]);
   });
+  await purgePost(postIds);
   await note(actorId, actor, `deleted and banned ${t.display_name}`);
   return { deleted: true };
 }

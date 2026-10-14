@@ -21,6 +21,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "@netlify/functions": "^6.0.2",
     "@tiptap/core": "^3.31.4",
     "@tiptap/extension-emoji": "^3.31.4",
     "@tiptap/extensions": "^3.31.4",

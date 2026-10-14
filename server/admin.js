@@ -2,6 +2,7 @@ import { UserFacingError } from "./chef.js";
 import { database, transaction } from "./db.js";
 import { logActivity } from "./activity.js";
 import { roleOf } from "./roles.js";
+import { purgePost } from "./seo.js";
 import { guard } from "./users.js";
 
 // Everything waiting for a decision: held and blocked posts and comments,
@@ -103,6 +104,7 @@ export async function decide(type, id, action, actorId = null) {
       );
     return { status: next, authorId: Number(row.account_id) };
   });
+  if (type === "post") await purgePost(id);
   if (action === "suspend") {
     const [actor, author] = await Promise.all([
       roleOf(actorId),

@@ -17,6 +17,7 @@ import {
   toggleLike,
 } from "../server/community.js";
 import { decide } from "../server/admin.js";
+import { usePurge } from "../server/seo.js";
 import {
   adjustCredits,
   deleteAndBan,
@@ -34,6 +35,7 @@ import {
 
 let server;
 let db;
+let purged = [];
 
 before(async () => {
   server = new NetlifyDB();
@@ -42,6 +44,7 @@ before(async () => {
   db = connect(connectionString);
   useDatabase(db);
   process.env.SESSION_SECRET = "z".repeat(40);
+  usePurge(async (tags) => purged.push(...tags));
 });
 after(async () => {
   await db?.pool.end();
@@ -556,4 +559,32 @@ test("inbox endpoints: mods list and mark messages; others can't", async () => {
     status: "done",
   });
   assert.deepEqual(await done.json(), { status: "done" });
+});
+
+test("removing a user's posts or deleting them clears every one of their pages", async () => {
+  const { mod, admin } = await staff();
+  const post = (who, title) =>
+    createThread(who.id, { board: "general", title, body: "x" }, fine);
+  const troll = await person("Troll");
+  const a = await post(troll, "Troll one");
+  const b = await post(troll, "Troll two");
+  purged = [];
+  await removeCommunityContent(mod.id, troll.id);
+  assert.ok([a.id, b.id].every((id) => purged.includes(`post-${id}`)));
+
+  const gone = await person("Purged", "purged-sub");
+  const c = await post(gone, "Gone one");
+  const d = await post(gone, "Gone two");
+  purged = [];
+  await deleteAndBan(admin.id, gone.id, "Purged");
+  assert.ok([c.id, d.id].every((id) => purged.includes(`post-${id}`)));
+});
+
+test("suspending from the queue clears the post's page", async () => {
+  const { admin } = await staff();
+  const author = await person("Suspendee");
+  const post = await createThread(author.id, { board: "general", title: "Bad one", body: "x" }, fine);
+  purged = [];
+  await decide("post", post.id, "suspend", admin.id);
+  assert.ok(purged.includes(`post-${post.id}`));
 });

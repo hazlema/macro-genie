@@ -1,3 +1,4 @@
+import { purgeCache } from "@netlify/functions";
 import { database } from "./db.js";
 import { renderRecipe } from "../src/lib/scale.js";
 import { esc, withBody, withHead } from "../src/seo/head.js";
@@ -149,5 +150,27 @@ export async function recordPageBuild(ms) {
         SET builds = page_builds.builds + 1, ms = page_builds.ms + EXCLUDED.ms`;
   } catch (error) {
     console.error("page_builds:", error.message);
+  }
+}
+
+// Only the real Netlify runtime has a CDN to clear.
+let purge = async (tags) => {
+  if (process.env.MACRO_GENIE_LOCAL || !process.env.NETLIFY_PURGE_API_TOKEN) return;
+  await purgeCache({ tags });
+};
+export function usePurge(fn) {
+  purge = fn;
+}
+
+// After a post goes live, comes down or is deleted: its page and the
+// sitemap are rebuilt on the next visit. Never throws; a missed purge
+// leaves the old copy for a day at most.
+export async function purgePost(ids) {
+  const list = [ids].flat().map(Number).filter((n) => Number.isSafeInteger(n) && n > 0);
+  if (!list.length) return;
+  try {
+    await purge([...list.map((id) => `post-${id}`), "sitemap"]);
+  } catch (error) {
+    console.error("purge:", error.message);
   }
 }

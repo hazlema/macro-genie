@@ -7,6 +7,7 @@ import { findFoods, normalizeDataset } from "../src/lib/foods.js";
 import { connect, useDatabase } from "../server/db.js";
 import { findOrCreateAccount } from "../server/accounts.js";
 import { moderate } from "../server/moderate.js";
+import { usePurge } from "../server/seo.js";
 import {
   addComment,
   checkPost,
@@ -30,6 +31,7 @@ const pumpkin = findFoods(foods, "pumpkin canned without salt")[0];
 const gruyere = findFoods(foods, "cheese gruyere")[0];
 let server;
 let db;
+let purged = [];
 
 before(async () => {
   server = new NetlifyDB();
@@ -38,6 +40,7 @@ before(async () => {
   db = connect(connectionString);
   useDatabase(db);
   process.env.SESSION_SECRET = "y".repeat(40);
+  usePurge(async (tags) => purged.push(...tags));
 });
 after(async () => {
   await db?.pool.end();
@@ -730,4 +733,52 @@ test("recipe posts and problems reach the admin log; ordinary forum posts don't"
   assert.equal(reportEntry.kind, "report");
   assert.equal(reportEntry.text, "reported a post: Spam or advertising");
   assert.equal(reportEntry.link, `/community/${shared.id}`);
+});
+
+test("pages are cleared when a post is created, removed or decided, but not for likes or comments", async () => {
+  const ada = await person("Purger");
+  const fresh = async (verdict) => {
+    purged = [];
+    return createPost(ada.id, recipe(), { mealType: "dinner" }, haiku(verdict));
+  };
+  const live = await fresh("fine");
+  assert.ok(purged.includes(`post-${live.id}`), "live post");
+  const held = await fresh("unsure");
+  assert.ok(purged.includes(`post-${held.id}`), "held post");
+
+  purged = [];
+  await toggleLike((await person("Liker")).id, live.id);
+  await addComment((await person("Talker")).id, live.id, "nice", haiku("fine"));
+  assert.deepEqual(purged, [], "likes and comments leave pages alone");
+
+  purged = [];
+  await removeOwnPost(ada.id, live.id);
+  assert.ok(purged.includes(`post-${live.id}`));
+
+  for (const action of ["approve", "remove"]) {
+    const who = await person(`Dec ${action}`);
+    const post = await createPost(who.id, recipe(), { mealType: "dinner" }, haiku("unsure"));
+    purged = [];
+    await decide("post", post.id, action);
+    assert.ok(purged.includes(`post-${post.id}`), action);
+  }
+});
+
+test("deciding a comment clears nothing, and a failed purge doesn't fail the request", async () => {
+  const ada = await person("Quiet");
+  const post = await createPost(ada.id, recipe(), { mealType: "dinner" }, haiku("fine"));
+  const comment = await addComment(ada.id, post.id, "hello", haiku("unsure"));
+  purged = [];
+  await decide("comment", comment.id, "approve");
+  assert.deepEqual(purged, []);
+
+  const quiet = console.error;
+  console.error = () => {};
+  usePurge(async () => { throw new Error("x"); });
+  try {
+    await removeOwnPost(ada.id, post.id);
+  } finally {
+    console.error = quiet;
+    usePurge(async (tags) => purged.push(...tags));
+  }
 });

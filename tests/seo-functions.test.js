@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { NetlifyDB } from "@netlify/database-dev";
 import { connect, useDatabase } from "../server/db.js";
 import { findOrCreateAccount } from "../server/accounts.js";
-import { useTemplate } from "../server/seo.js";
+import { purgePost, usePurge, useTemplate } from "../server/seo.js";
 import seoPost from "../netlify/functions/seo-post.js";
 import * as seoMod from "../netlify/functions/seo-post.js";
 import * as sitemapMod from "../netlify/functions/sitemap.js";
@@ -138,4 +138,22 @@ test("HEAD requests are answered", async () => {
   const res = await seoPost(new Request(`https://macro-genie.com/community/${id}`, { method: "HEAD" }));
   assert.equal(res.status, 200);
   for (const mod of [seoMod, sitemapMod]) assert.ok(mod.config.method.includes("HEAD") && mod.config.method.includes("GET"));
+});
+
+test("purgePost clears each post and the sitemap, and never throws", async () => {
+  const seen = [];
+  usePurge(async (tags) => { seen.push(tags); });
+  await purgePost(5);
+  await purgePost([6, 7]);
+  assert.deepEqual(seen, [["post-5", "sitemap"], ["post-6", "post-7", "sitemap"]]);
+  await purgePost([]);
+  assert.equal(seen.length, 2, "nothing to clear, no call");
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    usePurge(async () => { throw new Error("netlify down"); });
+    await purgePost(8); // resolves
+  } finally {
+    console.error = quiet;
+  }
 });

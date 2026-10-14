@@ -7,6 +7,7 @@ import { database, transaction } from "./db.js";
 import { MEAL_TYPES, moderate, recipeForReview } from "./moderate.js";
 import { requireActive } from "./roles.js";
 import { heldText, logActivity } from "./activity.js";
+import { purgePost } from "./seo.js";
 
 // ---------------------------------------------------------------- recipes
 
@@ -182,6 +183,7 @@ export async function createPost(
     RETURNING id, status`;
   const id = Number(rows[0].id);
   const status = rows[0].status;
+  await purgePost(id);
   await logActivity(
     status === "live"
       ? {
@@ -408,6 +410,7 @@ export async function removeOwnPost(accountId, postId) {
   const rows = await database()
     .sql`UPDATE posts SET status = 'removed' WHERE id = ${postId} AND account_id = ${accountId} AND status <> 'removed' RETURNING id`;
   if (!rows[0]) throw new UserFacingError("That post wasn't found.", 404);
+  await purgePost(postId);
 }
 
 // Likes toggle. Only live posts can be liked.
