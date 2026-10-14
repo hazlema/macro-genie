@@ -782,3 +782,15 @@ test("deciding a comment clears nothing, and a failed purge doesn't fail the req
     usePurge(async (tags) => purged.push(...tags));
   }
 });
+
+test("a post hidden by reports clears its page and the sitemap; a lone report clears nothing", async () => {
+  const ada = await person("Reported");
+  const post = await createPost(ada.id, recipe(), { mealType: "dinner" }, haiku("fine"));
+  const [r1, r2, r3] = await Promise.all([person("P1"), person("P2"), person("P3")]);
+  purged = [];
+  await report(r1.id, "post", post.id);
+  await report(r2.id, "post", post.id);
+  assert.deepEqual(purged, []);
+  await report(r3.id, "post", post.id);
+  assert.deepEqual(purged, [`post-${post.id}`, "sitemap"]);
+});

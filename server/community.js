@@ -570,6 +570,7 @@ export async function report(accountId, type, targetId, reason = "") {
       );
     return { hidden: !!hidden.rows[0] };
   });
+  if (type === "post" && result.hidden) await purgePost(targetId);
   const postId =
     type === "post"
       ? targetId
