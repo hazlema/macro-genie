@@ -22,7 +22,7 @@ Without it, everything works except the Recipe Builder's ideas and recipe writin
 To try credit purchases locally, delete any leftover `dist/` folder before `npm run dev`: the Netlify dev plugin otherwise serves the old built `index.html` for redirected paths such as `/credits`. With Stripe test keys in `.env`, run this in a second terminal to forward webhooks to the dev server:
 
 ```sh
-stripe listen --forward-to localhost:5173/api/stripe/webhook
+stripe listen --forward-to localhost:5173/api/stripe/webhook --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,charge.refunded
 ```
 
 Copy the `whsec_…` signing secret that `stripe listen` prints into `.env` as `STRIPE_WEBHOOK_SECRET`.
