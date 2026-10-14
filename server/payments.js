@@ -1,3 +1,5 @@
+import { addCredits, getAccount } from "./accounts.js";
+import { logActivity } from "./activity.js";
 import { UserFacingError } from "./chef.js";
 import { packById } from "./packs.js";
 import { requireActive } from "./roles.js";
@@ -54,4 +56,74 @@ export async function startCheckout(accountId, packId, origin) {
     }),
   );
   return { url: session.url };
+}
+
+const balanceOf = async (accountId) =>
+  accountId ? ((await getAccount(accountId))?.credits ?? 0) : 0;
+
+// Adds a paid checkout's credits. The webhook and the return page both call
+// this; the ledger's unique (reason, ref) means only the first one counts.
+// Only Stripe's own copy of the session is trusted, never the browser.
+export async function fulfill(sessionOrId) {
+  const session =
+    typeof sessionOrId === "string"
+      ? await callStripe((s) => s.checkout.sessions.retrieve(sessionOrId))
+      : sessionOrId;
+  const accountId = Number(session.metadata?.accountId) || null;
+  if (session.payment_status !== "paid")
+    return { paid: false, purchased: 0, credits: await balanceOf(accountId) };
+  const pack = packById(session.metadata?.pack);
+  const problem = (text) =>
+    logActivity({ kind: "payment_problem", accountId, actorName: "Stripe", text });
+  if (
+    !accountId ||
+    !pack ||
+    pack.credits !== Number(session.metadata?.credits) ||
+    pack.cents !== session.amount_total ||
+    session.currency !== "usd"
+  ) {
+    await problem(
+      `paid checkout ${session.id} (${session.amount_total} ${session.currency}) doesn't match a pack; no credits added`,
+    );
+    return { paid: true, purchased: 0, credits: await balanceOf(accountId) };
+  }
+  const account = await getAccount(accountId);
+  if (!account) {
+    // activity_log.account_id references accounts, so a deleted id can't be logged.
+    await logActivity({
+      kind: "payment_problem",
+      accountId: null,
+      actorName: "Stripe",
+      text: `paid checkout ${session.id} is for account ${accountId}, which no longer exists; refund it in Stripe`,
+    });
+    return { paid: true, purchased: 0, credits: 0 };
+  }
+  const after = await addCredits(accountId, pack.credits, "purchase", session.id);
+  if (after !== null)
+    await logActivity({
+      kind: "credits_purchase",
+      accountId,
+      actorName: account.displayName,
+      text: `bought ${pack.credits} credits (${dollars(pack.cents)})`,
+    });
+  return {
+    paid: true,
+    purchased: pack.credits,
+    credits: after ?? (await balanceOf(accountId)),
+  };
+}
+
+// The page Stripe sends people back to asks for its credits right away, so
+// they don't wait on the webhook. Only the buyer may confirm their checkout.
+export async function confirmPurchase(accountId, sessionId) {
+  if (!accountId) throw new UserFacingError("Sign in to see your purchase.", 401);
+  const id = String(sessionId ?? "");
+  if (!/^cs_[A-Za-z0-9_]{1,200}$/.test(id))
+    throw new UserFacingError("That payment link isn't valid.", 400);
+  const session = await callStripe((s) => s.checkout.sessions.retrieve(id), {
+    missing: "That payment wasn't found.",
+  });
+  if (Number(session.metadata?.accountId) !== accountId)
+    throw new UserFacingError("That payment belongs to another account.", 403);
+  return fulfill(session);
 }

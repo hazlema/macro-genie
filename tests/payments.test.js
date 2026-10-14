@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import Stripe from "stripe";
 import { NetlifyDB } from "@netlify/database-dev";
 import { connect, useDatabase } from "../server/db.js";
-import { findOrCreateAccount } from "../server/accounts.js";
+import { findOrCreateAccount, getAccount } from "../server/accounts.js";
+import { listActivity } from "../server/activity.js";
 import { PACKS, packById } from "../server/packs.js";
 import { useStripe } from "../server/stripe.js";
-import { startCheckout } from "../server/payments.js";
+import { confirmPurchase, fulfill, startCheckout } from "../server/payments.js";
 
 const WEBHOOK_SECRET = "whsec_test_secret";
 // The real library only signs and checks webhook payloads; nothing calls Stripe.
@@ -151,4 +152,94 @@ test("no Stripe key, or Stripe down, gives a plain 'unavailable' message", async
     },
   });
   await rejectsWith(startCheckout(id, "small", "https://x.test"), 503, /unavailable/);
+});
+
+// A Checkout session as Stripe returns it once paid.
+const paidSession = (id, accountId, packId = "medium", over = {}) => {
+  const pack = packById(packId);
+  return {
+    id,
+    payment_status: "paid",
+    amount_total: pack.cents,
+    currency: "usd",
+    metadata: {
+      accountId: String(accountId),
+      pack: pack.id,
+      credits: String(pack.credits),
+    },
+    ...over,
+  };
+};
+const ledger = (ref) =>
+  db.sql`SELECT change, reason FROM credit_ledger WHERE ref = ${ref}`;
+
+test("a paid checkout adds its credits once, however many times it's fulfilled", async () => {
+  const { id } = await newAccount("Quinn");
+  fake.sessions.set("cs_test_a", paidSession("cs_test_a", id));
+  assert.deepEqual(await fulfill("cs_test_a"), { paid: true, purchased: 50, credits: 60 });
+  assert.deepEqual(await fulfill("cs_test_a"), { paid: true, purchased: 50, credits: 60 });
+  assert.equal((await getAccount(id)).credits, 60);
+  assert.deepEqual(await ledger("cs_test_a"), [{ change: 50, reason: "purchase" }]);
+  const log = await listActivity({ chip: "credits" });
+  assert.equal(log.entries.filter((e) => e.text === "bought 50 credits ($6)").length, 1);
+  assert.equal(log.entries[0].name, "Quinn");
+});
+
+test("the webhook and the return page arriving together still add credits once", async () => {
+  const { id } = await newAccount();
+  fake.sessions.set("cs_test_race", paidSession("cs_test_race", id, "large"));
+  await Promise.all([
+    fulfill("cs_test_race"),
+    fulfill("cs_test_race"),
+    confirmPurchase(id, "cs_test_race"),
+  ]);
+  assert.equal((await getAccount(id)).credits, 130);
+});
+
+test("an unpaid checkout adds nothing", async () => {
+  const { id } = await newAccount();
+  fake.sessions.set(
+    "cs_test_unpaid",
+    paidSession("cs_test_unpaid", id, "small", { payment_status: "unpaid" }),
+  );
+  assert.deepEqual(await fulfill("cs_test_unpaid"), { paid: false, purchased: 0, credits: 10 });
+  assert.equal((await ledger("cs_test_unpaid")).length, 0);
+});
+
+test("a paid amount that doesn't match its pack adds nothing and is logged as a problem", async () => {
+  const { id } = await newAccount();
+  fake.sessions.set(
+    "cs_test_odd",
+    paidSession("cs_test_odd", id, "large", { amount_total: 300 }),
+  );
+  assert.deepEqual(await fulfill("cs_test_odd"), { paid: true, purchased: 0, credits: 10 });
+  const problems = await listActivity({ chip: "problems" });
+  assert.equal(problems.entries[0].kind, "payment_problem");
+  assert.match(problems.entries[0].text, /cs_test_odd/);
+});
+
+test("a payment for an account that was deleted is logged, not added", async () => {
+  const { id } = await newAccount();
+  fake.sessions.set("cs_test_gone", paidSession("cs_test_gone", id));
+  await db.sql`DELETE FROM accounts WHERE id = ${id}`;
+  assert.deepEqual(await fulfill("cs_test_gone"), { paid: true, purchased: 0, credits: 0 });
+  assert.match((await listActivity({ chip: "problems" })).entries[0].text, /no longer exists/);
+});
+
+test("the return page only confirms the signed-in account's own, real checkout", async () => {
+  const owner = await newAccount();
+  const other = await newAccount();
+  fake.sessions.set("cs_test_mine", paidSession("cs_test_mine", owner.id, "small"));
+  await rejectsWith(confirmPurchase(null, "cs_test_mine"), 401);
+  await rejectsWith(confirmPurchase(other.id, "cs_test_mine"), 403);
+  await rejectsWith(confirmPurchase(owner.id, "cs_test_nope"), 404, /wasn't found/);
+  const before = fake.calls;
+  await rejectsWith(confirmPurchase(owner.id, "../../etc"), 400);
+  await rejectsWith(confirmPurchase(owner.id, undefined), 400);
+  assert.equal(fake.calls, before, "junk ids never reach Stripe");
+  assert.deepEqual(await confirmPurchase(owner.id, "cs_test_mine"), {
+    paid: true,
+    purchased: 20,
+    credits: 30,
+  });
 });
