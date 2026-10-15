@@ -1924,6 +1924,210 @@ dialog.dislikes[open] {
 .print-only {
   display: none;
 }
+
+/* Shopping list */
+.shop-entry {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.shop-entry .outline-button {
+  justify-self: start;
+}
+.pick-intro {
+  font-size: 14px;
+  margin: 0 0 16px;
+}
+.pick-row {
+  display: grid;
+  gap: 6px;
+}
+.saved-list .pick-card {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  border-color: var(--line);
+}
+.saved-list .pick-card.picked {
+  background: var(--panel);
+  border-color: #c2db7560;
+}
+.saved-list .pick-card:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.pick-box,
+.shop-box {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--muted);
+  border-radius: 6px;
+  color: #151819;
+  font-size: 14px;
+  font-weight: 700;
+}
+.picked .pick-box,
+.checked .shop-box {
+  background: var(--lime);
+  border-color: var(--lime);
+}
+.pick-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.pick-servings {
+  justify-self: start;
+  margin-left: 48px;
+}
+.saved-list .pick-servings button {
+  display: block;
+  width: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  text-align: center;
+}
+.pick-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 0;
+  background: #111415;
+}
+.pick-actions p {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 14px;
+}
+.shop-card .card-head h2 {
+  margin-bottom: 6px;
+}
+.shop-items {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+.shop-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.shop-tick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 0;
+  padding: 14px 4px;
+  text-align: left;
+  font-size: 16px;
+}
+.shop-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.shop-text small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.checked .shop-text > span {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.shop-tools {
+  display: flex;
+  flex: none;
+}
+.shop-tools .text-button {
+  padding: 10px 6px;
+}
+.shop-edit,
+.shop-add {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+}
+.shop-edit input,
+.shop-add input {
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+}
+.shop-add {
+  margin-top: 8px;
+}
+.shop-done {
+  margin: 18px 0 0;
+  color: var(--muted);
+}
+.shop-got-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 26px;
+}
+.shop-got-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+@media (max-width: 760px) {
+  .shop-item {
+    flex-wrap: wrap;
+    gap: 0;
+  }
+  .shop-tick {
+    flex-basis: 100%;
+    padding-bottom: 4px;
+  }
+  .shop-tools {
+    margin: 0 0 6px 32px;
+  }
+}
+@media print {
+  .print-list {
+    color: #111;
+    font-size: 12pt;
+  }
+  .print-list h2 {
+    margin: 0 0 4px;
+  }
+  .print-list p {
+    margin: 0 0 14px;
+    color: #333;
+  }
+  .print-list ul {
+    list-style: "☐  ";
+    padding-left: 1.4em;
+    columns: 2;
+  }
+  .print-list li {
+    padding: 3px 0;
+    break-inside: avoid;
+  }
+}
 @media (max-width: 1250px) {
   .card-nutrition {
     grid-template-columns: repeat(3, minmax(0, 1fr));

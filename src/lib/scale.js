@@ -59,12 +59,15 @@ function pluralize(unit, qty) {
     return unit === "cup" && qty > 1 ? "cups" : unit;
   }
   // Pluralize the last word: "medium onion" -> "medium onions".
+  // A word that's already plural ("slices") stays as it is.
   return unit.replace(/(\w+)$/, (word) =>
-    /(s|x|ch|sh)$/.test(word)
-      ? `${word}es`
-      : /[^aeiou]y$/.test(word)
-        ? `${word.slice(0, -1)}ies`
-        : `${word}s`,
+    /[^s]s$/.test(word)
+      ? word
+      : /(s|x|ch|sh)$/.test(word)
+        ? `${word}es`
+        : /[^aeiou]y$/.test(word)
+          ? `${word.slice(0, -1)}ies`
+          : `${word}s`,
   );
 }
 
@@ -101,6 +104,24 @@ function measureParts(qty, unit, factor) {
   return { qty: formatQty(amount), unit: pluralize(name, amount) };
 }
 
+// The same singular word for a counted unit: "onions" and "onion" match.
+const countedKey = (unit) =>
+  singularUnit(unit)
+    .replace(/ies$/, "y")
+    .replace(/(ch|sh|x)es$/, "$1")
+    .replace(/s$/, "");
+
+// A measure expressed in another unit, or null when they can't be compared:
+// (2, "tsp", "tbsp") -> ⅔, (2, "onions", "onion") -> 2, (1, "cup", "g") -> null.
+export function measureIn(qty, unit, to) {
+  if (!unit || !to) return null;
+  const from = singularUnit(unit);
+  const target = singularUnit(to);
+  if (from === target || countedKey(unit) === countedKey(to)) return qty;
+  const ladder = LADDERS.find((l) => from in l && target in l);
+  return ladder ? (qty * ladder[from]) / ladder[target] : null;
+}
+
 const ingredientAmount = (ingredient, factor, part = 1) =>
   scaleMeasure(ingredient.qty, ingredient.unit, factor * part) ??
   `${Math.round(ingredient.grams * factor * part)} g`;
@@ -119,7 +140,7 @@ const nounOf = (text) =>
 
 // "3 egg" + "large eggs" reads "3 large eggs", not "3 eggs large eggs": when
 // the label already names the counted thing, the count goes in front of it.
-function ingredientLine(ing, label, factor) {
+export function ingredientLine(ing, label, factor) {
   if (
     ing.qty > 0 &&
     isCounted(ing.unit) &&

@@ -202,4 +202,5 @@
 <DislikesModal bind:open={dislikesOpen} foods={dataset?.foods ?? []} />
 <LoginModal />
 
-<div class="print-only">{#if printJob.recipe}<RecipeCard recipe={printJob.recipe} servings={printJob.servings ?? printJob.recipe.servings} scalable={false} />{/if}</div>
+<div class="print-only">{#if printJob.recipe}<RecipeCard recipe={printJob.recipe} servings={printJob.servings ?? printJob.recipe.servings} scalable={false} />
+{:else if printJob.list}<article class="print-list"><h2>Shopping list</h2><p>For {printJob.list.recipes.map(r => r.name).join(', ')}</p><ul>{#each printJob.list.items.filter(i => !i.checked) as item}<li>{item.text}</li>{/each}</ul></article>{/if}</div>

@@ -4,7 +4,8 @@
 //   /community         Community; /community/42  one post or thread
 //   /foods             Food Macros
 //   /builder           Recipe Builder
-//   /recipes           Recipe Book; /recipes/<id>  one saved recipe (this browser)
+//   /recipes           Recipe Book; /recipes/<id>  one saved recipe (this browser);
+//                      /recipes/shopping  the shopping list
 //   /admin             Admin (Reviews); /admin/users, /admin/log, /admin/inbox, /admin/money
 //   /help, /help/<guide>   Help;  /terms /refunds /privacy /contact   policies
 //   /credits           Get more credits (Stripe Checkout returns here)

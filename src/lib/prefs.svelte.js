@@ -1,9 +1,16 @@
 import { untrack } from "svelte";
 import { isSavedRecipe } from "./recipe.js";
 
-// Browser-only settings: dislikes, the recipe in progress, and saved recipes.
+// Browser-only settings: dislikes, the recipe in progress, saved recipes, and
+// the shopping list.
 // Nothing leaves the device.
 const KEY = "macro-genie:prefs:v1";
+
+const isShoppingList = (l) =>
+  !!l &&
+  Array.isArray(l.recipes) &&
+  Array.isArray(l.items) &&
+  l.items.every((i) => typeof i?.id === "string" && typeof i.text === "string");
 
 function load() {
   try {
@@ -18,9 +25,16 @@ function load() {
       recipes: Array.isArray(saved.recipes)
         ? saved.recipes.filter(isSavedRecipe)
         : [],
+      shopping: isShoppingList(saved.shopping) ? saved.shopping : null,
     };
   } catch {
-    return { dislikes: [], hideOnFoods: false, draft: null, recipes: [] };
+    return {
+      dislikes: [],
+      hideOnFoods: false,
+      draft: null,
+      recipes: [],
+      shopping: null,
+    };
   }
 }
 
@@ -77,4 +91,22 @@ export function updateRecipe(id, recipe) {
     r.id === id ? { ...recipe, id: r.id, savedAt: r.savedAt } : r,
   );
   return save();
+}
+
+// One shopping list at a time; building a new one replaces it.
+export function setShopping(list) {
+  const before = prefs.shopping;
+  prefs.shopping = list;
+  if (save()) return true;
+  prefs.shopping = before;
+  return false;
+}
+
+// Ticks, edits, additions and removals. The list is marked as touched so a
+// rebuild asks before throwing that work away.
+export function changeShopping(change) {
+  if (!prefs.shopping) return;
+  change(prefs.shopping);
+  prefs.shopping.touched = true;
+  save();
 }

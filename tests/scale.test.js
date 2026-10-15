@@ -171,3 +171,8 @@ test("Copy ingredients gives one line per ingredient at the shown servings, read
     4,
   );
 });
+
+test("a counted unit that's already plural isn't pluralized again", () => {
+  assert.equal(scaleMeasure(4, "slices", 1), "4 slices");
+  assert.equal(scaleMeasure(2, "glass", 1), "2 glasses");
+});
