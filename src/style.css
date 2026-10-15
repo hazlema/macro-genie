@@ -196,6 +196,14 @@ aside {
 .filter-content {
   position: sticky;
   top: 28px;
+  /* Taller than the window: it scrolls on its own, so the controls at the
+     bottom (Foods you won't eat, Clear all) are always reachable. */
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-inline: 4px;
+  margin-inline: -4px;
 }
 .filter-heading {
   display: flex;
@@ -305,6 +313,14 @@ h1 {
   font-size: 13px;
   color: var(--muted);
   margin: 26px 0 10px;
+}
+.presets-label a {
+  float: right;
+  color: var(--lime);
+  text-decoration: none;
+}
+.presets-label a:hover {
+  text-decoration: underline;
 }
 #category {
   width: 100%;
@@ -835,6 +851,9 @@ footer p:first-child span {
   .filter-content {
     display: none;
     position: static;
+    max-height: none;
+    overflow: visible;
+    margin-inline: 0;
     padding: 0 20px 22px;
   }
   .mobile-open .filter-content {

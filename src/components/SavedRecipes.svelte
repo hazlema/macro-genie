@@ -138,7 +138,7 @@
                   <span class="pick-box" aria-hidden="true">{picked ? '✓' : ''}</span>
                   <span class="pick-text">
                     <span class="saved-name">{r.name}</span>
-                    <span class="saved-facts">{canShop(r) ? `Serves ${r.servings}` : 'Saved as text. Rewrite it to add it to a list.'}</span>
+                    <span class="saved-facts">{canShop(r) ? `Serves ${r.shownServings ?? r.servings}` : 'Saved as text. Rewrite it to add it to a list.'}</span>
                   </span>
                 </button>
                 {#if picked}
@@ -152,7 +152,7 @@
             {:else}
               <li><button class:current={selected?.id === r.id} aria-current={selected?.id === r.id ? 'true' : undefined} onclick={() => pick(r.id)}>
                 <span class="saved-name">{r.name}</span>
-                <span class="saved-facts">Serves {r.servings}, {formatAmount(r.perServing?.calories)} kcal and {formatAmount(r.perServing?.protein)} g protein each</span>
+                <span class="saved-facts">Serves {r.shownServings ?? r.servings}, {formatAmount(r.perServing?.calories)} kcal and {formatAmount(r.perServing?.protein)} g protein each</span>
                 <span class="saved-date">Saved {savedOn(r.savedAt)}</span>
               </button></li>
             {/if}

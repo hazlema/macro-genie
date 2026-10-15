@@ -5,6 +5,7 @@ import { GUIDES, guideBySlug } from "../src/help/index.js";
 
 const SLUGS = [
   "start",
+  "basics",
   "macros",
   "builder",
   "credits",
@@ -15,7 +16,7 @@ const SLUGS = [
   "faq",
 ];
 
-test("the hub lists the nine guides in order, each findable by slug", () => {
+test("the hub lists the ten guides in order, each findable by slug", () => {
   assert.deepEqual(
     GUIDES.map((g) => g.slug),
     SLUGS,

@@ -145,7 +145,7 @@
           <option value="all">All foods</option>
           {#each categories as [id, name]}<option value={id}>{name}</option>{/each}
         </select>
-        <p class="presets-label">A starting point</p>
+        <p class="presets-label">A starting point <a href="/help/basics" onclick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); navigate({ tab: 'help', helpSlug: 'basics' }); scrollTo(0, 0); }}>New to macros?</a></p>
         <div class="presets">
           {#each PRESETS as preset}<button class:chosen={activePreset === preset.name} aria-pressed={activePreset === preset.name} onclick={() => applyPreset(preset)}>{preset.name}</button>{/each}
         </div>

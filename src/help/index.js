@@ -1,4 +1,5 @@
 import start from "./start.js";
+import basics from "./basics.js";
 import macros from "./macros.js";
 import builder from "./builder.js";
 import credits from "./credits.js";
@@ -11,6 +12,7 @@ import faq from "./faq.js";
 // Hub order.
 export const GUIDES = [
   start,
+  basics,
   macros,
   builder,
   credits,

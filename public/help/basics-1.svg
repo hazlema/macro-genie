@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#111415"/>
+  <g font-family="DM Sans, sans-serif">
+    <text x="80" y="128" font-size="58" font-weight="650" fill="#e6e8e4" letter-spacing="-1.5">New to macros?</text>
+    <text x="80" y="180" font-size="28" fill="#969d98">What the numbers on every food mean</text>
+    <g transform="translate(80 250)">
+      <rect width="355" height="180" rx="22" fill="#1a1e20" stroke="#2b3134" stroke-width="2"/>
+      <text x="32" y="58" font-size="26" fill="#969d98">Protein</text>
+      <text x="32" y="128" font-size="64" font-weight="650" fill="#c2db75">4<tspan font-size="28" fill="#969d98" font-weight="450"> kcal / g</tspan></text>
+    </g>
+    <g transform="translate(462 250)">
+      <rect width="355" height="180" rx="22" fill="#1a1e20" stroke="#2b3134" stroke-width="2"/>
+      <text x="32" y="58" font-size="26" fill="#969d98">Net carbs</text>
+      <text x="32" y="128" font-size="64" font-weight="650" fill="#71d5a5">4<tspan font-size="28" fill="#969d98" font-weight="450"> kcal / g</tspan></text>
+    </g>
+    <g transform="translate(844 250)">
+      <rect width="355" height="180" rx="22" fill="#1a1e20" stroke="#2b3134" stroke-width="2"/>
+      <text x="32" y="58" font-size="26" fill="#969d98">Fat</text>
+      <text x="32" y="128" font-size="64" font-weight="650" fill="#e9bd65">9<tspan font-size="28" fill="#969d98" font-weight="450"> kcal / g</tspan></text>
+    </g>
+    <g transform="translate(80 466)">
+      <rect width="1119" height="150" rx="22" fill="#1a1e20" stroke="#2b3134" stroke-width="2"/>
+      <text x="32" y="66" font-size="28" fill="#e6e8e4">Start with one or two limits, per meal.</text>
+      <text x="32" y="112" font-size="24" fill="#969d98">General guidelines, not medical advice.</text>
+    </g>
+  </g>
+</svg>
