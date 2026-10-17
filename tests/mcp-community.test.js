@@ -7,7 +7,7 @@ import raw from "../foods.json" with { type: "json" };
 import { findFoods, normalizeDataset } from "../src/lib/foods.js";
 import { connect, useDatabase } from "../server/db.js";
 import { findOrCreateAccount } from "../server/accounts.js";
-import { createPost } from "../server/community.js";
+import { createPost, createThread } from "../server/community.js";
 import { createMcpServer } from "../mcp/server.js";
 
 const { foods } = normalizeDataset(raw);
@@ -58,7 +58,7 @@ const recipe = (overrides = {}) => ({
     { id: gruyere.id, grams: 120, label: "Gruyère", qty: null, unit: "", prep: "grated" },
   ],
   seasonings: ["nutmeg"],
-  steps: ["Bake {1} pumpkin with {2} Gruyère."],
+  steps: ["Bake {1} pumpkin with {2} Gruyère.", "Heat {2:1/2} Gruyère and {1:1/4} pumpkin, then the rest."],
   tip: "",
   ...overrides,
 });
@@ -113,7 +113,11 @@ test("search_community finds live recipes by words and macros, and get_community
     assert.deepEqual(full.data.ingredients.map((i) => i.name), ["canned pumpkin", "Gruyère"]);
     assert.equal(full.data.ingredients[0].grams, 230);
     assert.deepEqual(full.data.seasonings, ["nutmeg"]);
-    assert.deepEqual(full.data.method, ["Bake 1 cup (230 g) pumpkin with 120 g Gruyère."]);
+    assert.deepEqual(full.data.method, [
+      "Bake 1 cup pumpkin with 120 g Gruyère.",
+      "Heat 60 g Gruyère and ¼ cup pumpkin, then the rest.",
+    ], "steps read as the site shows them, parts included");
+    assert.equal(full.data.ingredients[0].text, "1 cup canned pumpkin");
     assert.equal(full.data.url, `https://macro-genie.com/community/${live.id}`);
 
     for (const id of [held.id, 999999]) {
@@ -122,4 +126,29 @@ test("search_community finds live recipes by words and macros, and get_community
       assert.equal(miss.data.error, "That recipe isn't in the community.");
     }
   });
+});
+
+test("forum threads are never recipes, and real errors don't leak their text", async () => {
+  const bob = await findOrCreateAccount({ sub: "mcp-bob", displayName: "Bob" });
+  const thread = await createThread(bob.id, { board: "general", title: "Hello all", body: "First post." }, haiku("fine"));
+  assert.equal(thread.status, "live");
+  await withClient(async (client) => {
+    const miss = await call(client, "get_community_recipe", { id: thread.id });
+    assert.equal(miss.isError, true);
+    assert.equal(miss.data.error, "That recipe isn't in the community.");
+    const listed = await call(client, "search_community", { query: "hello" });
+    assert.deepEqual(listed.data.recipes, []);
+  });
+  const broken = connect("postgres://nobody:nope@127.0.0.1:1/none");
+  useDatabase(broken);
+  try {
+    await withClient(async (client) => {
+      const down = await call(client, "search_community", { query: "soup" });
+      assert.equal(down.isError, true);
+      assert.equal(down.data.error, "Community search isn't available on this server.");
+    });
+  } finally {
+    await broken.pool.end().catch(() => {});
+    useDatabase(db);
+  }
 });

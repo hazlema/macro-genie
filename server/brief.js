@@ -24,18 +24,25 @@ export async function buildBrief(now = new Date()) {
   const since = new Date(now.getTime() - DAY);
   const health = await checkHealth();
   const sections = { health, problems: null, people: null, inbox: null, moderation: null, log: null };
+  // A section that fails is reported and left null; the rest still go out.
+  const failed = [];
   if (health.database.ok) {
     const db = database();
-    const [problems, people, inbox, moderation, log] = await Promise.all([
-      problemsSince(db, since),
-      peopleSince(db, since),
-      inboxNow(db),
-      moderationNow(),
-      logSince(db, since),
-    ]);
-    Object.assign(sections, { problems, people, inbox, moderation, log });
+    const work = {
+      problems: problemsSince(db, since),
+      people: peopleSince(db, since),
+      inbox: inboxNow(db),
+      moderation: moderationNow(),
+      log: logSince(db, since),
+    };
+    const names = Object.keys(work);
+    const results = await Promise.allSettled(Object.values(work));
+    results.forEach((result, i) => {
+      if (result.status === "fulfilled") sections[names[i]] = result.value;
+      else failed.push(names[i]);
+    });
   }
-  const attention = attentionLines(sections);
+  const attention = attentionLines(sections, failed);
   return {
     site: SITE.name,
     url: SITE.url,
@@ -158,12 +165,13 @@ async function logSince(db, since) {
 }
 
 // Short, countable facts, in a fixed order: health, problems, inbox, queue.
-function attentionLines({ health, problems, inbox, moderation }) {
+function attentionLines({ health, problems, inbox, moderation }, failed = []) {
   const lines = [];
   if (!health.database.ok) lines.push("Database unreachable");
   if (!health.googleSignIn) lines.push("Google sign-in not configured");
   if (!health.stripe) lines.push("Stripe key not set");
   if (!health.anthropic) lines.push("Anthropic key not set");
+  for (const name of failed) lines.push(`Brief section ${name} failed`);
   if (problems) {
     if (problems.failedAiJobs) lines.push(`${plural(problems.failedAiJobs, "AI job")} failed`);
     if (problems.paymentProblems) lines.push(plural(problems.paymentProblems, "payment problem"));

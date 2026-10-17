@@ -142,3 +142,23 @@ test("with the database unreachable the brief still answers and says so first", 
     useDatabase(db);
   }
 });
+
+test("one failing section is reported, not fatal", async () => {
+  useDatabase({
+    pool: db.pool,
+    sql: (strings, ...values) =>
+      strings.join("?").includes("FROM messages")
+        ? Promise.reject(new Error("boom"))
+        : db.sql(strings, ...values),
+  });
+  try {
+    const brief = await buildBrief();
+    assert.equal(brief.status, "attention");
+    assert.ok(brief.attention.includes("Brief section inbox failed"), brief.attention.join(" | "));
+    assert.equal(brief.sections.inbox, null);
+    assert.ok(brief.sections.people, "the other sections are still there");
+    assert.ok(brief.sections.moderation);
+  } finally {
+    useDatabase(db);
+  }
+});

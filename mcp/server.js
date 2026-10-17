@@ -12,6 +12,8 @@ import {
 } from "../src/lib/foods.js";
 import { expandDislikes, solveRecipe } from "../src/lib/recipe.js";
 import { getPost, listPosts } from "../server/community.js";
+import { UserFacingError } from "../server/chef.js";
+import { renderRecipe } from "../src/lib/scale.js";
 import { MEAL_TYPES } from "../server/moderate.js";
 
 const dataset = normalizeDataset(raw);
@@ -78,8 +80,11 @@ const communityRanges = z
   .strict()
   .optional();
 const NO_COMMUNITY = "Community search isn't available on this server.";
+const NOT_A_RECIPE = "That recipe isn't in the community.";
+// Only messages written for people go out; anything else (no database,
+// a connection error) becomes the one generic line.
 const communityError = (error) => ({
-  ...reply({ error: /DATABASE_URL/.test(error.message) ? NO_COMMUNITY : error.message }),
+  ...reply({ error: error instanceof UserFacingError ? error.message : NO_COMMUNITY }),
   isError: true,
 });
 const round1 = (n) => (typeof n === "number" ? Math.round(n * 10) / 10 : null);
@@ -99,29 +104,26 @@ const summarizePost = (post) => ({
   ),
   url: `${SITE}/community/${post.id}`,
 });
-// "1 cup (230 g)" or "120 g": what the site shows in place of a step's {n}.
-const amountText = (i) => (i.qty ? `${i.qty} ${i.unit} (${i.grams} g)` : `${i.grams} g`);
+// The whole recipe, with ingredient lines and steps rendered the way the
+// site shows them ("1 cup canned pumpkin", "{2:1/2}" → "60 g Gruyère").
 const fullPost = (post) => {
-  const r = post.recipe ?? {};
-  const ingredients = (r.ingredients ?? []).map((i) => ({
-    name: i.label || i.name,
-    food: i.name,
-    grams: i.grams,
-    qty: i.qty ?? null,
-    unit: i.unit ?? "",
-    prep: i.prep ?? "",
-  }));
+  if (post.kind !== "recipe" || !post.recipe) throw new UserFacingError(NOT_A_RECIPE, 404);
+  const r = post.recipe;
+  const shown = renderRecipe(r);
   return {
     ...summarizePost(post),
     servings: r.servings,
-    ingredients,
+    ingredients: (r.ingredients ?? []).map((i, index) => ({
+      name: i.label || i.name,
+      food: i.name,
+      text: shown.ingredients[index]?.text ?? `${i.grams} g ${i.label || i.name}`,
+      grams: i.grams,
+      qty: i.qty ?? null,
+      unit: i.unit ?? "",
+      prep: i.prep ?? "",
+    })),
     seasonings: r.seasonings ?? [],
-    method: (r.steps ?? []).map((step) =>
-      step.replace(/\{(\d+)\}/g, (match, n) => {
-        const i = ingredients[Number(n) - 1];
-        return i ? amountText(i) : match;
-      }),
-    ),
+    method: shown.steps,
     tip: r.tip || "",
   };
 };
