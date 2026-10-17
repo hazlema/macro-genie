@@ -68,7 +68,10 @@ async function checkHealth() {
     database: db,
     googleSignIn: !!process.env.GOOGLE_CLIENT_ID,
     stripe: !!process.env.STRIPE_SECRET_KEY,
-    anthropic: !!process.env.ANTHROPIC_API_KEY,
+    // The same rule as server/chef.js: under npm run dev the local key is used.
+    anthropic: !!(process.env.MACRO_GENIE_LOCAL
+      ? process.env.MACRO_GENIE_LOCAL_KEY
+      : process.env.ANTHROPIC_API_KEY),
   };
 }
 

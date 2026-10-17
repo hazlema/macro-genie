@@ -162,3 +162,24 @@ test("one failing section is reported, not fatal", async () => {
     useDatabase(db);
   }
 });
+
+test("the Anthropic check follows the same key rule as the chef: local key under npm run dev", async () => {
+  const saved = { ...process.env };
+  try {
+    delete process.env.ANTHROPIC_API_KEY;
+    process.env.MACRO_GENIE_LOCAL = "1";
+    process.env.MACRO_GENIE_LOCAL_KEY = "local-key";
+    assert.equal((await buildBrief()).sections.health.anthropic, true, "local dev with a local key");
+    process.env.MACRO_GENIE_LOCAL_KEY = "";
+    assert.equal((await buildBrief()).sections.health.anthropic, false, "local dev without a key");
+    delete process.env.MACRO_GENIE_LOCAL;
+    assert.equal((await buildBrief()).sections.health.anthropic, false, "production without a key");
+    process.env.ANTHROPIC_API_KEY = "a";
+    assert.equal((await buildBrief()).sections.health.anthropic, true, "production with a key");
+  } finally {
+    for (const k of ["ANTHROPIC_API_KEY", "MACRO_GENIE_LOCAL", "MACRO_GENIE_LOCAL_KEY"]) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  }
+});
