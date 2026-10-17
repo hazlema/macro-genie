@@ -15,8 +15,10 @@ test("MCP exposes searchable serving values and retrievable food details", async
     await client.connect(b);
     const listed = await client.listTools();
     assert.deepEqual(listed.tools.map((t) => t.name).sort(), [
+      "get_community_recipe",
       "get_food_details",
       "list_food_categories",
+      "search_community",
       "search_foods",
       "size_recipe",
     ]);
@@ -141,4 +143,31 @@ test("the MCP function answers OPTIONS with 204 and non-POST with 405", async ()
   const get = await handler(new Request("https://example.com/mcp", { method: "GET" }));
   assert.equal(get.status, 405);
   assert.equal(get.headers.get("allow"), "POST, OPTIONS");
+});
+
+test("community tools say so plainly when there is no database", async () => {
+  delete process.env.DATABASE_URL;
+  const { useDatabase } = await import("../server/db.js");
+  useDatabase(null);
+  const server = createMcpServer();
+  const client = new Client({ name: "test", version: "1.0.0" });
+  const [a, b] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(a);
+    await client.connect(b);
+    for (const call of [
+      { name: "search_community", arguments: { query: "soup" } },
+      { name: "get_community_recipe", arguments: { id: 1 } },
+    ]) {
+      const result = await client.callTool(call);
+      assert.equal(result.isError, true, call.name);
+      assert.equal(
+        JSON.parse(result.content[0].text).error,
+        "Community search isn't available on this server.",
+      );
+    }
+  } finally {
+    await client.close();
+    await server.close();
+  }
 });

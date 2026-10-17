@@ -11,6 +11,8 @@ import {
   withBasis,
 } from "../src/lib/foods.js";
 import { expandDislikes, solveRecipe } from "../src/lib/recipe.js";
+import { getPost, listPosts } from "../server/community.js";
+import { MEAL_TYPES } from "../server/moderate.js";
 
 const dataset = normalizeDataset(raw);
 const exclude = z
@@ -61,6 +63,68 @@ const metadata = (basis) => ({
   excludedWithoutServing: dataset.excluded,
   notes: `${basis === "100g" ? "Nutrients are per 100 g; the listed serving is included for reference." : "Each food uses its own listed serving size."} Null means not reported; unknown nutrients never match an active range. Net carbs = max(0, total carbs - fiber). IDs are local to this dataset version, not USDA FDC IDs.`,
 });
+
+const SITE = "https://macro-genie.com";
+const COMMUNITY_NUTRIENTS = ["calories", "protein", "netCarbs", "fat", "sugar", "sodium"];
+const communityRanges = z
+  .object(
+    Object.fromEntries(
+      COMMUNITY_NUTRIENTS.map((key) => [
+        key,
+        range.optional().describe(`${units[key] ? `${key} in ${units[key]}` : key} per serving`),
+      ]),
+    ),
+  )
+  .strict()
+  .optional();
+const NO_COMMUNITY = "Community search isn't available on this server.";
+const communityError = (error) => ({
+  ...reply({ error: /DATABASE_URL/.test(error.message) ? NO_COMMUNITY : error.message }),
+  isError: true,
+});
+const round1 = (n) => (typeof n === "number" ? Math.round(n * 10) / 10 : null);
+// The post as an AI should see it: the recipe's description and per-serving
+// numbers, plus where to find it on the site.
+const summarizePost = (post) => ({
+  id: post.id,
+  name: post.name,
+  meal: post.mealType,
+  author: post.author,
+  postedAt: post.createdAt,
+  likes: post.likes,
+  comments: post.comments,
+  description: post.recipe?.description ?? "",
+  perServing: Object.fromEntries(
+    COMMUNITY_NUTRIENTS.map((key) => [key, round1(post.recipe?.perServing?.[key])]),
+  ),
+  url: `${SITE}/community/${post.id}`,
+});
+// "1 cup (230 g)" or "120 g": what the site shows in place of a step's {n}.
+const amountText = (i) => (i.qty ? `${i.qty} ${i.unit} (${i.grams} g)` : `${i.grams} g`);
+const fullPost = (post) => {
+  const r = post.recipe ?? {};
+  const ingredients = (r.ingredients ?? []).map((i) => ({
+    name: i.label || i.name,
+    food: i.name,
+    grams: i.grams,
+    qty: i.qty ?? null,
+    unit: i.unit ?? "",
+    prep: i.prep ?? "",
+  }));
+  return {
+    ...summarizePost(post),
+    servings: r.servings,
+    ingredients,
+    seasonings: r.seasonings ?? [],
+    method: (r.steps ?? []).map((step) =>
+      step.replace(/\{(\d+)\}/g, (match, n) => {
+        const i = ingredients[Number(n) - 1];
+        return i ? amountText(i) : match;
+      }),
+    ),
+    tip: r.tip || "",
+  };
+};
 
 export function createMcpServer() {
   const server = new McpServer({ name: "macro-genie", version: "0.4.0" });
@@ -206,6 +270,58 @@ export function createMcpServer() {
         });
       } catch (error) {
         return { ...reply({ error: error.message }), isError: true };
+      }
+    },
+  );
+  server.registerTool(
+    "search_community",
+    {
+      description:
+        "Find recipes people have shared on Macro Genie's Community. Filter by words in the name or description, meal type, and per-serving nutrient ranges. Returns a page of live recipes with their per-serving nutrition and a link; use get_community_recipe for the full ingredients and method.",
+      inputSchema: {
+        query: z
+          .string()
+          .max(100)
+          .optional()
+          .describe("Words that must all appear in the recipe's name or description"),
+        meal: z.enum(["all", ...MEAL_TYPES]).default("all"),
+        ranges: communityRanges,
+        sort: z.enum(["new", "liked"]).default("new"),
+        limit: z.number().int().min(1).max(20).default(10),
+        offset: z.number().int().nonnegative().default(0),
+      },
+      annotations,
+    },
+    async ({ query, meal, ranges, sort, limit, offset }) => {
+      try {
+        const { posts, more } = await listPosts({ query, meal, ranges: ranges ?? {}, sort, offset });
+        return reply({
+          basis: "per serving",
+          units: Object.fromEntries(COMMUNITY_NUTRIENTS.map((key) => [key, units[key]])),
+          total: null,
+          offset,
+          limit,
+          more: more || posts.length > limit,
+          recipes: posts.slice(0, limit).map(summarizePost),
+        });
+      } catch (error) {
+        return communityError(error);
+      }
+    },
+  );
+  server.registerTool(
+    "get_community_recipe",
+    {
+      description:
+        "One Community recipe in full: servings, ingredients with gram amounts, method, seasonings, and per-serving nutrition. Use the id from search_community.",
+      inputSchema: { id: z.number().int().positive() },
+      annotations,
+    },
+    async ({ id }) => {
+      try {
+        return reply(fullPost(await getPost(id)));
+      } catch (error) {
+        return communityError(error);
       }
     },
   );
