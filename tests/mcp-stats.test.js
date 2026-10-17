@@ -36,7 +36,7 @@ test("the stats function is a plain 404 without the right token", async () => {
   assert.equal(get.status, 405);
 });
 
-test("with the token, the stats server lists exactly morning_brief over HTTP", async () => {
+test("with the token, the stats server lists exactly get_stats over HTTP", async () => {
   process.env.STATS_TOKEN = TOKEN;
   const client = new Client({ name: "stats-test", version: "1.0.0" });
   const transport = new StreamableHTTPClientTransport(new URL(`https://example.com/mcp/stats/${TOKEN}`), {
@@ -45,13 +45,13 @@ test("with the token, the stats server lists exactly morning_brief over HTTP", a
   try {
     await client.connect(transport);
     const listed = await client.listTools();
-    assert.deepEqual(listed.tools.map((t) => t.name), ["morning_brief"]);
+    assert.deepEqual(listed.tools.map((t) => t.name), ["get_stats"]);
   } finally {
     await client.close();
   }
 });
 
-test("morning_brief answers even with no database, and says so first", async () => {
+test("get_stats answers even with no database, and says so first", async () => {
   delete process.env.DATABASE_URL;
   useDatabase(null);
   const server = createStatsServer();
@@ -60,13 +60,13 @@ test("morning_brief answers even with no database, and says so first", async () 
   try {
     await server.connect(a);
     await client.connect(b);
-    const result = await client.callTool({ name: "morning_brief", arguments: {} });
+    const result = await client.callTool({ name: "get_stats", arguments: {} });
     assert.ok(!result.isError);
     const brief = JSON.parse(result.content[0].text);
     assert.equal(brief.site, "Macro Genie");
     assert.equal(brief.status, "attention");
     assert.equal(brief.attention[0], "Database unreachable");
-    assert.equal(brief.sections.people, null);
+    assert.equal(brief.metrics, null);
   } finally {
     await client.close();
     await server.close();

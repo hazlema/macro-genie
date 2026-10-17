@@ -59,6 +59,8 @@ The public server's food tools stay database-free. The two community tools call 
 
 ### The envelope (the cross-site standard)
 
+> Superseded on the same day: the envelope became `{ site, url, generatedAt, period, status, attention, notable, summary, metrics, details }` with daily counts as `{ yesterday, avg7 }`, levels as `{ value }`, server-computed `notable` lines, money included, and the tool renamed `get_stats`. The living contract is `docs/stats-mcp.md`.
+
 ```json
 {
   "site": "Macro Genie",
