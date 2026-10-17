@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#111415"/>
+  <g font-family="DM Sans, sans-serif" font-size="25" fill="#e6e8e4">
+    <g transform="translate(60 96)"><circle r="18" fill="#c2db75"/><text y="10" text-anchor="middle" font-size="26" font-weight="700" fill="#111415">?</text><text x="40" y="9">How accurate are the numbers?</text></g>
+    <g transform="translate(60 200)"><circle r="18" fill="#c2db75"/><text y="10" text-anchor="middle" font-size="26" font-weight="700" fill="#111415">?</text><text x="40" y="9">Why did an ingredient shrink?</text></g>
+    <g transform="translate(60 304)"><circle r="18" fill="#c2db75"/><text y="10" text-anchor="middle" font-size="26" font-weight="700" fill="#111415">?</text><text x="40" y="9">How do I delete my data?</text></g>
+  </g>
+</svg>

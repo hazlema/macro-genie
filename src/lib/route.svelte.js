@@ -1,3 +1,5 @@
+import { FIXED_PAGES } from "../seo/pages.js";
+
 // The address bar is the source of truth for where you are, so any page can
 // be bookmarked, shared, refreshed, and reached with Back/Forward.
 //   /                  Home, the landing page
@@ -39,7 +41,7 @@ export function parse(pathname) {
         : PAGES.includes(section)
           ? "page"
           : section
-            ? (TABS[section] ?? "community")
+            ? (TABS[section] ?? "home")
             : "home";
   return {
     tab,
@@ -69,6 +71,24 @@ export function pathFor({
   if (tab === "saved" && recipeId)
     return `/recipes/${encodeURIComponent(recipeId)}`;
   return PATHS[tab] ?? "/";
+}
+
+// The tab title for a route: the prerendered page's title where there is one,
+// so a page reads the same whether it was loaded directly or reached in-app.
+const SECTION_TITLES = {
+  "/recipes": "Recipe Book — Macro Genie",
+  "/credits": "Get credits — Macro Genie",
+  "/admin": "Admin — Macro Genie",
+};
+export function titleFor(r) {
+  const path = pathFor(r);
+  const section = `/${path.split("/")[1] ?? ""}`;
+  return (
+    FIXED_PAGES.find((p) => p.path === path)?.title ??
+    FIXED_PAGES.find((p) => p.path === section)?.title ??
+    SECTION_TITLES[section] ??
+    "Macro Genie — Food by your numbers"
+  );
 }
 
 export const route = $state(parse(location.pathname));

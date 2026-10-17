@@ -2,7 +2,8 @@ export default {
   slug: "macros",
   title: "Set your macros",
   summary: "Ranges, per serving vs per 100 g, presets, and the phone panel.",
-  thumb: "/help/macros-1.png",
+  category: "Basics",
+  thumb: "/help/thumbs/macros.webp",
   intro:
     "Every page that filters by nutrition uses the same table: a **Min** and a **Max** for protein, net carbs, calories, fat, sugar, and sodium.",
   steps: [

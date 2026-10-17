@@ -1,4 +1,5 @@
 <script>
+  import FooterLinks from './FooterLinks.svelte';
   import HelpGuide from './HelpGuide.svelte';
   import { GUIDES, guideBySlug } from '../help/index.js';
   import { navigate } from '../lib/route.svelte.js';
@@ -25,17 +26,15 @@
         <li>
           <a class="help-card" href={`/help/${g.slug}`} onclick={(e) => go(e, { tab: 'help', helpSlug: g.slug })}>
             <img src={g.thumb} alt="" loading="lazy" />
-            <strong>{g.title}</strong>
-            <span>{g.summary}</span>
+            <div class="help-card-text">
+              <p class="help-card-meta"><span class={`help-category ${g.category.toLowerCase()}`}>{g.category}</span>{#if g.startHere}<span class="help-start">Start here</span>{/if}</p>
+              <strong>{g.cardTitle ?? g.title}</strong>
+              <span class="help-card-summary">{g.summary}</span>
+            </div>
           </a>
         </li>
       {/each}
     </ul>
-    <p class="help-policies">
-      <a href="/terms" onclick={(e) => go(e, { tab: 'page', page: 'terms' })}>Terms</a>
-      <a href="/refunds" onclick={(e) => go(e, { tab: 'page', page: 'refunds' })}>Refunds</a>
-      <a href="/privacy" onclick={(e) => go(e, { tab: 'page', page: 'privacy' })}>Privacy</a>
-      <a href="/contact" onclick={(e) => go(e, { tab: 'page', page: 'contact' })}>Contact us</a>
-    </p>
   {/if}
+  <footer><p>Food by your numbers. <span>Nutrition from the USDA SR Legacy database.</span></p><FooterLinks /></footer>
 </main>

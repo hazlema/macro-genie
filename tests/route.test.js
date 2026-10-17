@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 globalThis.location = { pathname: "/" };
 globalThis.addEventListener = () => {};
 globalThis.$state = (v) => v;
-const { parse, pathFor } = await import("../src/lib/route.svelte.js").catch(
+const { parse, pathFor, titleFor } = await import("../src/lib/route.svelte.js").catch(
   () => ({}),
 );
 
@@ -36,7 +36,7 @@ test(
       recipeId: null,
     });
     assert.equal(parse("/community/not-a-number").postId, null);
-    assert.equal(parse("/nonsense").tab, "community");
+    assert.equal(parse("/nonsense").tab, "home");
     assert.equal(pathFor({ tab: "community", postId: 7 }), "/community/7");
     assert.equal(pathFor({ tab: "home" }), "/");
     assert.equal(pathFor({ tab: "saved", recipeId: "a b" }), "/recipes/a%20b");
@@ -84,5 +84,18 @@ test(
       recipeId: null,
     });
     assert.equal(pathFor({ tab: "credits" }), "/credits");
+  },
+);
+
+test(
+  "tab titles match the prerendered pages",
+  { skip: !titleFor && "needs the Svelte compiler" },
+  () => {
+    assert.equal(titleFor(parse("/")), "Macro Genie — Your macros, granted");
+    assert.equal(titleFor(parse("/help/start")), "Getting started — Macro Genie");
+    assert.equal(titleFor(parse("/community/42")), "Community Recipes — Macro Genie");
+    assert.equal(titleFor(parse("/recipes/abc")), "Recipe Book — Macro Genie");
+    assert.equal(titleFor(parse("/credits")), "Get credits — Macro Genie");
+    assert.equal(titleFor(parse("/nonsense")), "Macro Genie — Your macros, granted");
   },
 );

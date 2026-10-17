@@ -2,7 +2,8 @@ export default {
   slug: "community",
   title: "The Community",
   summary: "Browse, filter by macros, post recipes, and comment.",
-  thumb: "/help/community-1.png",
+  category: "Recipes",
+  thumb: "/help/thumbs/community.webp",
   intro:
     "Anyone can browse. Posting, liking, commenting, and reporting need an account.",
   steps: [

@@ -2,7 +2,8 @@ export default {
   slug: "basics",
   title: "New to macros?",
   summary: "What the numbers mean, and how to pick a place to start.",
-  thumb: "/help/basics-1.svg",
+  category: "Basics",
+  thumb: "/help/thumbs/basics.svg",
   intro:
     "Macros are the **protein**, **carbohydrate** and **fat** in food. You don't need to know your exact numbers to use Macro Genie: start with one or two limits and adjust as you go.\n\nThese are general guidelines to help you learn the terms. We are not doctors, dietitians or other medical professionals, and nothing here is medical advice.",
   steps: [

@@ -3739,14 +3739,13 @@ dialog.dislikes[open] {
   margin: 0 0 28px;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 .help-card {
   display: grid;
-  gap: 6px;
+  grid-template-columns: 40% 1fr;
   height: 100%;
-  padding: 0 0 16px;
   overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -3759,31 +3758,89 @@ dialog.dislikes[open] {
 }
 .help-card img {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 100%;
+  min-height: 132px;
+  aspect-ratio: 3 / 2;
   object-fit: cover;
-  object-position: top left;
-  border-bottom: 1px solid var(--line);
+  background: #111415;
+  border-right: 1px solid var(--line);
 }
-.help-card strong,
-.help-card span {
-  padding: 0 16px;
+.help-card-text {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 18px 20px;
 }
-.help-card span {
+.help-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.help-category {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lime);
+}
+.help-category.recipes {
+  color: var(--green);
+}
+.help-category.integrations {
+  color: #8fb8e8;
+}
+.help-start {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: #111415;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.help-card strong {
+  font-size: 18px;
+  line-height: 1.25;
+}
+.help-card-summary {
   color: var(--muted);
   font-size: 14px;
 }
-.help-policies,
+@media (max-width: 760px) {
+  .help-cards {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 520px) {
+  .help-card {
+    grid-template-columns: 34% 1fr;
+  }
+  .help-card img {
+    min-height: 0;
+    object-position: left center;
+  }
+  .help-card-text {
+    padding: 14px;
+  }
+  .help-card strong {
+    font-size: 16px;
+  }
+  .help-card-summary {
+    font-size: 13px;
+  }
+}
 .footer-links {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 16px;
   font-size: 13px;
 }
-.help-policies a,
 .footer-links a {
   color: var(--muted);
 }
-.help-policies a:hover,
 .footer-links a:hover {
   color: var(--lime);
 }

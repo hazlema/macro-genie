@@ -1,8 +1,10 @@
 export default {
   slug: "builder",
   title: "Make a recipe with the Recipe Builder",
+  cardTitle: "Make a recipe",
   summary: "From your targets to a written recipe sized to the gram.",
-  thumb: "/help/builder-2.png",
+  category: "Recipes",
+  thumb: "/help/thumbs/builder.webp",
   intro:
     "Claude invents the dishes; every amount and nutrition number is worked out from USDA data, never by the AI. You need to be signed in, and each idea or written recipe uses one credit.",
   steps: [

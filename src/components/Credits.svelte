@@ -1,4 +1,5 @@
 <script>
+  import FooterLinks from './FooterLinks.svelte';
   import { onMount } from 'svelte';
   import { account, api, refreshAccount } from '../lib/account.svelte.js';
   import { navigate } from '../lib/route.svelte.js';
@@ -84,4 +85,5 @@
     {/each}
   </ul>
   <p class="credits-note">1 credit = 1 recipe idea or 1 written recipe. Credits don’t expire. Unused credits from a pack can be refunded within 30 days: see <a href="/refunds" onclick={(e) => go(e, { tab: 'page', page: 'refunds' })}>Refunds</a> and <a href="/terms" onclick={(e) => go(e, { tab: 'page', page: 'terms' })}>Terms</a>. Payment is by card through Stripe; we never see your card.</p>
+  <footer><p>Food by your numbers. <span>Nutrition from the USDA SR Legacy database.</span></p><FooterLinks /></footer>
 </main>

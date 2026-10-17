@@ -2,7 +2,8 @@ export default {
   slug: "cronometer",
   title: "Log it in Cronometer",
   summary: "Paste a Macro Genie recipe into Cronometer in under a minute.",
-  thumb: "/help/cronometer-4.png",
+  category: "Integrations",
+  thumb: "/help/thumbs/cronometer.webp",
   intro:
     "Macro Genie's numbers come from USDA data, the same kind of data Cronometer uses, so its recipe import recognizes the ingredients and keeps your amounts.",
   steps: [

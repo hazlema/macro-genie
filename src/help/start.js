@@ -1,8 +1,10 @@
 export default {
   slug: "start",
   title: "Getting started",
+  startHere: true,
   summary: "What Macro Genie does and where to begin.",
-  thumb: "/help/start-1.png",
+  category: "Basics",
+  thumb: "/help/thumbs/start.webp",
   intro:
     "Macro Genie works backwards from your numbers. Tell it the protein, carbs, calories, or anything else a dish has to hit, and it finds foods that fit and sizes every gram so each serving lands in range.",
   steps: [

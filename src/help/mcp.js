@@ -2,7 +2,8 @@ export default {
   slug: "mcp",
   title: "Chat with your AI (MCP)",
   summary: "Connect Claude or another AI app and just ask.",
-  thumb: "/help/mcp-2.svg",
+  category: "Integrations",
+  thumb: "/help/thumbs/mcp.svg",
   intro:
     "Macro Genie has an MCP server: a door that lets AI assistants like Claude use its data. Connect it once, then ask in plain words. Your AI can search 8,490 USDA foods, look up any food in detail, and size recipes to your targets. It's free, read-only, and needs no account.",
   steps: [

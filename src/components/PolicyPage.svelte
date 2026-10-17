@@ -1,4 +1,5 @@
 <script>
+  import FooterLinks from './FooterLinks.svelte';
   import Markdown from './Markdown.svelte';
   import { POLICIES } from '../help/policies.js';
 
@@ -21,4 +22,5 @@
   <h1>{policy.title}</h1>
   <p class="help-lede">Last updated {policy.updated}</p>
   <Markdown class="policy-body" text={policy.body} />
+  <footer><p>Food by your numbers. <span>Nutrition from the USDA SR Legacy database.</span></p><FooterLinks /></footer>
 </main>

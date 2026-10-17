@@ -1,4 +1,5 @@
 <script>
+  import FooterLinks from './FooterLinks.svelte';
   import RecipeCard from './RecipeCard.svelte';
   import PostDialog from './PostDialog.svelte';
   import ShoppingList from './ShoppingList.svelte';
@@ -108,6 +109,7 @@
     <h1>No saved recipes yet.</h1>
     <p>Get ideas in the Recipe Builder, write one up, and save it.<br />It’s kept in this browser, ready to cook or print.</p>
     <button class="outline-button" onclick={onmakeone}>Find a recipe</button>
+    <footer><p>Food by your numbers. <span>Saved recipes stay in this browser.</span></p><FooterLinks /></footer>
   </main>
 {:else}
   <div class="workspace">
@@ -207,6 +209,7 @@
           {/if}
         </RecipeCard>
       {/if}
+      <footer><p>Food by your numbers. <span>Saved recipes stay in this browser.</span></p><FooterLinks /></footer>
     </main>
   </div>
 {/if}

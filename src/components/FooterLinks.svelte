@@ -11,4 +11,5 @@
 
 <nav class="footer-links" aria-label="Help and policies">
   {#each LINKS as [label, to, href] (href)}<a {href} onclick={(e) => go(e, to)}>{label}</a>{/each}
+  <a href="https://frosty-ventures-llc.com/" target="_blank" rel="noopener">© Frosty Ventures LLC</a>
 </nav>

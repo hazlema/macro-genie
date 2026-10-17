@@ -2,7 +2,8 @@ export default {
   slug: "book",
   title: "Your Recipe Book",
   summary: "Saving recipes, shopping lists, and why they stay in this browser.",
-  thumb: "/help/book-1.png",
+  category: "Recipes",
+  thumb: "/help/thumbs/book.webp",
   intro:
     "The Recipe Book keeps the recipes you save. They're stored in this browser, not in your account.",
   steps: [

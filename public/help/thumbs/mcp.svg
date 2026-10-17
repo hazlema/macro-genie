@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  <rect width="600" height="400" fill="#111415"/>
+  <g font-family="DM Sans, sans-serif">
+    <rect x="48" y="64" width="400" height="96" rx="20" fill="#2b3134"/>
+    <text x="76" y="104" font-size="26" fill="#e6e8e4">Snacks under 150 kcal,</text>
+    <text x="76" y="138" font-size="26" fill="#e6e8e4">15 g+ protein</text>
+    <rect x="48" y="196" width="380" height="132" rx="20" fill="#1a1e20" stroke="#2b3134" stroke-width="2"/>
+    <text x="76" y="246" font-size="26" fill="#e6e8e4"><tspan fill="#c2db75" font-weight="650">1</tspan>  Greek yogurt <tspan fill="#71d5a5">· 17 g</tspan></text>
+    <text x="76" y="296" font-size="26" fill="#e6e8e4"><tspan fill="#c2db75" font-weight="650">2</tspan>  Tuna, in water <tspan fill="#71d5a5">· 20 g</tspan></text>
+  </g>
+</svg>

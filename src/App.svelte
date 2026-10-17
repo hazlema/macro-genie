@@ -20,7 +20,7 @@
   import PanelToggle from './components/PanelToggle.svelte';
   import { panelStartsOpen, rememberPanelUsed, showResults } from './lib/panel.js';
   import { printJob } from './lib/print.svelte.js';
-  import { route, navigate } from './lib/route.svelte.js';
+  import { route, navigate, titleFor } from './lib/route.svelte.js';
   import { BASES, GROUPS, PRESETS, SORTS, emptyRanges, normalizeDataset, rangeSummary, searchFoods } from './lib/foods.js';
   import { expandDislikes } from './lib/recipe.js';
   import { prefs } from './lib/prefs.svelte.js';
@@ -35,6 +35,7 @@
   let ranges = $state(emptyRanges());
   // Which tab shows comes from the address (see lib/route.svelte.js).
   const tab = $derived(route.tab);
+  $effect(() => { document.title = titleFor(route); });
   let visible = $state(20);
   let activePreset = $state('');
   let mobileFilters = $state(panelStartsOpen(0));
@@ -91,9 +92,9 @@
 <header class="topbar">
   <a class="wordmark" href="/" onclick={(e) => { e.preventDefault(); navigate({ tab: 'home' }); }} aria-label="Macro Genie home">Macro Genie<span class="brand-dot"></span></a>
   <nav class="tabs" aria-label="Browse" bind:this={tabsEl}>
-    <button class:current={tab === 'community'} aria-current={tab === 'community' ? 'page' : undefined} onclick={() => navigate({ tab: 'community' })}>Community</button>
-    <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => navigate({ tab: 'saved' })}><span class="wide-label">Recipe Book</span><span class="narrow-label">Recipes</span>{#if prefs.recipes.length}<span class="tab-count">{prefs.recipes.length}</span>{/if}</button>
     <button class:current={tab === 'recipes'} aria-current={tab === 'recipes' ? 'page' : undefined} onclick={() => navigate({ tab: 'recipes' })}><span class="wide-label">Recipe Builder</span><span class="narrow-label">Builder</span></button>
+    <button class:current={tab === 'saved'} aria-current={tab === 'saved' ? 'page' : undefined} onclick={() => navigate({ tab: 'saved' })}><span class="wide-label">Recipe Book</span><span class="narrow-label">Recipes</span>{#if prefs.recipes.length}<span class="tab-count">{prefs.recipes.length}</span>{/if}</button>
+    <button class:current={tab === 'community'} aria-current={tab === 'community' ? 'page' : undefined} onclick={() => navigate({ tab: 'community' })}>Community</button>
     <button class:current={tab === 'foods'} aria-current={tab === 'foods' ? 'page' : undefined} onclick={() => navigate({ tab: 'foods' })}><span class="wide-label">Food Macros</span><span class="narrow-label">Foods</span><span class="tab-count wide-label">{dataset ? dataset.foods.length.toLocaleString() : '…'}</span></button>
   </nav>
   {#if tab === 'foods'}

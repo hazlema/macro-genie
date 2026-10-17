@@ -1,4 +1,5 @@
 <script>
+  import FooterLinks from './FooterLinks.svelte';
   import { account } from '../lib/account.svelte.js';
 
   // The contact form. There's no public address; messages go to Admin → Inbox.
@@ -61,4 +62,5 @@
       <button class="primary-button" disabled={sending}>{sending ? 'Sending…' : 'Send message'}</button>
     </form>
   {/if}
+  <footer><p>Food by your numbers. <span>Nutrition from the USDA SR Legacy database.</span></p><FooterLinks /></footer>
 </main>

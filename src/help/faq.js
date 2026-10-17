@@ -2,7 +2,8 @@ export default {
   slug: "faq",
   title: "Questions",
   summary: "Accuracy, missing recipes, phones, and deleting your data.",
-  thumb: "/help/start-1.png",
+  category: "Basics",
+  thumb: "/help/thumbs/faq.svg",
   intro: "Short answers to common questions.",
   steps: [
     {

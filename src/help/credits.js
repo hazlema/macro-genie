@@ -2,7 +2,8 @@ export default {
   slug: "credits",
   title: "Credits",
   summary: "What uses a credit, refunds, and where to see your balance.",
-  thumb: "/help/credits-1.png",
+  category: "Basics",
+  thumb: "/help/thumbs/credits.webp",
   intro:
     "Food search, the Community, and chatting with your AI are free. The Recipe Builder uses credits because every idea calls Claude.",
   steps: [
