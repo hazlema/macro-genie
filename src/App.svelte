@@ -5,6 +5,7 @@
   import DislikeSummary from './components/DislikeSummary.svelte';
   import DislikesModal from './components/DislikesModal.svelte';
   import LoginModal from './components/LoginModal.svelte';
+  import Tour from './components/Tour.svelte';
   import { account, refreshAccount, signOut } from './lib/account.svelte.js';
   import Recipes from './components/Recipes.svelte';
   import SavedRecipes from './components/SavedRecipes.svelte';
@@ -202,6 +203,7 @@
 
 <DislikesModal bind:open={dislikesOpen} foods={dataset?.foods ?? []} />
 <LoginModal />
+<Tour />
 
 <div class="print-only">{#if printJob.recipe}<RecipeCard recipe={printJob.recipe} servings={printJob.servings ?? printJob.recipe.servings} scalable={false} />
 {:else if printJob.list}<article class="print-list"><h2>Shopping list</h2><p>For {printJob.list.recipes.map(r => r.name).join(', ')}</p><ul>{#each printJob.list.items.filter(i => !i.checked) as item}<li>{item.text}</li>{/each}</ul></article>{/if}</div>
