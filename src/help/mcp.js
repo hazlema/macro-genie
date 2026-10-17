@@ -5,7 +5,7 @@ export default {
   category: "Integrations",
   thumb: "/help/thumbs/mcp.svg",
   intro:
-    "Macro Genie has an MCP server: a door that lets AI assistants like Claude use its data. Connect it once, then ask in plain words. Your AI can search 8,490 USDA foods, look up any food in detail, and size recipes to your targets. It's free, read-only, and needs no account.",
+    "Macro Genie has an MCP server: a door that lets AI assistants like Claude use its data. Connect it once, then ask in plain words. Your AI can search 8,490 USDA foods, look up any food in detail, size recipes to your targets, and find and read recipes people have shared in the Community. It's free, read-only, and needs no account.",
   steps: [
     {
       title: "Copy the server address",
@@ -38,5 +38,5 @@ export default {
     },
   ],
   outro:
-    "The four tools your AI gets: **search foods** by nutrition ranges and name, **food details** for one food, **food categories**, and **size a recipe**. Community recipes aren't searchable from your AI yet.",
+    "The six tools your AI gets: **search foods** by nutrition ranges and name, **food details** for one food, **food categories**, **size a recipe**, **search the Community** by words, meal and macros, and **read a Community recipe** in full.",
 };

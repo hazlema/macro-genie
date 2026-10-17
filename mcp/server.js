@@ -127,7 +127,7 @@ const fullPost = (post) => {
 };
 
 export function createMcpServer() {
-  const server = new McpServer({ name: "macro-genie", version: "0.4.0" });
+  const server = new McpServer({ name: "macro-genie", version: "0.5.0" });
   server.registerTool(
     "search_foods",
     {
