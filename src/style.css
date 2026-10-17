@@ -4151,3 +4151,11 @@ dialog.dislikes[open] {
     transition: none;
   }
 }
+.help-tour {
+  margin: -12px 0 24px;
+  color: var(--muted);
+}
+.help-tour .text-button {
+  color: var(--lime);
+  font-weight: 600;
+}

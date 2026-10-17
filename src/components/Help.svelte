@@ -3,6 +3,7 @@
   import HelpGuide from './HelpGuide.svelte';
   import { GUIDES, guideBySlug } from '../help/index.js';
   import { navigate } from '../lib/route.svelte.js';
+  import { startTour } from '../lib/tour.svelte.js';
 
   // /help: the hub, or one guide. An unknown guide shows the hub.
   let { slug = null } = $props();
@@ -13,6 +14,11 @@
     navigate(to);
     scrollTo(0, 0);
   }
+  function takeTour() {
+    navigate({ tab: 'recipes' });
+    scrollTo(0, 0);
+    startTour();
+  }
 </script>
 
 <main id="results" tabindex="-1" class="help">
@@ -21,6 +27,7 @@
   {:else}
     <h1>Help</h1>
     <p class="help-lede">Short, step-by-step guides with pictures. Start anywhere.</p>
+    <p class="help-tour">New here? <button class="text-button" onclick={takeTour}>Take the tour</button> of the Recipe Builder.</p>
     <ul class="help-cards">
       {#each GUIDES as g (g.slug)}
         <li>

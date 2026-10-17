@@ -12,6 +12,7 @@
   import { printRecipe } from '../lib/print.svelte.js';
   import { account, noteResponse } from '../lib/account.svelte.js';
   import { navigate } from '../lib/route.svelte.js';
+  import { tour, panelFor } from '../lib/tour.svelte.js';
 
   let { foods, oneditdislikes, onviewsaved } = $props();
 
@@ -46,6 +47,13 @@
   let activePreset = $state('');
   // Phones: open for a first-time visitor with no targets saved yet.
   let mobileOpen = $state(panelStartsOpen(Object.values(draft.ranges ?? {}).filter((r) => r?.min != null || r?.max != null).length));
+  // The tour opens the panel for the targets steps and closes it after.
+  $effect(() => {
+    if (!tour.active) return;
+    const panel = panelFor(tour.step);
+    if (panel === 'open') mobileOpen = true;
+    else if (panel === 'closed') mobileOpen = false;
+  });
   let copied = $state(false);
   // Swapping one recipe ingredient for another food, e.g. feta for cheddar.
   let swapping = $state(null);
