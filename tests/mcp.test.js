@@ -133,3 +133,12 @@ test("Netlify MCP supports independent, stateless HTTP clients", async () => {
     }
   }
 });
+
+test("the MCP function answers OPTIONS with 204 and non-POST with 405", async () => {
+  const options = await handler(new Request("https://example.com/mcp", { method: "OPTIONS" }));
+  assert.equal(options.status, 204);
+  assert.equal(options.headers.get("access-control-allow-origin"), "*");
+  const get = await handler(new Request("https://example.com/mcp", { method: "GET" }));
+  assert.equal(get.status, 405);
+  assert.equal(get.headers.get("allow"), "POST, OPTIONS");
+});
