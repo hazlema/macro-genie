@@ -99,3 +99,30 @@ test("a brand-new account is offered the tour; a returning one is not", { skip }
   await signInWithGoogle("token");
   assert.equal(tour.offer, false);
 });
+
+test("the card is placed below, else above, else beside, and never off screen", { skip }, () => {
+  const { placeCard } = state;
+  const card = { width: 340, height: 200 };
+  const view = { width: 1366, height: 700 };
+  // Plenty of room below: sits just under the window.
+  assert.deepEqual(placeCard({ top: 100, left: 30, width: 285, height: 200 }, card, view), { top: 312, left: 30, width: 340 });
+  // Room above but not below: goes above.
+  assert.equal(placeCard({ top: 450, left: 30, width: 285, height: 200 }, card, view).top, 238);
+  // A tall window in a short viewport, with an empty column to its right: beside it.
+  assert.deepEqual(placeCard({ top: 130, left: 30, width: 285, height: 540 }, card, view), { top: 130, left: 327, width: 340 });
+  // No room anywhere (phone): clamped inside the viewport, overlapping the window.
+  const phone = placeCard({ top: 60, left: 12, width: 366, height: 700 }, card, { width: 390, height: 844 });
+  assert.ok(phone.top >= 12 && phone.top + card.height <= 844 - 12, `top ${phone.top}`);
+  // Never past the right edge, and never wider than the viewport.
+  assert.equal(placeCard({ top: 100, left: 1300, width: 50, height: 50 }, card, view).left, 1366 - 340 - 12);
+  assert.equal(placeCard({ top: 100, left: 0, width: 50, height: 50 }, card, { width: 300, height: 600 }).width, 276);
+});
+
+test("Tab cycles through the card's buttons and wraps", { skip }, () => {
+  const { cycleIndex } = state;
+  assert.equal(cycleIndex(3, 0, false), 1);
+  assert.equal(cycleIndex(3, 2, false), 0, "wraps forward");
+  assert.equal(cycleIndex(3, 0, true), 2, "wraps backward");
+  assert.equal(cycleIndex(3, -1, false), 0, "from the card itself, Tab goes to the first button");
+  assert.equal(cycleIndex(3, -1, true), 2, "from the card itself, Shift+Tab goes to the last");
+});

@@ -1,19 +1,19 @@
 <script>
   import { tick } from 'svelte';
   import { STEPS } from '../help/tour.js';
-  import { tour, startTour, nextStep, backStep, stopTour, dismissOffer } from '../lib/tour.svelte.js';
+  import { tour, startTour, nextStep, backStep, stopTour, dismissOffer, placeCard, cycleIndex } from '../lib/tour.svelte.js';
   import { account } from '../lib/account.svelte.js';
   import { route, navigate } from '../lib/route.svelte.js';
 
-  const PAD = 8;          // space between the anchor and the window edge
-  const GAP = 12;         // space between the window and the card
-  const CARD_ROOM = 220;  // room below the window before the card flips above
+  const PAD = 8;         // space between the anchor and the window edge
+  const CARD_WIDTH = 340;
 
   let offerDialog;
   let card = $state();
   // The window around the current anchor, in viewport pixels; null = centred step.
   let box = $state(null);
-  let below = $state(true);
+  // Where the card sits for an anchored step, from placeCard().
+  let place = $state(null);
   let anchors = [];
   let returnTo = null;
 
@@ -22,14 +22,7 @@
   const last = $derived(tour.step === STEPS.length - 1);
   // Phones: the card drops to the bottom when the window is in the top half.
   const drop = $derived(!!box && box.top + box.height / 2 < innerHeight / 2);
-  const cardStyle = $derived.by(() => {
-    if (!box) return '';
-    const width = Math.min(340, innerWidth - 24);
-    const left = Math.max(12, Math.min(box.left, innerWidth - width - 12));
-    return below
-      ? `top:${box.top + box.height + GAP}px;left:${left}px;width:${width}px`
-      : `bottom:${innerHeight - box.top + GAP}px;left:${left}px;width:${width}px`;
-  });
+  const cardStyle = $derived(place ? `top:${place.top}px;left:${place.left}px;width:${place.width}px` : '');
 
   // The offer dialog follows tour.offer.
   $effect(() => {
@@ -78,16 +71,17 @@
     const bottom = Math.max(...rects.map((r) => r.bottom)) + PAD;
     const right = Math.max(...rects.map((r) => r.right)) + PAD;
     box = { top, left, width: right - left, height: bottom - top };
-    below = innerHeight - bottom >= CARD_ROOM;
+    place = placeCard(box, { width: CARD_WIDTH, height: card?.offsetHeight ?? 200 }, { width: innerWidth, height: innerHeight });
   }
 
   // Each step: find its anchor, bring it on screen, measure, focus the card.
   $effect(() => {
-    if (!tour.active) { anchors = []; box = null; return; }
+    if (!tour.active) { anchors = []; box = null; place = null; return; }
     const s = STEPS[tour.step];
     let cancelled = false;
     anchors = [];
     box = null;
+    place = null;
     (async () => {
       if (s.selector) {
         const found = await waitFor(s.selector);
@@ -118,6 +112,12 @@
   function onKey(e) {
     if (!tour.active) return;
     if (e.key === 'Escape') { e.preventDefault(); stopTour(); }
+    else if (e.key === 'Tab') {
+      // The card is modal: Tab stays among its buttons.
+      e.preventDefault();
+      const buttons = [...card.querySelectorAll('button')];
+      buttons[cycleIndex(buttons.length, buttons.indexOf(document.activeElement), e.shiftKey)]?.focus();
+    }
     else if (e.key === 'ArrowRight' || (e.key === 'Enter' && e.target.tagName !== 'BUTTON')) { e.preventDefault(); nextStep(); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); backStep(); }
   }

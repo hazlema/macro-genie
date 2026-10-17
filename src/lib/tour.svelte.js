@@ -46,3 +46,28 @@ export function stopTour() {
 export function panelFor(step = tour.step) {
   return STEPS[step]?.panel ?? null;
 }
+
+// Where the card goes for an anchor window: just below it when the card
+// fits there, else above, else beside it on the right, and always kept
+// inside the viewport (overlapping the window beats being cut off on a
+// short laptop screen).
+export function placeCard(box, card, view, gap = 12, margin = 12) {
+  const width = Math.min(card.width, view.width - margin * 2);
+  let left = Math.max(margin, Math.min(box.left, view.width - width - margin));
+  let top;
+  if (view.height - (box.top + box.height) - gap - margin >= card.height) top = box.top + box.height + gap;
+  else if (box.top - gap - margin >= card.height) top = box.top - gap - card.height;
+  else if (box.left + box.width + gap + width <= view.width - margin) {
+    left = box.left + box.width + gap;
+    top = box.top;
+  } else top = box.top - gap - card.height;
+  top = Math.max(margin, Math.min(top, view.height - card.height - margin));
+  return { top, left, width };
+}
+
+// The next button to focus when Tab (or Shift+Tab) is pressed inside the
+// card: wraps at both ends; -1 means focus is on the card itself.
+export function cycleIndex(length, index, backwards) {
+  if (index < 0) return backwards ? length - 1 : 0;
+  return (index + (backwards ? -1 : 1) + length) % length;
+}
