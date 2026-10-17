@@ -83,3 +83,19 @@ test("panelFor reads the current step", { skip }, () => {
   assert.equal(panelFor(3), "closed");
   assert.equal(panelFor(99), null);
 });
+
+test("a brand-new account is offered the tour; a returning one is not", { skip }, async () => {
+  const { account, signInWithGoogle } = await import("../src/lib/account.svelte.js");
+  const { tour, dismissOffer } = state;
+  const reply = (body) => async () => ({ ok: true, json: async () => body });
+  dismissOffer();
+  globalThis.fetch = reply({ signedIn: true, account: { displayName: "Sam", credits: 10 }, isNew: true });
+  assert.equal(await signInWithGoogle("token"), "");
+  assert.equal(account.signedIn, true);
+  assert.equal(tour.offer, true);
+  assert.equal(tour.offerName, "Sam");
+  dismissOffer();
+  globalThis.fetch = reply({ signedIn: true, account: { displayName: "Sam", credits: 4 }, isNew: false });
+  await signInWithGoogle("token");
+  assert.equal(tour.offer, false);
+});

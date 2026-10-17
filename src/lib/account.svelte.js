@@ -1,3 +1,5 @@
+import { offerTour } from "./tour.svelte.js";
+
 // The signed-in account as the page sees it. The server is the source of
 // truth; this mirrors /api/me and the balances AI responses send back.
 export const account = $state({
@@ -47,6 +49,8 @@ export async function signInWithGoogle(credential) {
     if (!res.ok) return body?.error ?? "Sign-in didn't go through. Try again.";
     apply(body);
     account.loginOpen = false;
+    // A just-created account gets the one-time tour offer.
+    if (body?.isNew) offerTour(account.displayName);
     return "";
   } catch {
     return "Couldn't reach the site. Check your connection and try again.";
