@@ -238,6 +238,16 @@ const shapePost = (row) => ({
   reports: row.moderator ? Number(row.reports) : undefined,
 });
 
+// Search words: split on whitespace, lower-cased, at most 8. Used as
+// literal substrings, so %, _ and \ are escaped for ILIKE.
+export const queryWords = (query) =>
+  String(query ?? "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 8);
+const likeLiteral = (word) => `%${word.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
 // Live posts, filtered by meal type and per-serving ranges. A signed-in
 // viewer also sees their own posts that are waiting for review.
 export async function listPosts({
@@ -246,6 +256,7 @@ export async function listPosts({
   board = null,
   ranges = {},
   sort = "new",
+  query = "",
   offset = 0,
   moderator = false,
   needsReview = false,
@@ -275,6 +286,12 @@ export async function listPosts({
       throw new UserFacingError("Unknown meal type.");
     params.push(meal);
     where.push(`p.meal_type = $${params.length}`);
+  }
+  for (const word of queryWords(query)) {
+    params.push(likeLiteral(word));
+    where.push(
+      `(p.name ILIKE $${params.length} OR coalesce(p.recipe->>'description', '') ILIKE $${params.length})`,
+    );
   }
   for (const [key, range] of Object.entries(ranges ?? {})) {
     const column = COLUMNS[key];

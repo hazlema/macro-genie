@@ -794,3 +794,28 @@ test("a post hidden by reports clears its page and the sitemap; a lone report cl
   await report(r3.id, "post", post.id);
   assert.deepEqual(purged, [`post-${post.id}`, "sitemap"]);
 });
+
+test("listPosts finds recipes by words in the name or description", async () => {
+  const ada = await person();
+  const gratin = await createPost(
+    ada.id,
+    recipe({ name: "Zanzibar Gratin", description: "Custardy and kumquat-bright." }),
+    { mealType: "dinner" },
+    haiku("fine"),
+  );
+  const soup = await createPost(
+    ada.id,
+    recipe({ name: "Lentil quokka soup", description: "Hearty and smoky." }),
+    { mealType: "lunch" },
+    haiku("fine"),
+  );
+  const ids = async (query) => (await listPosts({ query })).posts.map((p) => p.id);
+  assert.deepEqual(await ids("ZANZIBAR"), [gratin.id], "name, any case");
+  assert.deepEqual(await ids("kumquat"), [gratin.id], "description");
+  assert.deepEqual(await ids("quokka hearty"), [soup.id], "every word must match");
+  assert.deepEqual(await ids("quokka kumquat"), [], "words spread over two posts don't match");
+  assert.deepEqual(await ids("zanz%"), [], "% is a literal, not a wildcard");
+  assert.deepEqual(await ids("quo_ka"), [], "_ is a literal, not a wildcard");
+  const all = (await listPosts({})).posts.length;
+  assert.equal((await listPosts({ query: "   " })).posts.length, all, "blank query = no filter");
+});
