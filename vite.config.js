@@ -62,6 +62,7 @@ export default defineConfig(({ command }) => {
       "DATABASE_URL",
       "STRIPE_SECRET_KEY",
       "STRIPE_WEBHOOK_SECRET",
+      "STATS_TOKEN",
     ]);
     for (const [key, value] of Object.entries(auth)) process.env[key] ??= value;
     process.env.MACRO_GENIE_LOCAL = "1";
