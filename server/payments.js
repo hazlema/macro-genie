@@ -24,8 +24,14 @@ async function callStripe(work, { missing = null } = {}) {
   }
 }
 
+// Stripe's category for AI tools used through a website, for personal use.
+// Managed Payments only sells products whose category it accepts.
+const TAX_CODE = "txcd_10105001";
+
 // Starts a Stripe Checkout for one pack and returns the page to send them to.
-// No Stripe customer is created; Stripe asks for an email only for its receipt.
+// No Stripe customer is created. Stripe is the seller (Managed Payments): it
+// asks for a name and billing address, works the sales tax out of the
+// pack's price, and files it.
 export async function startCheckout(accountId, packId, origin) {
   const pack = packById(packId);
   if (!pack) throw new UserFacingError("Pick one of the credit packs.", 400);
@@ -46,16 +52,17 @@ export async function startCheckout(accountId, packId, origin) {
           price_data: {
             currency: "usd",
             unit_amount: pack.cents,
-            product_data: { name: `${pack.credits} Macro Genie credits` },
+            // Tax comes out of the price, so the buyer pays exactly the pack's
+            // price and fulfill's amount check still holds.
+            tax_behavior: "inclusive",
+            product_data: { name: `${pack.credits} Macro Genie credits`, tax_code: TAX_CODE },
           },
         },
       ],
       client_reference_id: String(accountId),
       metadata,
       payment_intent_data: { metadata },
-      // Stripe as merchant of record is wanted before going live, but it adds
-      // tax on top of the price, which fulfill's amount check would refuse.
-      managed_payments: { enabled: false },
+      managed_payments: { enabled: true },
       success_url: `${origin}/credits?session={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/credits?cancelled=1`,
     }),

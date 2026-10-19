@@ -19,7 +19,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 Without it, everything works except the Recipe Builder's ideas and recipe writing, which say the key is missing. `npm run build` validates the food file and creates `dist/`. `npm run preview` serves that production build locally. `npm run check` checks Svelte, and `npm test` runs the search and MCP integration tests.
 
-To try credit purchases locally, delete any leftover `dist/` folder before `npm run dev`: the Netlify dev plugin otherwise serves the old built `index.html` for redirected paths such as `/credits`. Install the [Stripe CLI](https://docs.stripe.com/stripe-cli) and run `stripe login` once. With `STRIPE_SECRET_KEY` (a test key) in `.env`, `npm run dev` runs `stripe listen` for you and forwards webhooks to the dev server; its output is prefixed `[stripe]`. Copy the `whsec_…` signing secret it prints into `.env` as `STRIPE_WEBHOOK_SECRET` (it stays the same between runs).
+To try credit purchases locally, delete any leftover `dist/` folder before `npm run dev`: the Netlify dev plugin otherwise serves the old built `index.html` for redirected paths such as `/credits`. Install the [Stripe CLI](https://docs.stripe.com/stripe-cli); it uses the key from `.env`, so no `stripe login` is needed. With `STRIPE_SECRET_KEY` (a test key) in `.env`, `npm run dev` runs `stripe listen` for you and forwards webhooks to the dev server; its output is prefixed `[stripe]`. Copy the `whsec_…` signing secret it prints into `.env` as `STRIPE_WEBHOOK_SECRET` (it stays the same between runs).
 
 Pay with the Stripe test card `4242 4242 4242 4242`.
 

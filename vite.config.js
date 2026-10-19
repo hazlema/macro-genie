@@ -28,7 +28,8 @@ function stripeListen() {
         const child = spawn(
           "stripe",
           ["listen", "--events", STRIPE_EVENTS, "--forward-to", `localhost:${port}/api/stripe/webhook`],
-          { stdio: ["ignore", "pipe", "pipe"] },
+          // The CLI uses the .env key, so it needs no `stripe login` of its own.
+          { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, STRIPE_API_KEY: process.env.STRIPE_SECRET_KEY } },
         );
         globalThis.stripeListener = child;
         const show = (data) => {

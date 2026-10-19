@@ -4,7 +4,7 @@ import { requireAdmin } from "./roles.js";
 import { stripe } from "./stripe.js";
 
 // The admin Money tab: what came in (credit packs) and what went out
-// (Stripe fees, refunds, AI, fixed bills), per UTC calendar month. The
+// (Stripe fees, sales tax, refunds, AI, fixed bills), per UTC calendar month. The
 // current month is worked out live; finished months are saved once.
 
 const SAVED_MONTHS = 12;
@@ -40,7 +40,7 @@ const CENTS_PER_CREDIT = 1;
 // Our credit pack charges and refunds in the month. Other things sold on
 // the same Stripe account have no pack metadata and are skipped.
 async function stripeMonth({ start, end }) {
-  const out = { sales: { cents: 0, count: 0, packs: {} }, feeCents: 0, refundCents: 0 };
+  const out = { sales: { cents: 0, count: 0, packs: {} }, feeCents: 0, taxCents: 0, refundCents: 0 };
   const list = stripe().balanceTransactions.list({
     created: { gte: start.getTime() / 1000, lt: end.getTime() / 1000 },
     limit: 100,
@@ -56,7 +56,14 @@ async function stripeMonth({ start, end }) {
     } else if (t.type === "refund" || t.type === "payment_refund") {
       out.refundCents += -t.amount;
     } else continue;
-    out.feeCents += t.fee;
+    // Stripe sells as merchant of record and keeps the sales tax inside the
+    // price; it reports that tax as part of the fee, and gives it back on a
+    // refund as a negative one.
+    const tax = (t.fee_details ?? [])
+      .filter((d) => d.type === "withheld_tax" || d.type === "withheld_tax_refund")
+      .reduce((sum, d) => sum + d.amount, 0);
+    out.taxCents += tax;
+    out.feeCents += t.fee - tax;
   }
   return out;
 }
@@ -175,6 +182,7 @@ export async function buildMonth(key, now = new Date()) {
   const fixedCents = fixed.reduce((sum, c) => sum + c.cents, 0);
   const salesCents = money?.sales.cents ?? 0;
   const feeCents = money?.feeCents ?? 0;
+  const taxCents = money?.taxCents ?? 0;
   const refundCents = money?.refundCents ?? 0;
   const { aiCentsPerCredit, paidCreditsSold, ...aiParts } = ai;
   // Anthropic's bill covers everything on the key, local testing included,
@@ -187,6 +195,7 @@ export async function buildMonth(key, now = new Date()) {
     missing,
     sales: money?.sales ?? null,
     stripeFeeCents: money ? feeCents : null,
+    salesTaxCents: money ? taxCents : null,
     refundCents: money ? refundCents : null,
     ai: aiParts,
     anthropic,
@@ -194,12 +203,12 @@ export async function buildMonth(key, now = new Date()) {
     fixedCents,
     aiCountedIn: actual ? "actual" : "estimate",
     netlifyPages,
-    netCents: salesCents - feeCents - refundCents - aiCents - fixedCents,
+    netCents: salesCents - feeCents - taxCents - refundCents - aiCents - fixedCents,
     perCredit: {
       aiCents: aiCentsPerCredit,
       earnedCents:
         money && paidCreditsSold > 0
-          ? round2((salesCents - feeCents - refundCents) / paidCreditsSold)
+          ? round2((salesCents - feeCents - taxCents - refundCents) / paidCreditsSold)
           : null,
     },
   };

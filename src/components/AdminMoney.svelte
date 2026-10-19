@@ -75,6 +75,9 @@
         {#if m.sales}
           <tr><th scope="row">Credit sales <span class="money-note">{m.sales.count} {m.sales.count === 1 ? 'pack' : 'packs'}{#each Object.entries(m.sales.packs) as [pack, n] (pack)}{` · ${n} ${pack}`}{/each}</span></th><td>{usd(m.sales.cents)}</td></tr>
           <tr><th scope="row">Stripe fees</th><td>{usd(-m.stripeFeeCents)}</td></tr>
+          {#if m.salesTaxCents}
+            <tr><th scope="row">Sales tax <span class="money-note">Stripe files it</span></th><td>{usd(-m.salesTaxCents)}</td></tr>
+          {/if}
           <tr><th scope="row">Refunds</th><td>{usd(-m.refundCents)}</td></tr>
         {:else}
           <tr><th scope="row" colspan="2" class="method-error">Couldn’t reach Stripe; try again.</th></tr>

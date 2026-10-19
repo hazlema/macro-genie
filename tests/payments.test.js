@@ -106,7 +106,7 @@ test("the three packs, and only those", () => {
   assert.equal(packById(undefined), null);
 });
 
-test("checkout asks Stripe for a one-time payment of the pack's price", async () => {
+test("checkout asks Stripe for a one-time, tax-included payment of the pack's price", async () => {
   const { id } = await newAccount();
   const { url } = await startCheckout(id, "medium", "https://macro-genie.com");
   assert.equal(url, "https://checkout.stripe.test/1");
@@ -118,7 +118,8 @@ test("checkout asks Stripe for a one-time payment of the pack's price", async ()
       price_data: {
         currency: "usd",
         unit_amount: 600,
-        product_data: { name: "50 Macro Genie credits" },
+        tax_behavior: "inclusive",
+        product_data: { name: "50 Macro Genie credits", tax_code: "txcd_10105001" },
       },
     },
   ]);
@@ -132,7 +133,7 @@ test("checkout asks Stripe for a one-time payment of the pack's price", async ()
   );
   assert.equal(params.cancel_url, "https://macro-genie.com/credits?cancelled=1");
   assert.equal(params.customer, undefined);
-  assert.deepEqual(params.managed_payments, { enabled: false });
+  assert.deepEqual(params.managed_payments, { enabled: true });
 });
 
 test("checkout refuses unknown packs, signed-out visitors, and suspended accounts", async () => {

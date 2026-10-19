@@ -159,8 +159,26 @@ test("sales, fees and refunds come from Stripe, ours only, inside the month", as
   const m = await buildMonth("2026-10");
   assert.deepEqual(m.sales, { cents: 900, count: 2, packs: { small: 1, medium: 1 } });
   assert.equal(m.stripeFeeCents, 86);
+  assert.equal(m.salesTaxCents, 0);
   assert.equal(m.refundCents, 300);
   assert.equal(m.netCents, 900 - 86 - 300);
+});
+
+test("sales tax Stripe withholds is its own line, not a Stripe fee", async () => {
+  const withheld = (tax, fee) => [
+    { type: "withheld_tax", amount: tax, description: "Withheld sales tax" },
+    { type: "stripe_fee", amount: fee, description: "Stripe processing fees" },
+  ];
+  txns = [
+    { type: "charge", amount: 300, fee: 68, fee_details: withheld(29, 39), created: unix("2026-10-02T10:00:00Z"), source: { payment_intent: ours("small", 20, 300) } },
+    { type: "charge", amount: 600, fee: 104, fee_details: withheld(57, 47), created: unix("2026-10-03T10:00:00Z"), source: { payment_intent: ours("medium", 50, 600) } },
+    { type: "refund", amount: -300, fee: -29, fee_details: [{ type: "withheld_tax_refund", amount: -29, description: "Refund of withheld sales tax" }], created: unix("2026-10-04T10:00:00Z"), source: { payment_intent: ours("small", 20, 300) } },
+  ];
+  const m = await buildMonth("2026-10");
+  assert.equal(m.stripeFeeCents, 86);
+  assert.equal(m.salesTaxCents, 57);
+  assert.equal(m.refundCents, 300);
+  assert.equal(m.netCents, 900 - 86 - 57 - 300);
 });
 
 test("AI estimate by step and by free/paid credits, month edges respected", async () => {
