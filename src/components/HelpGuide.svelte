@@ -5,7 +5,9 @@
 
   // One guide: numbered steps, each with its screenshot and numbered markers.
   let { guide } = $props();
-  const mcpUrl = `${location.origin}/mcp`;
+  // Always the public address: a local or preview copy of the site would
+  // otherwise tell people to connect their AI to itself.
+  const mcpUrl = 'https://macro-genie.com/mcp';
   const fill = (text) => (text ?? '').replaceAll('{{MCP_URL}}', mcpUrl);
   const next = $derived(GUIDES[GUIDES.indexOf(guide) + 1]);
   // Steps with a `copy` value show it in a box with a Copy button.
