@@ -17,7 +17,8 @@
   let { foods, oneditdislikes, onviewsaved } = $props();
 
   // Matches the four variations the server asks for, in order.
-  const ANGLES = ['Baked, or the classic', 'Skillet, or bright and tangy', 'Soup, or bold and spiced', 'Something unexpected'];
+  // What each idea card says while it's being made; one per idea, in order.
+  const COOKING = ['Cooking up something delicious', 'Preparing the mise en place', 'Raiding the spice rack', 'Tasting and adjusting'];
   // How well the ingredients go together, as Claude judged the idea.
   const PAIRING = {
     great: 'Sounds delicious!',
@@ -156,7 +157,7 @@
   function getIdeas() {
     const token = ++batch;
     if (!account.signedIn) { account.loginOpen = true; return; }
-    ideas = ANGLES.slice(0, ideaCount).map(() => ({ status: 'pending' }));
+    ideas = COOKING.slice(0, ideaCount).map(() => ({ status: 'pending' }));
     ideas.forEach((_, angle) => requestIdea(angle, token));
   }
 
@@ -305,11 +306,10 @@
             {@const s = sizedIdeas[i]}
             <li class="idea" class:pending={entry.status === 'pending'} class:picked={entry.status === 'ready' && chosen?.name === entry.idea.name} aria-busy={entry.status === 'pending'}>
               {#if entry.status === 'pending'}
-                <p class="idea-angle">{ANGLES[i]}</p>
+                <p class="idea-angle">{COOKING[i]}…</p>
                 <div class="idea-shimmer" aria-hidden="true"><span></span><span></span><span></span></div>
-                <p class="sr-only">Thinking up {ANGLES[i].toLocaleLowerCase()}</p>
               {:else if entry.status === 'error'}
-                <p class="idea-angle">{ANGLES[i]}</p>
+                <p class="idea-angle">This one burned</p>
                 <p class="idea-error">{entry.error}</p>
                 <button class="outline-button" onclick={() => requestIdea(i, batch)}>Try again</button>
               {:else}
