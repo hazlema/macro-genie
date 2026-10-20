@@ -36,6 +36,10 @@ export default {
       text: "Give it ingredients and per-serving targets and it sizes every gram with the same solver the Recipe Builder uses, telling you if the targets can't all be met.",
       image: "/help/mcp-3.svg",
     },
+    {
+      title: "Make recipes for free",
+      text: "Your AI can do what the Recipe Builder does: dream up dishes, size them to your targets with the same solver, and write out the method. That costs nothing here, because your own AI does the thinking.\n\nThe catch: those recipes stay in your chat. They can't go in your Recipe Book or be shared in the Community.\n\nThe Builder only charges credits because running AI isn't free for us either. If you do buy credits, they also help keep the site running. Thank you!",
+    },
   ],
   outro:
     "The six tools your AI gets: **search foods** by nutrition ranges and name, **food details** for one food, **food categories**, **size a recipe**, **search the Community** by words, meal and macros, and **read a Community recipe** in full.",

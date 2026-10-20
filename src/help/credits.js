@@ -5,7 +5,7 @@ export default {
   category: "Basics",
   thumb: "/help/thumbs/credits.webp",
   intro:
-    "Food search, the Community, and chatting with your AI are free. The Recipe Builder uses credits because every idea calls Claude.",
+    "Food search, the Community, and chatting with your AI are free. The Recipe Builder uses credits because every idea calls Claude, and running AI costs us money. If you'd rather not pay, your own AI can make recipes for free through the [MCP server](/help/mcp); they just can't be saved to your Recipe Book or shared.",
   steps: [
     {
       title: "You start with 10",
