@@ -9,22 +9,22 @@ export default {
   steps: [
     {
       title: "Copy the server address",
-      text: "This is the address your AI app needs:",
+      text: "This is the address your AI app needs. Then follow just **one** of the next three steps, for the app you already use, and skip the other two.",
       copy: "{{MCP_URL}}",
     },
     {
-      title: "Claude on the web or desktop",
-      text: 'Go to **Customize → Connectors**, choose **Add**, then **Add custom connector**. Name it "Macro Genie", paste the address, and leave sign-in off. Free plans can add one custom connector. Connectors you add here also appear in Claude Code.',
+      title: "If you use Claude on the web or desktop",
+      text: 'Go to **Customize → Connectors**, choose **Add**, then **Add custom connector**. Name it "Macro Genie", paste the address, and leave sign-in off. Free plans can add one custom connector. A connector added here also shows up in Claude Code, so you\'re done.',
       image: "/help/mcp-1.svg",
     },
     {
-      title: "Claude Code",
-      text: "Run this in a terminal:",
+      title: "If you use Claude Code",
+      text: "Only if you didn't already add it in Claude above. Run this in a terminal:",
       copy: "claude mcp add --transport http macro-genie {{MCP_URL}}",
     },
     {
-      title: "Other MCP apps",
-      text: "Add a **Streamable HTTP** MCP server with the same address. No sign-in or key is needed.",
+      title: "If you use another AI app",
+      text: "Any app that supports MCP works. Add a **Streamable HTTP** MCP server with the same address. No sign-in or key is needed.",
     },
     {
       title: "Ask it things",
