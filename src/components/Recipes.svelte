@@ -17,7 +17,7 @@
   let { foods, oneditdislikes, onviewsaved } = $props();
 
   // Matches the four variations the server asks for, in order.
-  const ANGLES = ['A bake or gratin', 'A skillet dish', 'A soup or stew', 'Something unexpected'];
+  const ANGLES = ['Baked, or the classic', 'Skillet, or bright and tangy', 'Soup, or bold and spiced', 'Something unexpected'];
   // How well the ingredients go together, as Claude judged the idea.
   const PAIRING = {
     great: 'Sounds delicious!',
@@ -329,6 +329,7 @@
                   <ul class="idea-ingredients">
                     {#each s.amounts.filter(a => a.grams > 0) as a}<li><span>{a.grams} g</span> {a.food.name}</li>{/each}
                   </ul>
+                  {#if entry.idea.seasonings?.length}<p class="seasonings">Season with {entry.idea.seasonings.join(', ')}.</p>{/if}
                 {/if}
                 <button class="outline-button" onclick={() => choose(entry.idea)}>{chosen?.name === entry.idea.name ? 'Chosen' : 'Cook this one'}</button>
               {/if}

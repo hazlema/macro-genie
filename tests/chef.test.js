@@ -6,6 +6,7 @@ import {
   UserFacingError,
   findFoodsResult,
   generateIdea,
+  ideaPrompt,
   buildRecipe,
   recipePrompt,
   writeRecipe,
@@ -688,4 +689,14 @@ test("written recipes get their kitchen measures checked against real weights", 
   } finally {
     console.log = quiet;
   }
+});
+
+test("each idea angle gives a different direction when its cooking style doesn't fit", () => {
+  const prompts = [0, 1, 2, 3].map((angle) =>
+    ideaPrompt({ servings: 2, ranges: {}, want: ["cucumber"], note: "cucumber salad", dislikes: [], angle }),
+  );
+  const fallbacks = prompts.map((p) => p.match(/make it (.*)\.$/m)?.[1] ?? p.match(/Variation: (.*)$/m)[1]);
+  assert.equal(new Set(fallbacks).size, 4);
+  assert.match(prompts[1], /vinegar/);
+  assert.doesNotMatch(prompts[1], /choose a style/);
 });

@@ -33,11 +33,27 @@ const byId = new Map(foods.map((f) => [f.id, f]));
 export const foodById = (id) => byId.get(id) ?? null;
 
 // Each of the four parallel requests leans a different way so the ideas differ.
+// A cooking style can't suit every request (a salad isn't a bake), so each one
+// also has a flavor direction to take instead; without it, the ideas that
+// dropped their style all fell back to the same obvious dish.
 export const ANGLES = [
-  "a bake, casserole, or gratin",
-  "a skillet, stir-fry, or sauté",
-  "a soup, stew, or curry",
-  "something from a cuisine people might not expect",
+  {
+    style: "a bake, casserole, or gratin",
+    otherwise: "the classic version, done as well as it can be",
+  },
+  {
+    style: "a skillet, stir-fry, or sauté",
+    otherwise:
+      "sharp and tangy, built around vinegar, pickling, citrus, or something fermented",
+  },
+  {
+    style: "a soup, stew, or curry",
+    otherwise: "bold and warm: toasted spices, chili heat, or smoky notes",
+  },
+  {
+    style: "something from a cuisine people might not expect",
+    otherwise: "something from a cuisine people might not expect",
+  },
 ];
 
 const range = z
@@ -233,6 +249,11 @@ function targetsText(request) {
   return lines.length ? lines.join("\n") : "- No targets set";
 }
 
+const variation = ({ style, otherwise }) =>
+  style === otherwise
+    ? `Variation: lean towards ${style}.`
+    : `Variation: lean towards ${style}. If that doesn't suit their note or foods, keep the dish they asked for and make it ${otherwise}.${otherwise.startsWith("the classic") ? "" : " Other cooks are making the classic version, so make yours taste clearly different from it."}`;
+
 export function ideaPrompt(request) {
   return [
     `Servings: ${request.servings}`,
@@ -240,7 +261,7 @@ export function ideaPrompt(request) {
     `Foods they want in it: ${wanted(request).join(", ") || "none named; surprise them"}`,
     `Foods they won't eat: ${request.dislikes.length ? request.dislikes.join(", ") : "none"}`,
     request.note ? `Their note: ${request.note}` : "",
-    `Variation: lean towards ${ANGLES[request.angle]}, unless that doesn't suit their note or foods; then choose a style that does.`,
+    variation(ANGLES[request.angle]),
   ]
     .filter(Boolean)
     .join("\n\n");

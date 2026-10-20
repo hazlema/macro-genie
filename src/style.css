@@ -1679,6 +1679,10 @@ dialog.dislikes[open] {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+.idea .seasonings {
+  margin: 2px 0 14px;
+  line-height: 1.5;
+}
 .idea .outline-button {
   margin-top: auto;
   align-self: flex-start;
