@@ -15,7 +15,7 @@ export default {
     {
       title: "If you use Claude on the web or desktop",
       text: 'Go to **Customize → Connectors**, choose **Add**, then **Add custom connector**. Name it "Macro Genie", paste the address, and leave sign-in off. Free plans can add one custom connector. A connector added here also shows up in Claude Code, so you\'re done.',
-      image: "/help/mcp-1.svg",
+      image: "/help/mcp-1.png",
     },
     {
       title: "If you use Claude Code",
@@ -29,12 +29,12 @@ export default {
     {
       title: "Ask it things",
       text: "Try:\n\n- Find snacks under 150 kcal with at least 15 g protein\n- Which cheeses have the most protein per 100 g?\n- I have chicken thighs, broccoli and rice: size a dish for 4 with 40 g protein and under 600 kcal per serving\n- Compare the sodium in canned vs dried black beans\n- List the food categories you know\n- What's in 100 g of salmon?",
-      image: "/help/mcp-2.svg",
+      image: "/help/mcp-2.png",
     },
     {
       title: "Let it size recipes",
       text: "Give it ingredients and per-serving targets and it sizes every gram with the same solver the Recipe Builder uses, telling you if the targets can't all be met.",
-      image: "/help/mcp-3.svg",
+      image: "/help/mcp-3.png",
     },
     {
       title: "Make recipes for free",
