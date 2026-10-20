@@ -9,14 +9,14 @@ This file is the contract. Copy it to each site that implements it.
 
 ## Where it lives
 
-- URL: `https://<site>/mcp/stats/<token>` (Streamable HTTP, POST).
+- URL: `https://[site]/mcp/stats/[token]` (Streamable HTTP, POST).
 - The token is the whole secret. It is a long random string set in the site's
   environment as `STATS_TOKEN`; generate one with `openssl rand -hex 24`.
 - Anything but the exact token, or no `STATS_TOKEN` configured at all, is a
   plain `404 Not Found` with no hint that the server exists. Compare with a
   constant-time function on equal-length buffers.
 - The public MCP server (if the site has one) never lists this tool.
-- Add it to Claude as a connector named "<Site> stats". Connector names tell
+- Add it to Claude as a connector named "[site name]: Morning Brief". Connector names tell
   sites apart; the server and tool names are the same everywhere.
 
 Rotating the token means changing the env var and the connector URL.
@@ -107,7 +107,7 @@ new site everything is "first in a week" for a day; that's correct.
 
 ### `attention` conventions
 
-- Health first: "Database unreachable", "<Service> key not set".
+- Health first: "Database unreachable", "[Service] key not set".
 - Then failed report parts: "Brief section inbox failed".
 - Then problems: failures, errors, held or blocked things, open reports.
 - Then what's waiting on a person: "2 unread messages", "1 item in the review queue".
@@ -160,7 +160,10 @@ reusable as-is), `mcp/stats.js` (the server), `netlify/functions/mcp-stats.js`
    (`floor((until - created_at) / 1 day)` as the bucket index, 0–6).
 3. Compute `metrics`, `attention`, `notable` (copy `server/notable.js` and
    write labels), `summary`, `details`. Catch every failure: the tool never throws.
-4. Serve it as MCP server `stats`, tool `get_stats`, at `/mcp/stats/<token>`
+4. Serve it as MCP server `stats`, tool `get_stats`, at `/mcp/stats/[token]`
    with the 404 rule above.
 5. Set `STATS_TOKEN`, deploy, add the connector, ask Claude for the morning brief.
 6. Check `/mcp/stats/wrong` is a bare 404.
+7. Not all sites share the same information (ex. some don't have money)
+8. All requests to the url must be POST
+
