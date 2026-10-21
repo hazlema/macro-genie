@@ -32,6 +32,14 @@
   const canSend = $derived(!!to.trim() && !!subject.trim() && hasLink && amountOk && !blanks.length && !sending);
   const preview = $derived(inviteParts(body, { credits: amountOk ? credits : '[credits]', link: `${location.origin}/redeem?code=…` }));
 
+  // The book shows a cancel or forget at once, then re-reads the list: on the
+  // live site that second request can take a moment while the function wakes.
+  function changed(id, action) {
+    if (action === 'forget') invites = invites.filter((i) => i.id !== id);
+    if (action === 'cancel') invites = invites.map((i) => (i.id === id ? { ...i, canceledAt: new Date().toISOString() } : i));
+    load();
+  }
+
   async function load() {
     const res = await api('/api/admin/invites');
     loaded = true;
@@ -136,5 +144,5 @@
     </div>
   </form>
   {/if}
-  <InviteBook bind:open={bookOpen} {invites} onpick={(email) => (to = email)} onchanged={load} />
+  <InviteBook bind:open={bookOpen} {invites} onpick={(email) => (to = email)} onchanged={changed} />
 </section>

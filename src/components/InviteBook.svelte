@@ -32,7 +32,7 @@
     const res = await api(`/api/admin/invites/${invite.id}/${action}`, { method: 'POST', body: {} });
     busy = null;
     if (!res.ok) { error = res.error; return; }
-    onchanged();
+    onchanged(invite.id, action);
   }
 </script>
 
