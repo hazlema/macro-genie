@@ -4163,3 +4163,27 @@ dialog.dislikes[open] {
   color: var(--lime);
   font-weight: 600;
 }
+
+/* Admin → Invites */
+.admin-invites { min-width: 0; }
+.invite-form { max-width: 720px; }
+.invite-to { display: flex; gap: 8px; flex-wrap: wrap; }
+.invite-to input { flex: 1 1 14rem; min-width: 0; }
+.invite-credits { max-width: 7rem; }
+.invite-preview { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.6; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); max-height: 22rem; overflow-y: auto; }
+.invite-preview mark { border-radius: 4px; padding: 0 3px; }
+.invite-preview .invite-auto { background: #71d5a533; color: var(--green); }
+.invite-preview .invite-blank { background: #e9bd6540; color: var(--amber); }
+.invite-warn { color: var(--amber); margin: 0; }
+.invite-buttons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
+dialog.invite-book { width: min(720px, calc(100vw - 32px)); }
+.invite-book-search { width: 100%; margin: 14px 0 6px; padding: 10px 14px; border-radius: 10px; background: #111415; color: inherit; font: inherit; }
+.invite-book-scroll { max-height: min(24rem, 55vh); overflow: auto; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 16px; }
+.invite-book-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.invite-book-table th { position: sticky; top: 0; background: var(--panel); text-align: left; font-weight: 600; }
+.invite-book-table th, .invite-book-table td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.invite-book-table td:first-child { white-space: normal; overflow-wrap: anywhere; }
+.invite-pick { text-align: left; padding: 0; }
+.invite-used { color: var(--green); font-weight: 600; }
+.invite-actions { display: flex; gap: 10px; }
+.invite-preview-label { flex-direction: row; align-items: baseline; flex-wrap: wrap; margin: 0 0 -8px; }

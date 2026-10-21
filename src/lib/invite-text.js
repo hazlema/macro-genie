@@ -24,6 +24,24 @@ export function findBlanks(text) {
   return blanks;
 }
 
+// The text cut into runs for the admin preview: plain words, the filled-in
+// [credits] and [redeem link] ("auto"), and blanks still to fill.
+export function inviteParts(text, { credits, link }) {
+  const source = String(text ?? "");
+  const parts = [];
+  let at = 0;
+  for (const match of source.matchAll(BRACKET)) {
+    if (match.index > at) parts.push({ text: source.slice(at, match.index), kind: "plain" });
+    const name = nameOf(match[1]);
+    if (AUTO.has(name))
+      parts.push({ text: name === "credits" ? String(credits) : link, kind: "auto" });
+    else parts.push({ text: match[0], kind: "blank" });
+    at = match.index + match[0].length;
+  }
+  if (at < source.length) parts.push({ text: source.slice(at), kind: "plain" });
+  return parts;
+}
+
 // A code as typed or pasted: the whole link, spaces, dashes and line breaks
 // all come off. "" when what's left isn't a code.
 export function normalizeCode(input) {

@@ -55,7 +55,8 @@ export default defineConfig(({ command }) => {
     // in this plugin, so its credentials are ignored here; no local test ever
     // spends Netlify credits.
     const local = loadEnv("development", process.cwd(), "ANTHROPIC_");
-    // Sign-in, database and Stripe settings from .env for the functions under npm run dev.
+    // Sign-in, database, Stripe and invite-email (SMTP_) settings from .env for
+    // the functions under npm run dev.
     const auth = loadEnv("development", process.cwd(), [
       "GOOGLE_CLIENT_ID",
       "SESSION_SECRET",
@@ -64,6 +65,7 @@ export default defineConfig(({ command }) => {
       "STRIPE_SECRET_KEY",
       "STRIPE_WEBHOOK_SECRET",
       "STATS_TOKEN",
+      "SMTP_",
     ]);
     for (const [key, value] of Object.entries(auth)) process.env[key] ??= value;
     process.env.MACRO_GENIE_LOCAL = "1";

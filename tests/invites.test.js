@@ -17,6 +17,7 @@ import {
 import {
   fillInvite,
   findBlanks,
+  inviteParts,
   normalizeCode,
 } from "../src/lib/invite-text.js";
 
@@ -39,6 +40,18 @@ test("findBlanks lists the other brackets once each", () => {
     ["[user]", '[One recipe, e.g. "x"]'],
   );
   assert.deepEqual(findBlanks("no blanks [credits]"), []);
+});
+
+test("inviteParts marks filled and blank parts for the preview", () => {
+  assert.deepEqual(inviteParts("Hi [user], [Credits] here: [redeem link]", { credits: 50, link: "L" }), [
+    { text: "Hi ", kind: "plain" },
+    { text: "[user]", kind: "blank" },
+    { text: ", ", kind: "plain" },
+    { text: "50", kind: "auto" },
+    { text: " here: ", kind: "plain" },
+    { text: "L", kind: "auto" },
+  ]);
+  assert.deepEqual(inviteParts("", { credits: 1, link: "L" }), []);
 });
 
 test("normalizeCode", () => {
