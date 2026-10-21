@@ -48,6 +48,28 @@ function stripeListen() {
   };
 }
 
+// Under npm run dev, page addresses (/redeem?code=…, /help, /foods…) load
+// the live app. Without this, netlify.toml's rewrites hand back the last
+// build's index.html from dist/, whose /assets files the dev server doesn't
+// have, so a directly opened page comes up blank. Function routes and real
+// files are left to the Netlify plugin and Vite.
+const FUNCTION_PATHS = /^\/(api|mcp)(\/|$)|^\/community\/\d+\/?$/;
+const DEV_INTERNALS = /^\/(@|src\/|node_modules\/|\.netlify\/)/;
+function devPages() {
+  return {
+    name: "dev-pages",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        const [path, query = ""] = (req.url ?? "/").split("?");
+        if (req.method === "GET" && path !== "/" && !path.includes(".") && !FUNCTION_PATHS.test(path) && !DEV_INTERNALS.test(path))
+          req.url = query ? `/?${query}` : "/";
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(({ command }) => {
   if (command === "serve") {
     // Local AI calls use only the ANTHROPIC_API_KEY in .env, sent straight to
@@ -81,6 +103,8 @@ export default defineConfig(({ command }) => {
   return {
     plugins: [
       svelte(),
+      // Before the Netlify plugin, so its rewrites never see page addresses.
+      devPages(),
       // Runs the /api and /mcp functions inside `npm run dev`.
       netlify({ edgeFunctions: { enabled: false } }),
       stripeListen(),
