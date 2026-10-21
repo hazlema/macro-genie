@@ -8,15 +8,18 @@ import { FIXED_PAGES } from "../seo/pages.js";
 //   /builder           Recipe Builder
 //   /recipes           Recipe Book; /recipes/<id>  one saved recipe (this browser);
 //                      /recipes/shopping  the shopping list
-//   /admin             Admin (Reviews); /admin/users, /admin/log, /admin/inbox, /admin/money
+//   /admin             Admin (Reviews); /admin/users, /admin/log, /admin/inbox,
+//                      /admin/invites, /admin/money
 //   /help, /help/<guide>   Help;  /terms /refunds /privacy /contact   policies
 //   /credits           Get more credits (Stripe Checkout returns here)
+//   /redeem            Redeem an invite code (only linked from invite emails)
 const TABS = {
   foods: "foods",
   builder: "recipes",
   community: "community",
   recipes: "saved",
   credits: "credits",
+  redeem: "redeem",
 };
 const PATHS = {
   foods: "/foods",
@@ -24,9 +27,10 @@ const PATHS = {
   community: "/community",
   saved: "/recipes",
   credits: "/credits",
+  redeem: "/redeem",
 };
 
-const ADMIN_TABS = ["reviews", "users", "log", "inbox", "money"];
+const ADMIN_TABS = ["reviews", "users", "log", "inbox", "invites", "money"];
 const PAGES = ["terms", "refunds", "privacy", "contact"];
 // Guide slugs are lowercase words; anything else shows the help hub.
 const SLUG = /^[a-z]+$/;
@@ -79,6 +83,7 @@ const SECTION_TITLES = {
   "/recipes": "Recipe Book — Macro Genie",
   "/credits": "Get credits — Macro Genie",
   "/admin": "Admin — Macro Genie",
+  "/redeem": "Redeem credits — Macro Genie",
 };
 export function titleFor(r) {
   const path = pathFor(r);

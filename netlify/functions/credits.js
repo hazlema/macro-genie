@@ -1,6 +1,7 @@
 import { UserFacingError } from "../../server/chef.js";
 import { fail } from "../../server/http.js";
 import { PACKS } from "../../server/packs.js";
+import { redeemInvite } from "../../server/invites.js";
 import { confirmPurchase, startCheckout } from "../../server/payments.js";
 import { readSession } from "../../server/session.js";
 import { withTiming } from "../../server/timing.js";
@@ -8,8 +9,9 @@ import { withTiming } from "../../server/timing.js";
 // /api/credits/packs: the packs for sale.
 // /api/credits/checkout: start a Stripe Checkout for one pack.
 // /api/credits/confirm: the return page asks for its credits.
+// /api/credits/redeem: trade an invite code for its credits.
 export const config = {
-  path: ["/api/credits/packs", "/api/credits/checkout", "/api/credits/confirm"],
+  path: ["/api/credits/packs", "/api/credits/checkout", "/api/credits/confirm", "/api/credits/redeem"],
   rateLimit: { windowLimit: 30, windowSize: 60, aggregateBy: ["ip", "domain"] },
 };
 
@@ -25,6 +27,10 @@ async function handler(request) {
       throw new UserFacingError("Send the request as JSON.");
     });
     const accountId = process.env.SESSION_SECRET ? readSession(request) : null;
+    if (pathname === "/api/credits/redeem")
+      return Response.json(await redeemInvite(accountId, body?.code), {
+        headers: { "Cache-Control": "no-store" },
+      });
     if (pathname === "/api/credits/checkout")
       return Response.json(await startCheckout(accountId, body?.pack, origin));
     return Response.json(await confirmPurchase(accountId, body?.sessionId), {

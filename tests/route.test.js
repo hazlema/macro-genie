@@ -84,6 +84,14 @@ test(
       recipeId: null,
     });
     assert.equal(pathFor({ tab: "credits" }), "/credits");
+    assert.deepEqual(parse("/redeem"), {
+      tab: "redeem",
+      postId: null,
+      recipeId: null,
+    });
+    assert.equal(pathFor({ tab: "redeem" }), "/redeem");
+    assert.equal(parse("/admin/invites").adminTab, "invites");
+    assert.equal(pathFor({ tab: "admin", adminTab: "invites" }), "/admin/invites");
   },
 );
 
@@ -96,6 +104,7 @@ test(
     assert.equal(titleFor(parse("/community/42")), "Community Recipes — Macro Genie");
     assert.equal(titleFor(parse("/recipes/abc")), "Recipe Book — Macro Genie");
     assert.equal(titleFor(parse("/credits")), "Get credits — Macro Genie");
+    assert.equal(titleFor(parse("/redeem")), "Redeem credits — Macro Genie");
     assert.equal(titleFor(parse("/nonsense")), "Macro Genie — Your macros, granted");
   },
 );

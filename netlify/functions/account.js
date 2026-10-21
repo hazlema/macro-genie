@@ -57,6 +57,7 @@ async function handler(request) {
             ...publicAccount(account),
             isAdmin: role.admin,
             isMod: role.mod,
+            isOwner: role.owner,
             suspended: role.suspended,
           },
           googleClientId,

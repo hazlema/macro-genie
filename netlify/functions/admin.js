@@ -1,6 +1,15 @@
 import { decide, reviewQueue } from "../../server/admin.js";
 import { listActivity } from "../../server/activity.js";
 import { addCost, deleteCost, updateCost } from "../../server/costs.js";
+import {
+  cancelInvite,
+  deleteTemplate,
+  forgetInvite,
+  listInvites,
+  resendInvite,
+  saveTemplate,
+  sendInvite,
+} from "../../server/invites.js";
 import { listMessages, setMessageStatus } from "../../server/messages.js";
 import { moneyOverview } from "../../server/money.js";
 import { UserFacingError } from "../../server/chef.js";
@@ -135,6 +144,23 @@ async function handler(request) {
         );
       case "DELETE money/costs/:id":
         return Response.json(await deleteCost(actor, idFrom(id)));
+      // Invites (owner only; server/invites.js checks).
+      case "GET invites":
+        return Response.json(await listInvites(actor), noStore);
+      case "POST invites":
+        return Response.json(
+          await sendInvite(actor, await json(request), url.origin),
+        );
+      case "POST invites/:id/resend":
+        return Response.json(await resendInvite(actor, idFrom(id)));
+      case "POST invites/:id/cancel":
+        return Response.json(await cancelInvite(actor, idFrom(id)));
+      case "POST invites/:id/forget":
+        return Response.json(await forgetInvite(actor, idFrom(id)));
+      case "POST templates":
+        return Response.json(await saveTemplate(actor, await json(request)));
+      case "POST templates/:id/delete":
+        return Response.json(await deleteTemplate(actor, idFrom(id)));
       default:
         return Response.json({ error: "Not found." }, { status: 404 });
     }
