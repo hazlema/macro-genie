@@ -15,6 +15,7 @@
   import PolicyPage from './components/PolicyPage.svelte';
   import ContactPage from './components/ContactPage.svelte';
   import Credits from './components/Credits.svelte';
+  import Redeem from './components/Redeem.svelte';
   import FooterLinks from './components/FooterLinks.svelte';
   import Landing from './components/Landing.svelte';
   import RecipeCard from './components/RecipeCard.svelte';
@@ -183,6 +184,8 @@
   <Admin adminTab={route.adminTab} />
 {:else if tab === 'credits'}
   <Credits />
+{:else if tab === 'redeem'}
+  <Redeem />
 {:else if tab === 'page' && route.page === 'contact'}
   <ContactPage />
 {:else if tab === 'page'}
