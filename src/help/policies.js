@@ -1,6 +1,6 @@
 // Plain-language policy pages. Drafts for the owner to review; not legal
 // advice. Keep "updated" in step with real changes.
-const updated = "October 20, 2026";
+const updated = "October 21, 2026";
 
 const terms = `**What this is.** Macro Genie helps you find foods and build recipes that fit your nutrition targets. Food search, the Community, and the MCP server are free. The Recipe Builder uses credits.
 
@@ -33,6 +33,8 @@ const privacy = `**What we store.** Your Google account id, your display name, y
 **What we don't.** We don't keep a password, and your account doesn't hold your email: when you sign in, Google tells us only an id and your first name, which becomes your display name (you can change it).
 
 **Messages you send us.** If you use the contact form, we keep your message and the email you type with it so we can reply.
+
+**Invites.** If we email you an invite with free credits, we keep the address it went to in an admin-only list so we don't write twice. It's never linked to an account, and we delete it if you ask.
 
 **What stays in your browser.** Your Recipe Book, the foods you won't eat, and the recipe in progress are saved on your device, not on our servers.
 
