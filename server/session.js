@@ -67,7 +67,9 @@ export async function verifyGoogleToken(token, keys = googleKeys) {
       issuer: ["https://accounts.google.com", "accounts.google.com"],
       audience: clientId,
     }));
-  } catch {
+  } catch (err) {
+    // The person only sees "try again"; the log says why.
+    console.warn("Google sign-in rejected:", err.code ?? err.message);
     throw new UserFacingError(
       "Google sign-in didn't go through. Try again.",
       401,

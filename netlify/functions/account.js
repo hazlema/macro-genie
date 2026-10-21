@@ -9,6 +9,7 @@ import { roleOf } from "../../server/roles.js";
 import { setDisplayName } from "../../server/community.js";
 import { UserFacingError } from "../../server/chef.js";
 import { fail } from "../../server/http.js";
+import { isDatabaseDown, reportDatabaseDown } from "../../server/db.js";
 import {
   clearCookie,
   readSession,
@@ -38,17 +39,25 @@ async function handler(request) {
     if (pathname === "/api/me") {
       const googleClientId = process.env.GOOGLE_CLIENT_ID ?? null;
       const id = process.env.SESSION_SECRET ? readSession(request) : null;
-      const account = id ? await getAccount(id) : null;
+      // With the database down, the page still loads, just signed out.
+      let account = null;
+      let role = null;
+      try {
+        account = id ? await getAccount(id) : null;
+        role = account && (await roleOf(account.id));
+      } catch (error) {
+        if (!isDatabaseDown(error)) throw error;
+        reportDatabaseDown(error);
+        account = null;
+      }
       return Response.json(
         {
           signedIn: !!account,
           account: account && {
             ...publicAccount(account),
-            ...(await roleOf(account.id).then((r) => ({
-              isAdmin: r.admin,
-              isMod: r.mod,
-              suspended: r.suspended,
-            }))),
+            isAdmin: role.admin,
+            isMod: role.mod,
+            suspended: role.suspended,
           },
           googleClientId,
         },

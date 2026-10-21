@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ZodError } from "zod";
 import { UserFacingError } from "./chef.js";
+import { isDatabaseDown, reportDatabaseDown } from "./db.js";
 
 // Turns any error into a JSON response a visitor can act on.
 export const fail = (error) => {
@@ -24,6 +25,13 @@ export const fail = (error) => {
       },
       { status: 503 },
     );
+  if (isDatabaseDown(error)) {
+    reportDatabaseDown(error);
+    return Response.json(
+      { error: "The site's database isn't responding. Try again in a few minutes." },
+      { status: 503 },
+    );
+  }
   if (error?.status === 429)
     return Response.json(
       { error: "Recipe ideas are busy right now. Try again in a minute." },

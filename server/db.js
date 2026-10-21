@@ -62,6 +62,39 @@ export function database() {
   return db;
 }
 
+// Errors that mean the database can't be reached at all, as opposed to a bad
+// query: a rejected password (28P01/28000), a missing database (3D000), Neon
+// shutting the connection (57P0x), or the host not answering.
+const DOWN_CODES = new Set([
+  "28P01",
+  "28000",
+  "3D000",
+  "57P01",
+  "57P02",
+  "57P03",
+  "ENOTFOUND",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EAI_AGAIN",
+]);
+export const isDatabaseDown = (error) =>
+  DOWN_CODES.has(error?.code) ||
+  /endpoint .*(not found|disabled|deleted)|DATABASE_URL isn't set/i.test(
+    String(error?.message),
+  );
+
+// One clear line in the server log instead of a stack trace.
+export function reportDatabaseDown(error) {
+  const why =
+    error?.code === "28P01" || error?.code === "28000"
+      ? "Probably a rotated password, or the Neon branch was deleted and recreated: copy a fresh connection string from Neon into DATABASE_URL."
+      : "Check that the Neon project or branch still exists and DATABASE_URL points at it.";
+  console.error(
+    `Database not responding (${error?.code ?? "no code"}: ${error?.message}). ${why}`,
+  );
+}
+
 export function useDatabase(client) {
   db = client;
 }
