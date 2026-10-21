@@ -139,6 +139,7 @@ test("signing in with Google creates the account and a session; only a first nam
       credits: 10,
       isAdmin: false,
       isMod: false,
+      isOwner: false,
       suspended: false,
     },
     googleClientId: CLIENT_ID,
