@@ -63,3 +63,11 @@ export async function requireActive(accountId) {
   if (role.suspended) throw new UserFacingError(SUSPENDED, 403);
   return role;
 }
+
+// For what only the site owner may do, like emailing invites as them.
+export async function requireOwner(accountId) {
+  const role = await roleOf(accountId);
+  if (!role.owner)
+    throw new UserFacingError("Only the site owner can do that.", 403);
+  return role;
+}

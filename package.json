@@ -32,6 +32,7 @@
     "javascript-lp-solver": "^1.0.3",
     "jose": "^6.2.12",
     "marked": "^18.1.1",
+    "nodemailer": "^10.1.7",
     "pg": "^8.23.1",
     "stripe": "^23.0.0",
     "svelte": "^5.57.2",
