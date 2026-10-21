@@ -100,15 +100,16 @@
                   </div>
                   {#if confirm === 'delete'}
                     <div class="delete-confirm">
-                      <p>This erases {u.displayName}’s account, posts, comments, likes, and credits, and stops that Google account signing in again. Type <strong>{u.displayName}</strong> to confirm.</p>
+                      <p>This erases {u.displayName}’s account, posts, comments, likes, credits, and messages to us. The credit history stays without their name, for tax records. <strong>Delete</strong> is for a “Delete my data” request: they can sign up again later. <strong>Delete and ban</strong> also stops that Google account signing in again. Type <strong>{u.displayName}</strong> to confirm.</p>
                       <input bind:value={confirmName} aria-label="Type their display name to confirm" />
                       <div class="user-actions">
-                        <button class="danger-button" disabled={busy || confirmName.trim() !== u.displayName} onclick={() => act(u, 'delete', { confirm: confirmName }, () => { users = users.filter((x) => x.id !== u.id); open = null; })}>Delete and ban</button>
+                        <button class="danger-button" disabled={busy || confirmName.trim() !== u.displayName} onclick={() => act(u, 'delete', { confirm: confirmName, ban: false }, () => { users = users.filter((x) => x.id !== u.id); open = null; })}>Delete</button>
+                        <button class="danger-button" disabled={busy || confirmName.trim() !== u.displayName} onclick={() => act(u, 'delete', { confirm: confirmName, ban: true }, () => { users = users.filter((x) => x.id !== u.id); open = null; })}>Delete and ban</button>
                         <button class="text-button" onclick={() => (confirm = '')}>Cancel</button>
                       </div>
                     </div>
                   {:else}
-                    <button class="danger-button" onclick={() => { confirm = 'delete'; confirmName = ''; }}>Delete and ban</button>
+                    <button class="danger-button" onclick={() => { confirm = 'delete'; confirmName = ''; }}>Delete…</button>
                   {/if}
                 {/if}
               {/if}

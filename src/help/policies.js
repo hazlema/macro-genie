@@ -1,6 +1,6 @@
 // Plain-language policy pages. Drafts for the owner to review; not legal
 // advice. Keep "updated" in step with real changes.
-const updated = "October 13, 2026";
+const updated = "October 20, 2026";
 
 const terms = `**What this is.** Macro Genie helps you find foods and build recipes that fit your nutrition targets. Food search, the Community, and the MCP server are free. The Recipe Builder uses credits.
 
@@ -42,7 +42,7 @@ const privacy = `**What we store.** Your Google account id, your display name, y
 
 **Chatting from your AI.** The MCP server only answers food and recipe questions. It's read-only and keeps nothing about you.
 
-**Deleting your data.** [Contact us](/contact) with the topic "Delete my data" and we'll remove your account, everything it owns, and your messages to us.
+**Deleting your data.** [Contact us](/contact) with the topic "Delete my data" and we'll remove your account, everything it owns, and your messages to us. We keep the record of credits bought and used, with dates and amounts but nothing that names you, because tax rules require us to keep payment records.
 
 **Changes.** We'll update this page if anything changes; the date above changes when we do.`;
 

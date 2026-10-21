@@ -1,6 +1,6 @@
 import { addCredits, getAccount } from "./accounts.js";
 import { logActivity } from "./activity.js";
-import { transaction } from "./db.js";
+import { database, transaction } from "./db.js";
 import { UserFacingError } from "./chef.js";
 import { packById } from "./packs.js";
 import { requireActive } from "./roles.js";
@@ -126,9 +126,19 @@ export async function fulfill(sessionOrId) {
       actorName: account.displayName,
       text: `bought ${credits} credits (${dollars(cents)})`,
     });
+  // A repeat reports what the first one added: 0 if a refund beat it here.
+  const purchased =
+    after !== null
+      ? credits
+      : Number(
+          (
+            await database().sql`
+              SELECT change FROM credit_ledger WHERE reason = 'purchase' AND ref = ${session.id}`
+          )[0]?.change ?? credits,
+        );
   return {
     paid: true,
-    purchased: credits,
+    purchased,
     credits: after ?? (await balanceOf(accountId)),
   };
 }
@@ -152,7 +162,8 @@ export async function confirmPurchase(accountId, sessionId) {
 // money returned. Stripe reports the total refunded so far, so each event
 // tops up to that total. Only credits this payment actually added can be
 // taken back, and never below zero: credits already spent stay spent.
-export async function applyRefund(charge) {
+// A chargeback counts the disputed amount as returned too.
+export async function applyRefund(charge, { disputedCents = 0, what = "refunded" } = {}) {
   const pi =
     typeof charge.payment_intent === "string"
       ? charge.payment_intent
@@ -161,29 +172,42 @@ export async function applyRefund(charge) {
   const intent = await callStripe((s) => s.paymentIntents.retrieve(pi));
   const accountId = Number(intent.metadata?.accountId) || null;
   if (!accountId || !intent.metadata?.credits) return { removed: 0 };
+  const returned = Math.min(
+    charge.amount,
+    (charge.amount_refunded ?? 0) + disputedCents,
+  );
+  if (returned <= 0) return { removed: 0 };
   const found = await callStripe((s) =>
     s.checkout.sessions.list({ payment_intent: pi, limit: 1 }),
   );
   const sessionId = found?.data?.[0]?.id ?? null;
   const result = await transaction(async (client) => {
+    // By ref alone: a deleted account's purchase stays, with no account.
     const bought = sessionId
       ? await client.query(
-          `SELECT change FROM credit_ledger
-            WHERE reason = 'purchase' AND ref = $1 AND account_id = $2`,
-          [sessionId, accountId],
+          `SELECT change, account_id FROM credit_ledger
+            WHERE reason = 'purchase' AND ref = $1`,
+          [sessionId],
         )
       : { rows: [] };
     const purchased = Number(bought.rows[0]?.change ?? 0);
-    if (purchased <= 0) return { nothingAdded: true };
-    const held = await client.query(
-      `SELECT credits, display_name FROM accounts WHERE id = $1 FOR UPDATE`,
-      [accountId],
-    );
-    const account = held.rows[0];
-    if (!account) return null;
+    if (purchased <= 0) {
+      // Money went back before the credits arrived (the webhook was still
+      // retrying). Mark the checkout done so a late fulfill adds nothing.
+      if (sessionId && !bought.rows[0]) {
+        const owner = await client.query(`SELECT id FROM accounts WHERE id = $1`, [accountId]);
+        await client.query(
+          `INSERT INTO credit_ledger (account_id, change, reason, ref, paid)
+           VALUES ($1, 0, 'purchase', $2, true)
+           ON CONFLICT (reason, ref) DO NOTHING`,
+          [owner.rows[0] ? accountId : null, sessionId],
+        );
+      }
+      return { nothingAdded: true };
+    }
     const target = Math.min(
       purchased,
-      Math.round((purchased * charge.amount_refunded) / charge.amount),
+      Math.round((purchased * returned) / charge.amount),
     );
     const taken = await client.query(
       `SELECT COALESCE(-SUM(change), 0) AS taken FROM credit_ledger
@@ -192,32 +216,58 @@ export async function applyRefund(charge) {
     );
     const wanted = target - Number(taken.rows[0].taken);
     if (wanted <= 0) return null;
-    const balance = Number(account.credits);
-    const removed = Math.min(wanted, balance);
+    const owner = bought.rows[0].account_id;
+    const held = owner
+      ? await client.query(
+          `SELECT credits, display_name FROM accounts WHERE id = $1 FOR UPDATE`,
+          [owner],
+        )
+      : { rows: [] };
+    const account = held.rows[0];
+    // A deleted account's credits went with it; the row still records the
+    // refunded credits so the Money tab's credits sold stays right.
+    const removed = account ? Math.min(wanted, Number(account.credits)) : 0;
     const logged = await client.query(
       `INSERT INTO credit_ledger (account_id, change, reason, ref, paid)
        VALUES ($1, $2, 'refund_purchase', $3, true)
        ON CONFLICT (reason, ref) DO NOTHING RETURNING id`,
-      [accountId, -removed, `${pi}:${charge.amount_refunded}`],
+      [account ? owner : null, account ? -removed : -wanted, `${pi}:${returned}`],
     );
     if (!logged.rows[0]) return null;
-    await client.query(
-      `UPDATE accounts
-          SET credits = credits - $2,
-              paid_credits = GREATEST(0, LEAST(paid_credits - $2, credits - $2))
-        WHERE id = $1`,
-      [accountId, removed],
-    );
-    return { removed, wanted, balance, name: account.display_name };
+    if (account)
+      await client.query(
+        `UPDATE accounts
+            SET credits = credits - $2,
+                paid_credits = GREATEST(0, LEAST(paid_credits - $2, credits - $2))
+          WHERE id = $1`,
+        [owner, removed],
+      );
+    return {
+      removed,
+      wanted,
+      balance: account ? Number(account.credits) : 0,
+      name: account?.display_name,
+      gone: !account,
+    };
   });
   if (!result) return { removed: 0 };
+  // activity_log.account_id references accounts, so a deleted id can't be logged.
+  const liveId = async () => ((await getAccount(accountId)) ? accountId : null);
   if (result.nothingAdded) {
-    // activity_log.account_id references accounts, so a deleted id can't be logged.
     await logActivity({
       kind: "payment_problem",
-      accountId: (await getAccount(accountId)) ? accountId : null,
+      accountId: await liveId(),
       actorName: "Stripe",
-      text: `refund for ${pi} but no credits were added for it; nothing taken back`,
+      text: `${what} ${dollars(returned)} for ${pi}, which added no credits (yet); nothing taken back, and none will be added`,
+    });
+    return { removed: 0 };
+  }
+  if (result.gone) {
+    await logActivity({
+      kind: "payment_problem",
+      accountId: null,
+      actorName: "Stripe",
+      text: `${what} ${dollars(returned)} for ${pi}, whose account was deleted; its credits were already gone`,
     });
     return { removed: 0 };
   }
@@ -227,10 +277,22 @@ export async function applyRefund(charge) {
     actorName: result.name,
     text:
       result.removed === result.wanted
-        ? `refunded ${dollars(charge.amount_refunded)}, removed ${result.removed} credits`
-        : `refunded ${dollars(charge.amount_refunded)}, removed ${result.removed} of ${result.wanted}; balance was ${result.balance}`,
+        ? `${what} ${dollars(returned)}, removed ${result.removed} credits`
+        : `${what} ${dollars(returned)}, removed ${result.removed} of ${result.wanted}; balance was ${result.balance}`,
   });
   return { removed: result.removed };
+}
+
+// A chargeback: the bank pulls the money back, so the credits go too, as
+// with a refund. Stripe doesn't send charge.refunded for these.
+export async function applyDispute(dispute) {
+  const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+  if (!chargeId) return { removed: 0 };
+  const charge = await callStripe((s) => s.charges.retrieve(chargeId));
+  return applyRefund(charge, {
+    disputedCents: dispute.amount ?? charge.amount,
+    what: `charged back (${dispute.reason ?? "no reason given"})`,
+  });
 }
 
 // Stripe's calls to /api/stripe/webhook. The signature proves Stripe sent it.
@@ -254,6 +316,9 @@ export async function handleWebhook(rawBody, signature) {
       break;
     case "charge.refunded":
       await applyRefund(event.data.object);
+      break;
+    case "charge.dispute.created":
+      await applyDispute(event.data.object);
       break;
   }
   return { received: true };

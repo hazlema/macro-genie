@@ -8,7 +8,7 @@ import { listActivity } from "../server/activity.js";
 import { PACKS, packById } from "../server/packs.js";
 import { useStripe } from "../server/stripe.js";
 import { sessionCookie } from "../server/session.js";
-import { applyRefund, confirmPurchase, fulfill, handleWebhook, startCheckout } from "../server/payments.js";
+import { applyDispute, applyRefund, confirmPurchase, fulfill, handleWebhook, startCheckout } from "../server/payments.js";
 import credits from "../netlify/functions/credits.js";
 import webhook from "../netlify/functions/stripe-webhook.js";
 
@@ -29,10 +29,18 @@ function fakeStripe() {
       type: "StripeInvalidRequestError",
       statusCode: 404,
     });
+  // Doubles as Stripe's charges API: fake.charges.set(...) / s.charges.retrieve(id).
+  const charges = Object.assign(new Map(), {
+    async retrieve(id) {
+      if (!charges.has(id)) throw missing();
+      return charges.get(id);
+    },
+  });
   return {
     created,
     sessions,
     intents,
+    charges,
     calls: 0,
     checkout: {
       sessions: {
@@ -378,7 +386,7 @@ test("a refund for a payment that never added credits takes nothing", async () =
   assert.equal((await getAccount(id)).credits, 30);
   assert.match(
     (await listActivity({ chip: "problems" })).entries[0].text,
-    /refund for pi_odd but no credits were added for it; nothing taken back/,
+    /refunded \$3 for pi_odd, which added no credits \(yet\); nothing taken back/,
   );
 });
 
@@ -399,6 +407,30 @@ test("a refund arriving before the checkout was fulfilled takes nothing", async 
   );
   assert.equal((await getAccount(id)).credits, 60);
   assert.match((await listActivity({ chip: "problems" })).entries[0].text, /pi_early/);
+  // The webhook's retry lands after the refund: the money is gone, so no credits.
+  assert.deepEqual(await fulfill("cs_pi_early"), { paid: true, purchased: 0, credits: 60 });
+  assert.equal((await getAccount(id)).credits, 60);
+});
+
+test("a chargeback takes the pack's credits back like a refund", async () => {
+  const { id } = await newAccount("Dee");
+  const charge = await bought(id, "large", "pi_dispute");
+  fake.charges.set("ch_dispute", { id: "ch_dispute", ...charge(0) });
+  const dispute = { id: "dp_1", charge: "ch_dispute", amount: 1200, reason: "fraudulent" };
+  assert.deepEqual(await applyDispute(dispute), { removed: 120 });
+  assert.equal((await getAccount(id)).credits, 10);
+  assert.match((await listActivity({ chip: "credits" })).entries[0].text, /charged back \(fraudulent\) \$12, removed 120 credits/);
+  assert.deepEqual(await applyDispute(dispute), { removed: 0 }, "a repeat event changes nothing");
+});
+
+test("a refund for a deleted account still records the refunded credits", async () => {
+  const { id } = await newAccount();
+  const charge = await bought(id, "small", "pi_deleted");
+  await db.sql`DELETE FROM accounts WHERE id = ${id}`;
+  assert.deepEqual(await applyRefund(charge(300)), { removed: 0 });
+  const rows = await db.sql`SELECT account_id, change FROM credit_ledger WHERE reason = 'refund_purchase' AND ref = 'pi_deleted:300'`;
+  assert.deepEqual(rows.map((r) => [r.account_id, r.change]), [[null, -20]]);
+  assert.match((await listActivity({ chip: "problems" })).entries[0].text, /whose account was deleted/);
 });
 
 const signed = (event) => {

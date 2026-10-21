@@ -222,10 +222,10 @@ test("fixed costs and earned per paid credit", async () => {
   await addCredits(id, 50, "purchase", "cs_money_3", { paid: true });
   await db.sql`UPDATE credit_ledger SET created_at = '2026-10-02T10:00:00Z' WHERE ref = 'cs_money_3'`;
   const m = await buildMonth("2026-10");
-  assert.deepEqual(m.fixed, [{ name: "Netlify Pro", cents: 1900 }, { name: "Domain", cents: 100 }]);
-  assert.equal(m.fixedCents, 2000);
+  assert.deepEqual(m.fixed, [{ name: "Netlify Pro", cents: 1900 }, { name: "Domain", cents: 1200 }]);
+  assert.equal(m.fixedCents, 3100); // the yearly domain counts in full in the month paid
   assert.equal(m.perCredit.earnedCents, 11.06); // (600 − 47) / 50
-  assert.equal(m.netCents, 600 - 47 - 2000);
+  assert.equal(m.netCents, 600 - 47 - 3100);
 });
 
 test("Anthropic's actual cost, when there's an admin key", async () => {
@@ -281,17 +281,61 @@ test("a failed source marks the month incomplete", async () => {
   }
 });
 
-test("finished months are saved once and don't change later", async () => {
+test("saved months keep Stripe and AI figures, but bills always come from today's list", async () => {
   await addCost(admin.id, { name: "Netlify Pro", cents: 1900, period: "monthly", starts: "2026-10" });
   await usage("idea", 0.04, "2026-10-05T00:00:00Z");
   const now = new Date("2027-01-14T12:00:00Z");
   const first = await moneyOverview(admin.id, now);
   assert.equal(first.current.month, "2027-01");
   assert.deepEqual(first.saved.map((m) => m.month), ["2026-12", "2026-11", "2026-10"]);
+  const oct = first.saved[2];
+  assert.equal(oct.netCents, -4 - 1900);
+  // A late bill and a correction both reach the saved months.
   await db.sql`UPDATE fixed_costs SET cents = 5000`;
+  await addCost(admin.id, { name: "Top-up", cents: 2500, period: "once", starts: "2026-10" });
+  await usage("idea", 9.99, "2026-10-06T00:00:00Z"); // AI after saving doesn't change it
   const again = await moneyOverview(admin.id, now);
-  assert.equal(again.saved[0].fixedCents, 1900);
+  assert.equal(again.saved[0].fixedCents, 5000);
+  assert.equal(again.saved[2].fixedCents, 7500);
+  assert.equal(again.saved[2].netCents, -4 - 7500);
   assert.equal(again.current.fixedCents, 5000);
+});
+
+test("chargebacks and failed refunds count with refunds; dispute fees as fees", async () => {
+  txns = [
+    { type: "charge", amount: 1200, fee: 65, created: unix("2026-10-02T10:00:00Z"), source: { payment_intent: ours("large", 120, 1200) } },
+    { type: "adjustment", amount: -1200, fee: 1500, created: unix("2026-10-09T10:00:00Z"), source: { object: "dispute", payment_intent: ours("large", 120, 1200) } },
+    { type: "refund", amount: -300, fee: 0, created: unix("2026-10-05T10:00:00Z"), source: { payment_intent: ours("small", 20, 300) } },
+    { type: "refund_failure", amount: 300, fee: 0, created: unix("2026-10-07T10:00:00Z"), source: { payment_intent: ours("small", 20, 300) } },
+  ];
+  const m = await buildMonth("2026-10");
+  assert.equal(m.refundCents, 1200);
+  assert.equal(m.stripeFeeCents, 65 + 1500);
+  assert.equal(m.netCents, 1200 - 1565 - 1200);
+});
+
+test("with a workspace set, only that workspace's Anthropic cost counts", async () => {
+  process.env.ANTHROPIC_ADMIN_KEY = "sk-ant-admin-test";
+  process.env.ANTHROPIC_COST_WORKSPACE_ID = "wrkspc_site";
+  useFetch(async (url) => {
+    fetched.push(String(url));
+    return Response.json({
+      data: [{ results: [
+        { currency: "USD", amount: "250", workspace_id: "wrkspc_site" },
+        { currency: "USD", amount: "9000", workspace_id: "wrkspc_other" },
+        { currency: "USD", amount: "700", workspace_id: null },
+      ] }],
+      has_more: false,
+      next_page: null,
+    });
+  });
+  try {
+    const m = await buildMonth("2026-08", new Date("2026-10-14T12:00:00Z"));
+    assert.deepEqual(m.anthropic, { status: "ok", cents: 250 });
+    assert.deepEqual(new URL(fetched[0]).searchParams.getAll("group_by[]"), ["workspace_id"]);
+  } finally {
+    delete process.env.ANTHROPIC_COST_WORKSPACE_ID;
+  }
 });
 
 test("an incomplete month isn't saved until it loads fully", async () => {

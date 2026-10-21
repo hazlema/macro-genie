@@ -20,6 +20,7 @@ import { decide } from "../server/admin.js";
 import { usePurge } from "../server/seo.js";
 import {
   adjustCredits,
+  deleteAccount,
   deleteAndBan,
   listUsers,
   removeCommunityContent,
@@ -587,4 +588,17 @@ test("suspending from the queue clears the post's page", async () => {
   purged = [];
   await decide("post", post.id, "suspend", admin.id);
   assert.ok(purged.includes(`post-${post.id}`));
+});
+
+test("a privacy delete erases their messages and admin notes, keeps credit history, and doesn't ban", async () => {
+  const { admin } = await staff();
+  const { saveMessage } = await import("../server/messages.js");
+  const leaving = await person("Leaving", "leaving-sub");
+  await saveMessage({ accountId: leaving.id, name: "Leaving", email: "l@example.com", topic: "Delete my data", body: "Please delete my data" });
+  await adjustCredits(admin.id, leaving.id, 5, "refund for Leaving");
+  assert.deepEqual(await deleteAccount(admin.id, leaving.id, "Leaving", { ban: false }), { deleted: true });
+  assert.equal((await db.sql`SELECT count(*)::int AS n FROM messages WHERE email = 'l@example.com'`)[0].n, 0);
+  assert.equal((await db.sql`SELECT count(*)::int AS n FROM banned_subs WHERE google_sub = 'leaving-sub'`)[0].n, 0);
+  const kept = await db.sql`SELECT account_id, change, reason FROM credit_ledger WHERE account_id IS NULL AND change = 5`;
+  assert.deepEqual(kept.map((r) => r.reason), ["admin"], "kept, detached, and the note that named them is gone");
 });

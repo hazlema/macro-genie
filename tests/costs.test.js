@@ -44,16 +44,12 @@ test("monthly costs count in full from start to end", () => {
   assert.equal(shareOf({ ...c, ends: null }, "2030-05"), 1900);
 });
 
-test("yearly costs spread over twelve months and add up exactly", () => {
+test("yearly costs count in full in the month paid and each anniversary", () => {
   const c = { cents: 1201, period: "yearly", starts: "2026-03", ends: null };
-  const year = Array.from({ length: 12 }, (_, i) => {
-    const m = 3 + i;
-    const key = `${2026 + Math.floor((m - 1) / 12)}-${String(((m - 1) % 12) + 1).padStart(2, "0")}`;
-    return shareOf(c, key);
-  });
-  assert.equal(year.reduce((a, b) => a + b, 0), 1201);
-  assert.equal(year[0], 1201 - 100 * 11); // remainder lands in the start month
-  assert.equal(shareOf(c, "2027-03"), 101); // and again each anniversary
+  assert.equal(shareOf(c, "2026-03"), 1201);
+  assert.equal(shareOf(c, "2026-04"), 0);
+  assert.equal(shareOf(c, "2027-02"), 0);
+  assert.equal(shareOf(c, "2027-03"), 1201);
   assert.equal(shareOf(c, "2026-02"), 0);
 });
 

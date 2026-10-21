@@ -203,7 +203,13 @@ export async function setRoles(actorId, id, { admin, mod } = {}) {
   return shape(await target(id));
 }
 
-export async function deleteAndBan(actorId, id, confirm) {
+export const deleteAndBan = (actorId, id, confirm) =>
+  deleteAccount(actorId, id, confirm, { ban: true });
+
+// Erases an account and everything it owns. A "Delete my data" request uses
+// ban: false, so they can sign up fresh later; abuse uses ban: true. The
+// credit history stays, detached, for the tax records the policy mentions.
+export async function deleteAccount(actorId, id, confirm, { ban = true } = {}) {
   const actor = await requireAdmin(actorId);
   const t = await target(id);
   guard(actor, actorId, t);
@@ -227,14 +233,22 @@ export async function deleteAndBan(actorId, id, confirm) {
         WHERE p.id = x.post_id`,
       [id],
     );
+    if (ban)
+      await c.query(
+        `INSERT INTO banned_subs (google_sub, reason) VALUES ($1, $2)
+         ON CONFLICT (google_sub) DO NOTHING`,
+        [t.google_sub, `deleted by ${actor.displayName}`],
+      );
+    // The policy promises their messages go too.
+    await c.query(`DELETE FROM messages WHERE account_id = $1`, [id]);
+    // Admin notes on credit changes ("refund for Bob") could name them.
     await c.query(
-      `INSERT INTO banned_subs (google_sub, reason) VALUES ($1, $2)
-       ON CONFLICT (google_sub) DO NOTHING`,
-      [t.google_sub, `deleted by ${actor.displayName}`],
+      `UPDATE credit_ledger SET reason = 'admin' WHERE account_id = $1 AND reason LIKE 'admin:%'`,
+      [id],
     );
     await c.query(`DELETE FROM accounts WHERE id = $1`, [id]);
   });
   await purgePost(postIds);
-  await note(actorId, actor, `deleted and banned ${t.display_name}`);
+  await note(actorId, actor, `${ban ? "deleted and banned" : "deleted"} ${t.display_name}`);
   return { deleted: true };
 }

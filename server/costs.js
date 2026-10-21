@@ -14,17 +14,14 @@ export function monthsBetween(a, b) {
   return (by - ay) * 12 + (bm - am);
 }
 
-// This cost's cents in one month. A yearly cost is spread evenly; the
-// remainder goes to its start month (and each anniversary) so a year adds
-// up exactly.
+// This cost's cents in one month. A yearly cost counts in full in the month
+// it's paid (its start month and each anniversary), matching what was spent
+// that tax year.
 export function shareOf(cost, month) {
   if (month < cost.starts || (cost.ends && month > cost.ends)) return 0;
   if (cost.period === "monthly") return cost.cents;
   if (cost.period === "once") return month === cost.starts ? cost.cents : 0;
-  const base = Math.floor(cost.cents / 12);
-  return monthsBetween(cost.starts, month) % 12 === 0
-    ? cost.cents - base * 11
-    : base;
+  return monthsBetween(cost.starts, month) % 12 === 0 ? cost.cents : 0;
 }
 
 function checked(body) {

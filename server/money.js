@@ -7,7 +7,7 @@ import { stripe } from "./stripe.js";
 // (Stripe fees, sales tax, refunds, AI, fixed bills), per UTC calendar month. The
 // current month is worked out live; finished months are saved once.
 
-const SAVED_MONTHS = 12;
+const SAVED_MONTHS = 24;
 // Costs are tracked from launch; nothing earlier is ever saved.
 const HISTORY_START = "2026-10";
 const BACKFILL_PER_REQUEST = 3;
@@ -53,7 +53,12 @@ async function stripeMonth({ start, end }) {
       out.sales.cents += t.amount;
       out.sales.count += 1;
       out.sales.packs[meta.pack] = (out.sales.packs[meta.pack] ?? 0) + 1;
-    } else if (t.type === "refund" || t.type === "payment_refund") {
+    } else if (
+      ["refund", "payment_refund", "refund_failure", "adjustment"].includes(t.type)
+    ) {
+      // Refunds and chargebacks (a dispute is an adjustment; winning one adds
+      // the money back, as does a refund that failed). Dispute fees land in
+      // the fee below.
       out.refundCents += -t.amount;
     } else continue;
     // Stripe sells as merchant of record and keeps the sales tax inside the
@@ -73,6 +78,8 @@ async function stripeMonth({ start, end }) {
 async function anthropicMonth({ start, end }, now) {
   const key = process.env.ANTHROPIC_ADMIN_KEY;
   if (!key) return { status: "no_key", cents: null };
+  // Without it, every project in the organization counts as the site's AI cost.
+  const workspace = process.env.ANTHROPIC_COST_WORKSPACE_ID || null;
   const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
   const until = end < tomorrow ? end : tomorrow;
   let cents = 0;
@@ -83,6 +90,9 @@ async function anthropicMonth({ start, end }, now) {
     url.searchParams.set("ending_at", until.toISOString());
     url.searchParams.set("bucket_width", "1d");
     url.searchParams.set("limit", "31");
+    // The report covers the whole Anthropic organization; it can only be
+    // split by workspace, so the site's key lives in its own workspace.
+    if (workspace) url.searchParams.append("group_by[]", "workspace_id");
     if (page) url.searchParams.set("page", page);
     const res = await fetcher(url, {
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
@@ -91,15 +101,16 @@ async function anthropicMonth({ start, end }, now) {
     if (!res.ok) throw new Error(`cost_report ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const body = await res.json();
     for (const bucket of body.data ?? [])
-      for (const r of bucket.results ?? []) cents += Number(r.amount) || 0;
+      for (const r of bucket.results ?? [])
+        if (!workspace || r.workspace_id === workspace) cents += Number(r.amount) || 0;
     page = body.has_more ? body.next_page : null;
   } while (page);
   return { status: "ok", cents: Math.round(cents) };
 }
 
 // The app's own estimate from ai_usage, and credits spent by pool. Jobs
-// whose ledger row is gone (deleted account) or predates paid credits
-// count as free.
+// with no ledger row, or one from before paid credits, count as free. A
+// deleted account's ledger rows stay, detached, so its purchases still count.
 async function aiMonth({ start, end }) {
   const db = database();
   const jobs = await db.sql`
@@ -185,8 +196,9 @@ export async function buildMonth(key, now = new Date()) {
   const taxCents = money?.taxCents ?? 0;
   const refundCents = money?.refundCents ?? 0;
   const { aiCentsPerCredit, paidCreditsSold, ...aiParts } = ai;
-  // Anthropic's bill covers everything on the key, local testing included,
-  // which is the site's real AI cost; the estimate stands in without it.
+  // Anthropic's bill for the site's workspace (or the whole organization when
+  // ANTHROPIC_COST_WORKSPACE_ID isn't set), local testing included; the
+  // estimate stands in without it.
   const actual = anthropic.status === "ok";
   const aiCents = actual ? anthropic.cents : ai.estimateCents;
   return {
@@ -229,7 +241,7 @@ async function firstMonth() {
 }
 
 // Saves finished months that aren't saved yet, oldest first, back to the
-// first month with data (at most 12 back, 3 saved per call). Incomplete
+// first month with data (at most 24 back, 3 saved per call). Incomplete
 // ones wait for next time.
 async function saveFinishedMonths(current, now) {
   const first = await firstMonth();
@@ -238,7 +250,7 @@ async function saveFinishedMonths(current, now) {
   const saved = new Set(
     (await db.sql`SELECT to_char(month, 'YYYY-MM') AS month FROM money_months`).map((r) => r.month),
   );
-  // Walk back at most 12 months (saved or not), oldest unsaved first, and
+  // Walk back at most 24 months (saved or not), oldest unsaved first, and
   // stop at the first incomplete one so an outage costs one attempt per open.
   // Anthropic's cost report lags, so a month waits 2 days after it ends.
   const months = [];
@@ -264,9 +276,26 @@ export async function moneyOverview(actorId, now = new Date()) {
     SELECT totals FROM money_months
      WHERE month < ${`${current}-01`}
      ORDER BY month DESC LIMIT ${SAVED_MONTHS}`;
+  const costs = await listCosts();
   return {
     current: currentMonth,
-    saved: saved.map((r) => r.totals),
-    costs: await listCosts(),
+    saved: saved.map((r) => withCurrentCosts(r.totals, costs)),
+    costs,
+  };
+}
+
+// Saved months freeze what Stripe and Anthropic reported, but bills come
+// from today's list, so one typed in or corrected late still lands in its
+// month.
+export function withCurrentCosts(totals, costs) {
+  const fixed = costs
+    .map((c) => ({ name: c.name, cents: shareOf(c, totals.month) }))
+    .filter((c) => c.cents > 0);
+  const fixedCents = fixed.reduce((sum, c) => sum + c.cents, 0);
+  return {
+    ...totals,
+    fixed,
+    fixedCents,
+    netCents: totals.netCents + (totals.fixedCents ?? 0) - fixedCents,
   };
 }

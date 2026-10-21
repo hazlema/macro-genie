@@ -9,7 +9,7 @@ import { requireMod } from "../../server/roles.js";
 import { readSession } from "../../server/session.js";
 import {
   adjustCredits,
-  deleteAndBan,
+  deleteAccount,
   listUsers,
   removeCommunityContent,
   setRoles,
@@ -100,7 +100,7 @@ async function handler(request) {
       case "POST users/:id/delete": {
         const body = await json(request);
         return Response.json(
-          await deleteAndBan(actor, idFrom(id), body.confirm),
+          await deleteAccount(actor, idFrom(id), body.confirm, { ban: body.ban !== false }),
         );
       }
       case "GET log":

@@ -15,7 +15,7 @@
   const signed = (cents) => `${cents >= 0 ? '+' : '−'}$${(Math.abs(cents) / 100).toFixed(2)}`;
   const cents = (n) => (n === null ? '—' : `${n.toFixed(2)}¢`);
   const label = (key) => new Date(`${key}-01T00:00:00Z`).toLocaleString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
-  const PERIOD = { monthly: 'monthly', yearly: 'yearly (spread over 12 months)', once: 'one-off' };
+  const PERIOD = { monthly: 'monthly', yearly: 'yearly (counted in the month paid)', once: 'one-off' };
   const thisMonth = () => new Date().toISOString().slice(0, 7);
 
   async function load() {
@@ -56,7 +56,7 @@
   }
 
   async function remove(cost) {
-    if (!confirm(`Delete “${cost.name}”? Saved months keep their numbers.`)) return;
+    if (!confirm(`Delete “${cost.name}”? It comes off every month it covered, past ones too. To stop a bill from now on, set its end month instead.`)) return;
     actionError = '';
     const res = await api(`/api/admin/money/costs/${cost.id}`, { method: 'DELETE' });
     if (!res.ok) { actionError = res.error; return; }
@@ -78,7 +78,7 @@
           {#if m.salesTaxCents}
             <tr><th scope="row">Sales tax <span class="money-note">Stripe files it</span></th><td>{usd(-m.salesTaxCents)}</td></tr>
           {/if}
-          <tr><th scope="row">Refunds</th><td>{usd(-m.refundCents)}</td></tr>
+          <tr><th scope="row">Refunds and chargebacks</th><td>{usd(-m.refundCents)}</td></tr>
         {:else}
           <tr><th scope="row" colspan="2" class="method-error">Couldn’t reach Stripe; try again.</th></tr>
         {/if}
