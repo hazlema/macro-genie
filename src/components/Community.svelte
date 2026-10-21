@@ -86,8 +86,11 @@
   });
   $effect(() => { account.signedIn; account.isMod; loadCounts(); });
 
-  function pickForum(id) { board = id; composing = false; composeNote = ''; }
-  function pickMeal(id) { board = null; meal = id; composing = false; }
+  // With one post open (/community/<id>) the list isn't on screen, so
+  // choosing a board or changing a filter goes back to the list to show it.
+  function toList() { if (postId) navigate({ tab: 'community' }); }
+  function pickForum(id) { board = id; composing = false; composeNote = ''; toList(); }
+  function pickMeal(id) { board = null; meal = id; composing = false; toList(); }
   function clearFilters() { ranges = emptyRanges(); meal = 'all'; board = null; sort = 'new'; needsReview = false; }
 
   // The new thread shows at the top straight away as "Posting…" while the
@@ -124,7 +127,7 @@
 <div class="workspace">
     <!-- Wide screens: macros in the side column. Phones get the same table
          under the board chips instead (below), only on the recipe boards. -->
-    <aside class="community-aside">
+    <aside class="community-aside" oninput={toList}>
       <div class="filter-content" id="community-filters">
         <div class="filter-heading"><h1>Macros</h1></div>
         <p class="filter-intro">For the recipe boards, per serving. Leave blank for no limit.</p>
@@ -176,7 +179,7 @@
       {/if}
 
       {#if postId}
-        <a class="back-link" href="/community" onclick={(e) => { e.preventDefault(); navigate({ tab: 'community' }); }}>← All of the community</a>
+        <a class="outline-button back-button" href="/community" onclick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); navigate({ tab: 'community' }); }}>← Back to the list</a>
         {#if singleError}
           <div class="empty-state" role="alert"><h2>Not found</h2><p>{singleError} It may have been removed.</p></div>
         {:else if !single}

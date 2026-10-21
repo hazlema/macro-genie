@@ -2813,6 +2813,15 @@ dialog.dislikes[open] {
   color: var(--lime);
 }
 
+/* A link that looks like the outline buttons, for "back" on a single post. */
+a.back-button {
+  display: inline-block;
+  margin-bottom: 18px;
+  border: 1px solid #b9c1b6;
+  color: inherit;
+  text-decoration: none;
+}
+
 /* Community content area: header, board chips, results row */
 .community-head {
   display: flex;
