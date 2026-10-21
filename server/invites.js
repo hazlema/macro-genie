@@ -9,12 +9,19 @@ import {
   findBlanks,
   normalizeCode,
 } from "../src/lib/invite-text.js";
+import { SITE } from "../src/seo/pages.js";
 
 // Invites: the owner emails someone from Admin → Invites, from their own
 // Gmail, with a one-time code worth some credits. The person redeems it on
 // /redeem once signed in. An invite row never records who redeemed it, so
 // the address book can't tie an email to an account.
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Where the redeem link in an email points. On Netlify a function sees the
+// site's .netlify.app address, so links always use macro-genie.com; under
+// npm run dev they point at the local server so they can be tried there.
+export const linkOrigin = (requestOrigin) =>
+  process.env.MACRO_GENIE_LOCAL ? requestOrigin : SITE;
 export const BAD_CODE = "This code has already been used or isn't valid.";
 
 // Sends one plain-text email: { to, subject, text }. Tests swap in their

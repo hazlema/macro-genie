@@ -12,6 +12,7 @@ import {
   resendInvite,
   saveTemplate,
   sendInvite,
+  linkOrigin,
   smtpOptions,
   useMailer,
 } from "../server/invites.js";
@@ -170,6 +171,19 @@ test("without SMTP settings, sending says so", async () => {
   } finally {
     if (saved !== undefined) process.env.SMTP_HOST = saved;
     useMailer(async (mail) => sent.push(mail));
+  }
+});
+
+test("invite links always point at macro-genie.com, except under npm run dev", () => {
+  const saved = process.env.MACRO_GENIE_LOCAL;
+  try {
+    delete process.env.MACRO_GENIE_LOCAL;
+    assert.equal(linkOrigin("https://some-site-123.netlify.app"), "https://macro-genie.com");
+    process.env.MACRO_GENIE_LOCAL = "1";
+    assert.equal(linkOrigin("http://localhost:5173"), "http://localhost:5173");
+  } finally {
+    if (saved === undefined) delete process.env.MACRO_GENIE_LOCAL;
+    else process.env.MACRO_GENIE_LOCAL = saved;
   }
 });
 

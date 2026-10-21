@@ -21,6 +21,9 @@
   let naming = $state(false);
   let name = $state('');
   let loaded = $state(false);
+  // A template just loaded (or an invite just went out): the yellow marks in
+  // the preview show what to fill, but the warnings wait until you edit.
+  let fresh = $state(true);
 
   const template = $derived(templates.find((t) => t.id === templateId));
   const blanks = $derived([...new Set([...findBlanks(subject), ...findBlanks(body)])]);
@@ -42,6 +45,7 @@
     subject = t?.subject ?? '';
     body = t?.body ?? '';
     naming = false;
+    fresh = true;
   }
 
   onMount(async () => {
@@ -85,7 +89,7 @@
 
 <section class="admin-invites">
   {#if !loaded}<p class="comments-empty">Loading…</p>{:else}
-  <form class="contact-form invite-form" onsubmit={send}>
+  <form class="contact-form invite-form" onsubmit={send} oninput={() => (fresh = false)}>
     <label class="note-field"><span>Template</span>
       <select value={templateId} onchange={(e) => useTemplate(Number(e.currentTarget.value))}>
         {#each templates as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
@@ -112,8 +116,8 @@
     <div class="invite-preview">
       {#each preview as part, i (i)}{#if part.kind === 'plain'}{part.text}{:else}<mark class={`invite-${part.kind}`}>{part.text}</mark>{/if}{/each}
     </div>
-    {#if blanks.length}<p class="invite-warn" role="status">{blanks.length} {blanks.length === 1 ? 'blank' : 'blanks'} still to fill: {blanks.join(', ')}</p>{/if}
-    {#if !hasLink}<p class="invite-warn" role="status">Add [redeem link] so they can claim the credits.</p>{/if}
+    {#if blanks.length && !fresh}<p class="invite-warn" role="status">{blanks.length} {blanks.length === 1 ? 'blank' : 'blanks'} still to fill: {blanks.join(', ')}</p>{/if}
+    {#if !hasLink && !fresh}<p class="invite-warn" role="status">Add [redeem link] so they can claim the credits.</p>{/if}
 
     {#if error}<p class="method-error" role="alert">{error}</p>{/if}
     {#if notice}<p class="post-note" role="status">{notice}</p>{/if}

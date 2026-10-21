@@ -5,6 +5,7 @@ import {
   cancelInvite,
   deleteTemplate,
   forgetInvite,
+  linkOrigin,
   listInvites,
   resendInvite,
   saveTemplate,
@@ -149,7 +150,7 @@ async function handler(request) {
         return Response.json(await listInvites(actor), noStore);
       case "POST invites":
         return Response.json(
-          await sendInvite(actor, await json(request), url.origin),
+          await sendInvite(actor, await json(request), linkOrigin(url.origin)),
         );
       case "POST invites/:id/resend":
         return Response.json(await resendInvite(actor, idFrom(id)));
