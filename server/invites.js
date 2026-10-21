@@ -23,17 +23,25 @@ let mailer = null;
 export function useMailer(fn) {
   mailer = fn;
 }
-function smtpMailer() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS)
-    throw new UserFacingError("Email isn't set up yet: add the SMTP_ settings.", 503);
+// Short timeouts: a stalled Gmail fails with a message (and the invite is
+// taken back out) instead of Netlify cutting the function off mid-send.
+export function smtpOptions({ SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS }) {
   const port = Number(SMTP_PORT) || 465;
-  const transport = nodemailer.createTransport({
+  return {
     host: SMTP_HOST,
     port,
     secure: port === 465,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
-  });
+    connectionTimeout: 6000,
+    greetingTimeout: 6000,
+    socketTimeout: 8000,
+  };
+}
+function smtpMailer() {
+  const { SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS)
+    throw new UserFacingError("Email isn't set up yet: add the SMTP_ settings.", 503);
+  const transport = nodemailer.createTransport(smtpOptions(process.env));
   return (mail) => transport.sendMail({ from: SMTP_FROM || SMTP_USER, ...mail });
 }
 async function deliver(mail) {
@@ -177,8 +185,9 @@ export async function deleteTemplate(actorId, id) {
 }
 
 // One transaction: the code is marked used only if it still wasn't, so a
-// double click or two tabs add the credits once. The ledger row has no ref,
-// so nothing joins it back to the invite (and its email).
+// double click or two tabs add the credits once. The ledger row has no ref
+// and the invite keeps only the day (UTC) it was used, so nothing joins the
+// two back together, by id or by timestamp.
 export async function redeemInvite(accountId, rawCode) {
   if (!accountId) throw new UserFacingError("Sign in to redeem your credits.", 401);
   await requireActive(accountId);
@@ -186,7 +195,7 @@ export async function redeemInvite(accountId, rawCode) {
   if (!code) throw new UserFacingError(BAD_CODE, 404);
   return transaction(async (client) => {
     const used = await client.query(
-      `UPDATE invites SET used_at = now()
+      `UPDATE invites SET used_at = date_trunc('day', now())
         WHERE code = $1 AND used_at IS NULL AND canceled_at IS NULL
         RETURNING credits`,
       [code],

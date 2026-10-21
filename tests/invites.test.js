@@ -12,6 +12,7 @@ import {
   resendInvite,
   saveTemplate,
   sendInvite,
+  smtpOptions,
   useMailer,
 } from "../server/invites.js";
 import {
@@ -59,6 +60,12 @@ test("normalizeCode", () => {
   assert.equal(normalizeCode(` ${c.slice(0, 20)}-${c.slice(20)}\n`), c);
   assert.equal(
     normalizeCode(`https://macro-genie.com/redeem?code=${c.toUpperCase()}`),
+    c,
+  );
+  // A link a mail client broke across lines, and Gmail's redirect copy.
+  assert.equal(normalizeCode(`https://macro-genie.com/redeem?code=${c.slice(0, 40)}\n${c.slice(40)}`), c);
+  assert.equal(
+    normalizeCode(`https://www.google.com/url?q=https://macro-genie.com/redeem?code%3D${c}&sa=D`),
     c,
   );
   assert.equal(normalizeCode("abc"), "");
@@ -166,6 +173,13 @@ test("without SMTP settings, sending says so", async () => {
   }
 });
 
+test("a stalled Gmail gives up well inside the function's time limit", () => {
+  const options = smtpOptions({ SMTP_HOST: "smtp.gmail.com", SMTP_PORT: "465", SMTP_USER: "u", SMTP_PASS: "p" });
+  assert.equal(options.secure, true);
+  for (const key of ["connectionTimeout", "greetingTimeout", "socketTimeout"])
+    assert.ok(options[key] > 0 && options[key] <= 8000, `${key} is set`);
+});
+
 test("owner only", async () => {
   const admin = await person("Ann");
   await db.sql`UPDATE accounts SET is_admin = true WHERE id = ${admin.id}`;
@@ -195,6 +209,12 @@ test("redeem adds credits once", async () => {
   assert.ok(!columns.some((c) => /account/.test(c.column_name)), "invites never names an account");
   const { invites } = await listInvites(owner.id);
   assert.ok(invites.find((i) => i.usedAt));
+  // Only the day is kept, so the use can't be matched to the ledger row's time.
+  const [used] = await db.sql`
+    SELECT used_at, used_at = date_trunc('day', used_at) AS day_only
+      FROM invites WHERE code = ${code}`;
+  assert.equal(used.day_only, true);
+  assert.notEqual(new Date(used.used_at).getTime(), new Date(ledger[0].created_at).getTime());
 });
 
 test("redeem twice at once adds once", async () => {

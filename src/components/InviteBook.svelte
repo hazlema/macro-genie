@@ -13,6 +13,8 @@
   const shown = $derived(invites.filter((i) => i.email.toLowerCase().includes(query.trim().toLowerCase())));
   const used = $derived(invites.filter((i) => i.usedAt).length);
   const day = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  // Only the day of use is stored, as midnight UTC; show that same day.
+  const usedDay = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
   $effect(() => {
     if (open && !dialog.open) dialog.showModal();
@@ -55,7 +57,7 @@
                 <td><button class="text-button invite-pick" title="Put this address in To" onclick={() => pick(invite)}>{invite.email}</button></td>
                 <td>{day(invite.sentAt)}</td>
                 <td>{invite.credits}</td>
-                <td>{#if invite.usedAt}<span class="invite-used">✓ {day(invite.usedAt)}</span>{:else if invite.canceledAt}<span class="money-note">canceled</span>{:else}—{/if}</td>
+                <td>{#if invite.usedAt}<span class="invite-used">✓ {usedDay(invite.usedAt)}</span>{:else if invite.canceledAt}<span class="money-note">canceled</span>{:else}—{/if}</td>
                 <td><span class="invite-actions">
                   {#if !invite.usedAt && !invite.canceledAt}
                     <button class="text-button" disabled={busy === invite.id} onclick={() => act(invite, 'resend', `Send the same invite to ${invite.email} again?`)}>Resend</button>

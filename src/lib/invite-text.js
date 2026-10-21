@@ -42,12 +42,21 @@ export function inviteParts(text, { credits, link }) {
   return parts;
 }
 
-// A code as typed or pasted: the whole link, spaces, dashes and line breaks
-// all come off. "" when what's left isn't a code.
+// A code as typed or pasted: the whole link (even one a mail client broke
+// across lines, or Gmail's own redirect copy of it), spaces, dashes and line
+// breaks all come off. "" when what's left isn't a code.
 export function normalizeCode(input) {
   let text = String(input ?? "");
-  const fromLink = text.match(/code=([^&\s#]+)/i);
-  if (fromLink) text = fromLink[1];
+  try {
+    text = decodeURIComponent(text);
+  } catch {
+    // Not URL-encoded; use it as typed.
+  }
+  const at = text.search(/code=/i);
+  if (at >= 0) text = text.slice(at + 5);
+  const hex = text.toLowerCase().replace(/[\s-]/g, "").match(/^[0-9a-f]{64}/);
+  if (hex) return hex[0];
+  // No link: a bare code, possibly with stray characters around it.
   const code = text.toLowerCase().replace(/[^0-9a-f]/g, "");
   return code.length === 64 ? code : "";
 }
