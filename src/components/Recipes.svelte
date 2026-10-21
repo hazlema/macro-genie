@@ -275,7 +275,7 @@
   <main id="results" tabindex="-1" class="dish">
     <section class="brief" aria-labelledby="brief-title">
       <h2 id="brief-title">What do you want to eat?</h2>
-      <label class="note-field"><span>Foods you want in it <small>Optional</small></span><input bind:value={wantText} maxlength="300" placeholder="Eggs, pumpkin, onions" /></label>
+      <label class="note-field"><span>What’s in your fridge? <small>Optional · ideas use what fits</small></span><input bind:value={wantText} maxlength="300" placeholder="Chicken, cucumbers, dill, yogurt" /></label>
       {#if wantDisliked.length}<p class="want-warning">{wantDisliked.join(', ')} {wantDisliked.length === 1 ? 'is' : 'are'} on your list of foods you won’t eat, so {wantDisliked.length === 1 ? 'it' : 'they'} won’t be used.</p>{/if}
       <label class="note-field"><span>Anything else? <small>Optional</small></span><input bind:value={note} maxlength="300" placeholder="Comfort food, ready in 30 minutes, no oven" /></label>
       <div class="brief-actions">
@@ -329,7 +329,7 @@
                   <ul class="idea-ingredients">
                     {#each s.amounts.filter(a => a.grams > 0) as a}<li><span>{a.grams} g</span> {a.food.name}</li>{/each}
                   </ul>
-                  {#if entry.idea.seasonings?.length}<p class="seasonings">Season with {entry.idea.seasonings.join(', ')}.</p>{/if}
+                  {#if entry.idea.seasonings?.length}<p class="seasonings">Season with {entry.idea.seasonings.join('; ')}.</p>{/if}
                 {/if}
                 <button class="outline-button" onclick={() => choose(entry.idea)}>{chosen?.name === entry.idea.name ? 'Chosen' : 'Cook this one'}</button>
               {/if}
@@ -390,7 +390,7 @@
             {/if}
           {/each}
         </ul>
-        {#if chosen.seasonings?.length}<p class="seasonings">Season with {chosen.seasonings.join(', ')}.</p>{/if}
+        {#if chosen.seasonings?.length}<p class="seasonings">Season with {chosen.seasonings.join('; ')}.</p>{/if}
 
         {#if recipe.solved}
           {@const s = recipe.solved}

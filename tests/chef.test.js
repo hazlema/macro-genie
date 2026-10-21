@@ -7,6 +7,7 @@ import {
   findFoodsResult,
   generateIdea,
   ideaPrompt,
+  starFood,
   buildRecipe,
   recipePrompt,
   writeRecipe,
@@ -69,7 +70,7 @@ test("an idea is searched, checked against dislikes, and sized by the solver", a
   assert.match(first.messages[0].content, /comfort food/);
   assert.match(
     first.messages[0].content,
-    /Foods they want in it: pumpkin, onions\n/,
+    /Foods they have on hand: pumpkin, onions\n/,
     "a wanted food that's also disliked is not requested",
   );
   assert.match(first.messages[0].content, /Net carbs: at most 5 g/);
@@ -585,11 +586,11 @@ test("a clash from foods the AI chose goes back once to be fixed", async () => {
     assert.equal((await generateIdea({ ...shrimpOnly, want: [] }, none)).pairing, "mixed");
     assert.equal(none.calls.length, 2);
 
-    // Two or more named foods: the clash may be theirs, so it stands.
-    const two = fakeApi([submit("clashes")]);
+    // Several listed foods: any can be left out, so the clash still goes back.
+    const two = fakeApi([submit("clashes"), submit("great")]);
     const theirs = await generateIdea({ ...shrimpOnly, want: ["shrimp", "strawberries"] }, two);
-    assert.equal(two.calls.length, 1);
-    assert.equal(theirs.pairing, "clashes");
+    assert.equal(two.calls.length, 2);
+    assert.equal(theirs.pairing, "great");
 
     // Sent back once only: a second clash is accepted as rated.
     const stubborn = fakeApi(Array.from({ length: 5 }, () => submit("clashes")));
@@ -617,6 +618,7 @@ test("each idea carries an honest pairing rating; there are four variations", as
     const clash = await generateIdea(
       base,
       fakeApi([
+        submit("clashes", "first try"),
         submit("clashes", "  Strawberries and   pumpkin rarely share a dish. "),
       ]),
     );
@@ -699,4 +701,18 @@ test("each idea angle gives a different direction when its cooking style doesn't
   assert.equal(new Set(fallbacks).size, 4);
   assert.match(prompts[1], /vinegar/);
   assert.doesNotMatch(prompts[1], /choose a style/);
+});
+
+test("with a full fridge, each idea builds around a different food, proteins first", () => {
+  const want = ["chicken", "cucumbers", "beef", "dill", "yogurt", "apples", "butter"];
+  const stars = [0, 1, 2, 3].map((angle) => starFood({ want, dislikes: [], angle }));
+  assert.deepEqual(stars.slice(0, 2), ["chicken", "beef"]);
+  assert.equal(new Set(stars).size, 4, "four different stars");
+  assert.ok(!stars.includes("dill") && !stars.includes("butter"), "herbs and fats never star");
+  assert.match(
+    ideaPrompt({ servings: 2, ranges: {}, want, note: "", dislikes: [], angle: 1 }),
+    /Build your dish around the beef/,
+  );
+  // One or two foods are all used anyway, so no star.
+  assert.equal(starFood({ want: ["cucumber", "dill"], dislikes: [], angle: 1 }), null);
 });

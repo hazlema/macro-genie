@@ -68,7 +68,7 @@ export function buildShoppingList(picks) {
     });
   if (seasonings.size)
     items.push(
-      newItem(`To taste: ${[...seasonings.keys()].join(", ")}`, [
+      newItem(`To taste: ${[...seasonings.keys()].join([...seasonings.keys()].some((k) => k.includes(",")) ? "; " : ", ")}`, [
         ...new Set(seasonings.values()),
       ]),
     );

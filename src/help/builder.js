@@ -13,8 +13,8 @@ export default {
       text: "Open **Set your macros**, fill in the per-serving ranges you want, and choose how many servings with **−** and **+**.",
     },
     {
-      title: "Say what you want in it",
-      text: 'Under **Foods you want in it**, type foods separated by commas ("eggs, pumpkin, onions"). Under **Anything else?**, add notes like "ready in 30 minutes". Both are optional.',
+      title: "Say what you have",
+      text: 'Under **What\'s in your fridge?**, type foods separated by commas ("chicken, cucumbers, dill, yogurt"). Each idea builds on them but leaves out any that don\'t suit that dish, and the card says what it left out. A food you name under **Anything else?** ("a cucumber salad") is always used. Add notes like "ready in 30 minutes" there too. Both are optional.',
     },
     {
       title: "Get ideas",

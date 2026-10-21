@@ -1,7 +1,7 @@
 <script>
   import { NUTRIENTS, formatAmount } from '../lib/foods.js';
   import { parseMethod } from '../lib/recipe.js';
-  import { ingredientLines, renderRecipe } from '../lib/scale.js';
+  import { ingredientLines, renderRecipe, seasoningLines } from '../lib/scale.js';
 
   // recipe: a structured recipe (version 2: ingredients + steps, scalable) or an
   // older text recipe ({ name, description, servings, perServing, method }).
@@ -59,7 +59,7 @@
         {#each shown.ingredients as ing}
           <li>{ing.text}{#if ing.measured}{' '}<span class="card-grams">({ing.grams.toLocaleString()} g)</span>{/if}{#if ing.prep}, {ing.prep}{/if}</li>
         {/each}
-        {#if recipe.seasonings?.length}<li>{recipe.seasonings.join(', ')}, to taste</li>{/if}
+        {#each seasoningLines(recipe.seasonings, servings / recipe.servings) as line}<li>{line}</li>{/each}
       </ul>
       {#if shown.steps.length}
         <h3>Method</h3>

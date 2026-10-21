@@ -176,3 +176,24 @@ test("a counted unit that's already plural isn't pluralized again", () => {
   assert.equal(scaleMeasure(4, "slices", 1), "4 slices");
   assert.equal(scaleMeasure(2, "glass", 1), "2 glasses");
 });
+
+test("seasonings with amounts get a line each; bare ones share a to-taste line", async () => {
+  const { seasoningLines } = await import("../src/lib/scale.js");
+  assert.deepEqual(
+    seasoningLines(["1 tbsp white wine vinegar", "2 cloves garlic, minced", "salt", "pinch of saffron", "black pepper"]),
+    ["1 tbsp white wine vinegar", "2 cloves garlic, minced", "pinch of saffron", "salt, black pepper, to taste"],
+  );
+  assert.deepEqual(seasoningLines(["salt", "nutmeg"]), ["salt, nutmeg, to taste"]);
+  assert.deepEqual(seasoningLines(undefined), []);
+});
+
+test("seasoning amounts scale with the servings shown", async () => {
+  const { scaleSeasoning, seasoningLines } = await import("../src/lib/scale.js");
+  assert.equal(scaleSeasoning("1 tbsp white wine vinegar", 0.5), "1 ½ tsp white wine vinegar");
+  assert.equal(scaleSeasoning("2 cloves garlic, minced", 0.5), "1 clove garlic, minced");
+  assert.equal(scaleSeasoning("1/2 tsp smoked paprika", 2), "1 tsp smoked paprika");
+  assert.equal(scaleSeasoning("1 lemon, zested", 2), "2 lemons, zested");
+  assert.equal(scaleSeasoning("1 tbsp cider vinegar", 1), "1 tbsp cider vinegar");
+  assert.equal(scaleSeasoning("pinch of saffron", 3), "pinch of saffron");
+  assert.deepEqual(seasoningLines(["2 tbsp vinegar", "salt"], 2), ["¼ cup vinegar", "salt, to taste"]);
+});

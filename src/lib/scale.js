@@ -211,6 +211,41 @@ export function renderRecipe(recipe, servings = recipe.servings) {
 
 // The ingredient list as shown on the card, one per line, for pasting into
 // Cronometer's "Paste Ingredients" recipe import (or anywhere else).
+// Seasonings with an amount ("1 tbsp cider vinegar") get a line each, scaled
+// with the servings; older recipes' bare ones ("salt, nutmeg") share one
+// "to taste" line.
+const hasAmount = (s) => /^(\d|[½⅓¼¾⅔⅛]|a |an |one |pinch|dash|splash|handful)/i.test(s.trim());
+const GLYPHS = { "½": 0.5, "⅓": 1 / 3, "¼": 0.25, "¾": 0.75, "⅔": 2 / 3, "⅛": 0.125 };
+const LEADING_QTY = /^(\d+(?:\.\d+)?(?:\s+(?:\d+\/\d+|[½⅓¼¾⅔⅛]))?|\d+\/\d+|[½⅓¼¾⅔⅛])\s+([^\s,]+)(.*)$/;
+const readQty = (text) =>
+  text
+    .split(/\s+/)
+    .reduce((sum, part) => {
+      if (part in GLYPHS) return sum + GLYPHS[part];
+      const [n, d] = part.split("/");
+      return sum + (d ? Number(n) / Number(d) : Number(n));
+    }, 0);
+
+// "1 tbsp cider vinegar" at half the servings -> "1 ½ tsp cider vinegar".
+export function scaleSeasoning(text, factor = 1) {
+  const m = factor !== 1 && text.trim().match(LEADING_QTY);
+  if (!m) return text;
+  const qty = readQty(m[1]);
+  if (!(qty > 0)) return text;
+  // "cloves" is the unit of "2 cloves garlic"; count it as one clove.
+  const unit = /[^s]s$/.test(m[2]) && !/(tsp|tbsp|oz|lbs)$/.test(m[2]) ? m[2].slice(0, -1) : m[2];
+  const parts = measureParts(qty, unit, factor);
+  return parts ? `${parts.qty} ${parts.unit}${m[3]}` : text;
+}
+
+export function seasoningLines(seasonings = [], factor = 1) {
+  const bare = seasonings.filter((s) => !hasAmount(s));
+  return [
+    ...seasonings.filter(hasAmount).map((s) => scaleSeasoning(s, factor)),
+    ...(bare.length ? [`${bare.join(", ")}, to taste`] : []),
+  ];
+}
+
 export function ingredientLines(recipe, servings = recipe.servings) {
   const r = renderRecipe(recipe, servings);
   return [
@@ -218,9 +253,7 @@ export function ingredientLines(recipe, servings = recipe.servings) {
       (i) =>
         `${i.text}${i.measured ? ` (${i.grams} g)` : ""}${i.prep ? `, ${i.prep}` : ""}`,
     ),
-    ...(recipe.seasonings?.length
-      ? [`${recipe.seasonings.join(", ")}, to taste`]
-      : []),
+    ...seasoningLines(recipe.seasonings, servings / recipe.servings),
   ].join("\n");
 }
 

@@ -111,7 +111,7 @@ export class UserFacingError extends Error {
   }
 }
 
-const SYSTEM = `You design dishes for Macro Genie, a site where people find food by nutrition numbers. A person gives you per-serving nutrition targets, foods they want in the dish, and foods they won't eat. You propose one dish.
+const SYSTEM = `You design dishes for Macro Genie, a site where people find food by nutrition numbers. A person gives you per-serving nutrition targets, foods they have on hand, and foods they won't eat. You propose one dish.
 
 How to work:
 1. Decide what dish this is first, then the ingredients it needs. Call find_foods once with every ingredient you are considering. The food data is USDA SR Legacy, so search with plain words in its style: "pumpkin canned", "cheese gruyere", "chicken thigh roasted", "cream heavy whipping", "egg whole raw".
@@ -119,15 +119,21 @@ How to work:
 3. After you have the find_foods results, call submit_idea with the dish. That is your final answer. Never guess ids: only use ids that find_foods returned.
 
 Rules:
-- Include every food the person asked for as an ingredient. Search for each one and pick the plainest match (for "eggs": "Egg, whole, raw, fresh"). Set fulfills on that ingredient to the food as they wrote it.
+- The foods they list are what they have on hand. Build the dish around them, but a good cook doesn't put everything from the fridge into one pan: leave out any that don't belong in this dish. If they list only one or two foods, or name a food in their note, always use it. For each food of theirs you use, search for it and pick the plainest match (for "eggs": "Egg, whole, raw, fresh"), and set fulfills on that ingredient to the food as they wrote it.
 - Never use a food they won't eat, or anything containing it.
 - Prefer plain, unprocessed entries. Watch for hidden carbs and sugar: pie mixes, breaded or battered items, sweetened products, sauces.
-- Seasonings are for things with negligible calories only: salt, pepper, dried or fresh herbs, spices, garlic, vinegar, citrus zest, water. Everything with real calories must be an ingredient from find_foods.
+- Seasonings are for things with negligible calories only: salt, pepper, dried or fresh herbs, spices, garlic, vinegar, citrus zest, water. Everything with real calories must be an ingredient from find_foods. Give each seasoning a short amount for the whole dish, like "1 tbsp cider vinegar" or "2 cloves garlic, grated", with no extra notes.
 - Aim for amounts that roughly fit the targets. The site adjusts the grams afterwards to hit the numbers exactly, so don't do precise arithmetic.
-- It must taste great. Think about fat, acid, salt, texture, and browning.
-- Every food you add must suit the foods they asked for and each other, the way a cook would combine them. Never submit a dish you would rate "clashes" because of foods you chose: swap those foods first.
-- Name the dish the way a good menu would. The description is one sentence a hungry person would want to read.
-- Rate the pairing honestly, as a chef would, not to please them: "great" when cooks would recognize these flavors, seasons, and textures together; "mixed" when some parts are unusual but can work (say how); "clashes" when these foods rarely belong in one dish (for example summer fruit with fall squash). If the clash comes from foods they asked for, still rate it and name those foods.`;
+- It must taste great. Build the flavor the way good cooks do. These are tools, not a checklist: use the ones that suit this dish, and don't add mushrooms, sauerkraut, or anything else just to tick a box.
+  - Umami multiplies: pair a glutamate source (tomato, parmesan, soy sauce, miso, fish sauce, onion, broth, mushrooms) with a nucleotide source (mushrooms, especially browned, give guanylate; meat, fish, and anchovy give inosinate). Together they taste far more savory than either alone.
+  - Acid cuts richness: anything fatty, creamy, or starchy wants vinegar, citrus, pickles, or something fermented.
+  - Salt tames bitterness, sweetness balances heat and sourness, and browning (searing, roasting, toasting) adds depth.
+  - Bloom spices and aromatics in fat before adding liquid, and finish with something fresh: herbs, zest, or a squeeze of citrus.
+  - Contrast textures: something crisp or crunchy against something soft.
+  - A small amount of a strong food (parmesan, anchovy, miso, fish sauce, olives) can carry a dish; list it as an ingredient even when it's only a few grams.
+- Every food in the dish must suit the others, the way a cook would combine them. Never submit a dish you would rate "clashes": leave out or swap the foods that clash first.
+- Name the dish the way a good menu would. If it's a version of a well-known dish (a gyro bowl, adobo, shakshuka), name it after that dish so people can picture it. The description is one sentence a hungry person would want to read.
+- Rate the pairing honestly, as a chef would, not to please them: "great" when cooks would recognize these flavors, seasons, and textures together; "mixed" when some parts are unusual but can work (say how); "clashes" when these foods rarely belong in one dish (for example summer fruit with fall squash). If you kept clashing foods because their note asked for them, still rate it honestly and name those foods.`;
 
 const TOOLS = [
   {
@@ -192,7 +198,7 @@ const TOOLS = [
         pairing_note: {
           type: "string",
           description:
-            "One short sentence on why; for mixed or clashes, name the foods that fight",
+            "One sentence under 25 words, in plain words a home cook knows (no chemistry terms), on what makes it work: which flavors build on or balance each other, not just \"a classic combination\". For mixed or clashes, name the foods that fight",
         },
       },
       required: [
@@ -254,14 +260,46 @@ const variation = ({ style, otherwise }) =>
     ? `Variation: lean towards ${style}.`
     : `Variation: lean towards ${style}. If that doesn't suit their note or foods, keep the dish they asked for and make it ${otherwise}.${otherwise.startsWith("the classic") ? "" : " Other cooks are making the classic version, so make yours taste clearly different from it."}`;
 
+// The plainest match for a listed food ("beef" -> "Beef, ground…"), or null.
+const bestMatch = (name) =>
+  [...usdaNamesFor(name), name]
+    .map((n) => findFoods(foods, n, { limit: 1 })[0])
+    .find(Boolean) ?? null;
+
+// With three or more foods listed, every idea used to pick the same safe
+// subset (chicken, never the beef). Each idea now builds around a different
+// listed food: the protein foods first, then the rest in their order. Herbs,
+// spices, and fats like butter can't carry a dish, so they're never the star.
+export function starFood(request) {
+  const asked = wanted(request);
+  if (asked.length < 3) return null;
+  const match = new Map(asked.map((w) => [w, bestMatch(w)]));
+  const canStar = (w) => {
+    const food = match.get(w);
+    return (
+      !food ||
+      (!["0200", "0400"].includes(food.category) && food.per100g.fat <= 60)
+    );
+  };
+  const stars = asked.filter(canStar);
+  const pool = stars.length ? stars : asked;
+  const mains = pool.filter((w) => (match.get(w)?.per100g.protein ?? 0) >= 15);
+  const order = [...mains, ...pool.filter((w) => !mains.includes(w))];
+  return order[request.angle % order.length];
+}
+
 export function ideaPrompt(request) {
+  const star = starFood(request);
   return [
     `Servings: ${request.servings}`,
     `Targets per serving:\n${targetsText(request)}`,
-    `Foods they want in it: ${wanted(request).join(", ") || "none named; surprise them"}`,
+    `Foods they have on hand: ${wanted(request).join(", ") || "none named; surprise them"}`,
     `Foods they won't eat: ${request.dislikes.length ? request.dislikes.join(", ") : "none"}`,
     request.note ? `Their note: ${request.note}` : "",
     variation(ANGLES[request.angle]),
+    star
+      ? `Build your dish around the ${star}: it should be a main part of it. Other cooks are building theirs around other foods from the list, so use the rest only where they suit yours.`
+      : "",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -301,16 +339,14 @@ export function reviewSubmission(submission, request, { clashBounced = false } =
       problems.push(`${food.name} needs grams greater than 0.`);
     else usable++;
   }
-  // A clash with fewer than two asked-for foods comes from foods the model
-  // picked itself, so it goes back to be fixed. With two or more, the clash
-  // may be the person's own combination, and the honest rating stands.
+  // The model may leave out any listed food, so a clash can always be fixed
+  // and goes back once. After that the rating stands: their note may insist
+  // on the combination.
   const fixable = problems.length;
-  // Sent back once per idea; after that the model's rating stands.
-  const clash =
-    !clashBounced && submission?.pairing === "clashes" && wanted(request).length < 2;
+  const clash = !clashBounced && submission?.pairing === "clashes";
   if (clash)
     problems.push(
-      "You rated this dish clashes, but you chose the foods that clash. Swap them for foods that suit the dish and submit again.",
+      "You rated this dish clashes, but you chose the foods that clash. Leave out or swap them and submit again. If their note asked for this combination, keep it and submit with the same rating.",
     );
   return { problems, usable, clash, idProblems: fixable > 0 };
 }
@@ -383,7 +419,7 @@ export function finishIdea(submission, request) {
     pairingNote: String(submission.pairing_note ?? "")
       .replace(/\s+/g, " ")
       .trim()
-      .slice(0, 200),
+      .slice(0, 300),
     servings: request.servings,
     fits: solved.fits,
     misses: solved.misses,
@@ -615,7 +651,9 @@ const RECIPE_SYSTEM = `You are a precise, warm recipe writer for Macro Genie. Wr
 
 How amounts work: the site shows the recipe for any number of servings by scaling every amount. So you never write an amount yourself. In steps, refer to an ingredient's amount only with a placeholder: {3} means all of ingredient 3, {3:1/2} means half of it, {3:1/4} a quarter. Write the food's name after the placeholder: "Heat {2:1/2} olive oil", "Whisk {3} with {1} pumpkin". Temperatures, times, and pan sizes are written normally.
 
-For each ingredient give: its number n, a label a cook would use, a kitchen measure (qty + unit) for exactly the listed grams, and a short prep note. Counted foods use the thing as the unit ("egg", "clove", "medium onion", "fillet") with a label like "large eggs". Use unit "g" and qty 0 when grams is the clearest measure (cheese by weight, meat).`;
+For each ingredient give: its number n, a label a cook would use, a kitchen measure (qty + unit) for exactly the listed grams, and a short prep note. Counted foods use the thing as the unit ("egg", "clove", "medium onion", "fillet") with a label like "large eggs". Use unit "g" and qty 0 when grams is the clearest measure (cheese by weight, meat).
+
+Seasonings: give each one a short amount for the whole dish at the servings asked, starting with the number ("1 tbsp white wine vinegar", "2 cloves garlic, minced"). The site scales these too, so in steps refer to them by name without repeating the amount.`;
 
 export function recipePrompt(req, items, solved) {
   const per = NUTRIENTS.map(
