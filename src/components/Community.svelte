@@ -4,24 +4,30 @@
   import PostCard from './PostCard.svelte';
   import LazyEditor from './LazyEditor.svelte';
   import PanelToggle from './PanelToggle.svelte';
+  import PostPopup from './PostPopup.svelte';
+  import { untrack } from 'svelte';
   import { emptyRanges, rangeSummary } from '../lib/foods.js';
   import { account, api } from '../lib/account.svelte.js';
   import { navigate } from '../lib/route.svelte.js';
 
-  // postId: set when the address is /community/<id>, showing that one post.
+  // postId: set when the address is /community/<id>; that post opens in a
+  // popup over the list. Opened from the list, closing it goes back a step
+  // (so Back and × agree); opened from a shared link, it leaves for the list.
   let { postId = null } = $props();
-  let single = $state(null);
-  let singleError = $state('');
+  let fromList = false;
+  let lastPostId = untrack(() => postId);
   $effect(() => {
-    if (!postId) { single = null; return; }
-    single = null; singleError = '';
     const id = postId;
-    account.signedIn;
-    api(`/api/community/posts/${id}`).then((res) => {
-      if (id !== postId) return;
-      if (res.ok) single = res.body.post; else singleError = res.error;
+    untrack(() => {
+      if (id && !lastPostId) fromList = true;
+      if (!id) fromList = false;
+      lastPostId = id;
     });
   });
+  function closePost() {
+    if (fromList) history.back();
+    else navigate({ tab: 'community' }, { replace: true });
+  }
 
   const FORUMS = [['general', 'General'], ['support', 'Support']];
   const MEALS = [['all', 'All'], ['breakfast', 'Breakfast'], ['lunch', 'Lunch'], ['dinner', 'Dinner'], ['snack', 'Snack'], ['dessert', 'Dessert']];
@@ -86,11 +92,8 @@
   });
   $effect(() => { account.signedIn; account.isMod; loadCounts(); });
 
-  // With one post open (/community/<id>) the list isn't on screen, so
-  // choosing a board or changing a filter goes back to the list to show it.
-  function toList() { if (postId) navigate({ tab: 'community' }); }
-  function pickForum(id) { board = id; composing = false; composeNote = ''; toList(); }
-  function pickMeal(id) { board = null; meal = id; composing = false; toList(); }
+  function pickForum(id) { board = id; composing = false; composeNote = ''; }
+  function pickMeal(id) { board = null; meal = id; composing = false; }
   function clearFilters() { ranges = emptyRanges(); meal = 'all'; board = null; sort = 'new'; needsReview = false; }
 
   // The new thread shows at the top straight away as "Posting…" while the
@@ -127,7 +130,7 @@
 <div class="workspace">
     <!-- Wide screens: macros in the side column. Phones get the same table
          under the board chips instead (below), only on the recipe boards. -->
-    <aside class="community-aside" oninput={toList}>
+    <aside class="community-aside">
       <div class="filter-content" id="community-filters">
         <div class="filter-heading"><h1>Macros</h1></div>
         <p class="filter-intro">For the recipe boards, per serving. Leave blank for no limit.</p>
@@ -164,7 +167,7 @@
         </div>
       </div>
 
-      {#if !board && !postId}
+      {#if !board}
         <div class="community-macros" class:mobile-open={mobileOpen}>
           <PanelToggle title="Filter by macros" summary={rangeSummary(ranges)} hint="Per serving: protein, carbs, calories and more" bind:open={mobileOpen} controls="community-macros" />
           <div class="filter-content" id="community-macros">
@@ -178,16 +181,6 @@
         </div>
       {/if}
 
-      {#if postId}
-        <a class="outline-button back-button" href="/community" onclick={(e) => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); navigate({ tab: 'community' }); }}>← Back to the list</a>
-        {#if singleError}
-          <div class="empty-state" role="alert"><h2>Not found</h2><p>{singleError} It may have been removed.</p></div>
-        {:else if !single}
-          <p class="comments-empty">Loading…</p>
-        {:else}
-          {#key single.id}<ul class="post-list single"><PostCard post={single} startOpen onremoved={() => navigate({ tab: 'community' })} /></ul>{/key}
-        {/if}
-      {:else}
         <div class="results-top community-results">
           <div class="result-count" aria-live="polite" aria-atomic="true"><strong>{loading && !posts.length ? '…' : posts.length}{more ? '+' : ''}</strong><span>{noun}{boardName ? ` in ${boardName}` : ''}</span></div>
           <div class="results-tools">
@@ -228,7 +221,9 @@
           </ul>
           {#if more}<div class="pagination"><button class="outline-button" disabled={loading} onclick={() => load(true)}>{loading ? 'Loading…' : 'Show more'}</button></div>{/if}
         {/if}
-      {/if}
       <footer><p>Food by your numbers. <span>Browsing is free; posting, liking, and commenting need an account.</span></p><p>Posts and comments are checked automatically and by a person when unsure. Report anything that doesn’t belong.</p><FooterLinks /></footer>
     </main>
   </div>
+{#if postId}
+  <PostPopup {postId} onclose={closePost} onremoved={(id) => { posts = posts.filter((p) => p.id !== id); loadCounts(); }} />
+{/if}
