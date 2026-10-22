@@ -9,6 +9,7 @@ import {
   findBlanks,
   normalizeCode,
 } from "../src/lib/invite-text.js";
+import { parseContacts } from "../src/lib/invite-contacts.js";
 import { SITE } from "../src/seo/pages.js";
 
 // Invites: the owner emails someone from Admin → Invites, from their own
@@ -68,6 +69,13 @@ const shapeInvite = (r) => ({
   usedAt: r.used_at,
   canceledAt: r.canceled_at,
 });
+const shapeContact = (r) => ({
+  id: Number(r.id),
+  email: r.email,
+  name: r.name,
+  channel: r.channel,
+  description: r.description,
+});
 const shapeTemplate = (r) => ({
   id: Number(r.id),
   name: r.name,
@@ -81,9 +89,16 @@ export async function listInvites(actorId) {
   const invites = await db.sql`
     SELECT id, email, credits, sent_at, used_at, canceled_at
       FROM invites ORDER BY sent_at DESC, id DESC LIMIT 1000`;
+  const contacts = await db.sql`
+    SELECT id, email, name, channel, description
+      FROM invite_contacts ORDER BY id LIMIT 10000`;
   const templates = await db.sql`
     SELECT id, name, subject, body FROM invite_templates ORDER BY name`;
-  return { invites: invites.map(shapeInvite), templates: templates.map(shapeTemplate) };
+  return {
+    invites: invites.map(shapeInvite),
+    contacts: contacts.map(shapeContact),
+    templates: templates.map(shapeTemplate),
+  };
 }
 
 function checkInvite({ to, subject, body, credits }) {
@@ -164,6 +179,43 @@ export async function cancelInvite(actorId, id) {
 export async function forgetInvite(actorId, id) {
   await requireOwner(actorId);
   await database().sql`DELETE FROM invites WHERE id = ${id}`;
+  return { ok: true };
+}
+
+// People from an imported JSON list. The admin page already parsed and
+// previewed it; the same check runs here on what it sends. Anyone already
+// in the book (same email, any case) is left as they are.
+export async function importContacts(actorId, { contacts } = {}) {
+  await requireOwner(actorId);
+  let people;
+  try {
+    people = parseContacts(contacts).contacts;
+  } catch (error) {
+    throw new UserFacingError(error.message);
+  }
+  if (!people.length) return { added: 0, existing: 0 };
+  const column = (key) => people.map((p) => p[key]);
+  const added = await database().sql`
+    INSERT INTO invite_contacts (email, name, channel, description)
+    SELECT email, name, channel, description
+      FROM unnest(${column("email")}::text[], ${column("name")}::text[],
+                  ${column("channel")}::text[], ${column("description")}::text[])
+           WITH ORDINALITY AS t(email, name, channel, description, n)
+     ORDER BY n
+    ON CONFLICT ((lower(email))) DO NOTHING
+    RETURNING id`;
+  return { added: added.length, existing: people.length - added.length };
+}
+
+// Takes a person out of the book entirely (say, they asked to be removed):
+// the imported details and every invite to that address, unused codes too.
+export async function forgetPerson(actorId, email) {
+  await requireOwner(actorId);
+  const key = String(email ?? "").trim().toLowerCase();
+  if (!key) throw new UserFacingError("Which address?");
+  const db = database();
+  await db.sql`DELETE FROM invites WHERE lower(email) = ${key}`;
+  await db.sql`DELETE FROM invite_contacts WHERE lower(email) = ${key}`;
   return { ok: true };
 }
 

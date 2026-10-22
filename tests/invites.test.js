@@ -7,6 +7,8 @@ import {
   cancelInvite,
   deleteTemplate,
   forgetInvite,
+  forgetPerson,
+  importContacts,
   listInvites,
   redeemInvite,
   resendInvite,
@@ -317,4 +319,55 @@ test("templates", async () => {
   await deleteTemplate(owner.id, id);
   list = (await listInvites(owner.id)).templates.filter((t) => t.name === "Coach");
   assert.equal(list.length, 0);
+});
+
+test("import adds new people, skips ones already in the book, and lists them", async () => {
+  const first = await importContacts(owner.id, {
+    contacts: [
+      { email: "Cook@Example.com", name: "Cook", channel: "YouTube", description: "Soups" },
+      { email: "baker@example.com", name: "Baker", channel: "baker.com", description: "Bread" },
+    ],
+  });
+  assert.deepEqual(first, { added: 2, existing: 0 });
+  const again = await importContacts(owner.id, {
+    contacts: [
+      { email: "cook@example.com", name: "Someone else", channel: "", description: "" },
+      { email: "grill@example.com", name: "Grill", channel: "", description: "" },
+    ],
+  });
+  assert.deepEqual(again, { added: 1, existing: 1 });
+  const { contacts } = await listInvites(owner.id);
+  const mine = contacts.filter((c) => c.email.endsWith("@example.com") && ["Cook", "Baker", "Grill"].includes(c.name));
+  assert.deepEqual(mine.map((c) => c.name), ["Cook", "Baker", "Grill"], "kept in import order; the repeat left alone");
+  assert.equal(mine[0].email, "cook@example.com");
+  assert.equal(mine[1].description, "Bread");
+});
+
+test("import checks what it's given on the server too", async () => {
+  await assert.rejects(importContacts(owner.id, { contacts: "nope" }), (e) => e.status === 400);
+  const res = await importContacts(owner.id, {
+    contacts: [{ email: "bad email", name: "x" }, { email: "fine@example.org", name: "y".repeat(900) }],
+  });
+  assert.deepEqual(res, { added: 1, existing: 0 });
+  const { contacts } = await listInvites(owner.id);
+  assert.ok(contacts.find((c) => c.email === "fine@example.org").name.length <= 120);
+});
+
+test("forget a person removes them and every invite to them", async () => {
+  sent = [];
+  await importContacts(owner.id, { contacts: [{ email: "gone@example.net", name: "Gone" }] });
+  await sendInvite(owner.id, invite({ to: "Gone@example.net" }), ORIGIN);
+  const code = codeIn(sent[0].text);
+  await forgetPerson(owner.id, "GONE@example.net");
+  const { invites, contacts } = await listInvites(owner.id);
+  assert.equal(invites.some((i) => i.email.toLowerCase() === "gone@example.net"), false);
+  assert.equal(contacts.some((c) => c.email === "gone@example.net"), false);
+  const guest = await person("Too late");
+  await assert.rejects(redeemInvite(guest.id, code), (e) => e.status === 404);
+});
+
+test("contacts are owner only", async () => {
+  const someone = await person("Nosy");
+  await assert.rejects(importContacts(someone.id, { contacts: [] }), (e) => e.status === 403);
+  await assert.rejects(forgetPerson(someone.id, "a@b.com"), (e) => e.status === 403);
 });

@@ -5,6 +5,8 @@ import {
   cancelInvite,
   deleteTemplate,
   forgetInvite,
+  forgetPerson,
+  importContacts,
   linkOrigin,
   listInvites,
   resendInvite,
@@ -158,6 +160,10 @@ async function handler(request) {
         return Response.json(await cancelInvite(actor, idFrom(id)));
       case "POST invites/:id/forget":
         return Response.json(await forgetInvite(actor, idFrom(id)));
+      case "POST contacts/import":
+        return Response.json(await importContacts(actor, await json(request)));
+      case "POST contacts/forget":
+        return Response.json(await forgetPerson(actor, (await json(request)).email));
       case "POST templates":
         return Response.json(await saveTemplate(actor, await json(request)));
       case "POST templates/:id/delete":

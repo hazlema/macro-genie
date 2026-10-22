@@ -85,7 +85,7 @@ test("the policy pages say what the owner decided", async () => {
     "terms",
   ]);
   for (const p of Object.values(POLICIES))
-    assert.equal(p.updated, "October 21, 2026");
+    assert.equal(p.updated, "October 22, 2026");
   assert.match(POLICIES.refunds.body, /unused credits/i);
   assert.match(POLICIES.refunds.body, /30 days/);
   assert.match(POLICIES.refunds.body, /refunded automatically/i);
