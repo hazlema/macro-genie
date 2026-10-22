@@ -69,6 +69,13 @@ test("fillName fills [user] and [name], and leaves them when there's no name", (
   assert.equal(fillName("Hi [user],", ""), "Hi [user],");
 });
 
+test("fillName splits \"Person (Site)\": the person for [user], the site for [blog name]", () => {
+  const text = "Hi [user], I've been browsing [Blog Name]. [site] / [channel name]";
+  assert.equal(fillName(text, "Ian (Haste's Kitchen)"), "Hi Ian, I've been browsing Haste's Kitchen. Haste's Kitchen / Haste's Kitchen");
+  assert.equal(fillName(text, "Sam Cook"), "Hi Sam Cook, I've been browsing [Blog Name]. [site] / [channel name]");
+  assert.equal(fillName("Hi [user]", "(Just A Site)"), "Hi [user]");
+});
+
 test("channelLink links web addresses only", () => {
   assert.equal(channelLink("https://pinchofyum.com"), "https://pinchofyum.com/");
   assert.equal(channelLink("youtube.com/@sam"), "https://youtube.com/@sam");

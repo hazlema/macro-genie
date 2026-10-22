@@ -60,10 +60,16 @@ export function parseContacts(data) {
   return { contacts, skipped };
 }
 
-// [user] or [name] becomes the person's name; left as a blank without one.
+// [user] or [name] becomes the person's name. Lists often write "Ian
+// (Haste's Kitchen)": then [user] is just "Ian" and the part in brackets
+// fills [blog name], [site] or [channel name]. Anything missing stays a
+// blank to fill by hand.
 export function fillName(text, name) {
-  if (!name) return text;
-  return String(text ?? "").replace(/\[\s*(user|name)\s*\]/gi, () => name);
+  const [, person = "", site = ""] = String(name ?? "").match(/^(.*?)\s*(?:\(([^()]*)\))?\s*$/) ?? [];
+  let out = String(text ?? "");
+  if (person.trim()) out = out.replace(/\[\s*(user|name)\s*\]/gi, () => person.trim());
+  if (site.trim()) out = out.replace(/\[\s*(blog\s+name|site|site\s+name|channel\s+name)\s*\]/gi, () => site.trim());
+  return out;
 }
 
 // A channel that's a web address, as a safe link; null for "YouTube" etc.

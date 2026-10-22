@@ -8,3 +8,6 @@ test-results/
 .playwright-mcp/
 reports/
 .superpowers/
+
+# Invite lists: other people's names and emails, never committed.
+import.json
