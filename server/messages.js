@@ -1,5 +1,5 @@
 import { logActivity } from "./activity.js";
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 import { database } from "./db.js";
 import { requireMod } from "./roles.js";
 

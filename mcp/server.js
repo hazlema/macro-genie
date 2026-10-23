@@ -12,7 +12,7 @@ import {
 } from "../src/lib/foods.js";
 import { expandDislikes, solveRecipe } from "../src/lib/recipe.js";
 import { getPost, listPosts } from "../server/community.js";
-import { UserFacingError } from "../server/chef.js";
+import { UserFacingError } from "../server/errors.js";
 import { renderRecipe } from "../src/lib/scale.js";
 import { MEAL_TYPES } from "../server/moderate.js";
 

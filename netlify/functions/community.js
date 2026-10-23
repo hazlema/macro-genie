@@ -1,6 +1,6 @@
 import { queueCount } from "../../server/admin.js";
 import { roleOf } from "../../server/roles.js";
-import { UserFacingError } from "../../server/chef.js";
+import { UserFacingError } from "../../server/errors.js";
 import {
   addComment,
   checkPost,

@@ -6,8 +6,7 @@ import {
 } from "../../server/accounts.js";
 import { logActivity } from "../../server/activity.js";
 import { roleOf } from "../../server/roles.js";
-import { setDisplayName } from "../../server/community.js";
-import { UserFacingError } from "../../server/chef.js";
+import { UserFacingError } from "../../server/errors.js";
 import { fail } from "../../server/http.js";
 import { isDatabaseDown, reportDatabaseDown } from "../../server/db.js";
 import {
@@ -75,7 +74,10 @@ async function handler(request) {
       if (!id) throw new UserFacingError("Sign in to change your name.", 401);
       const body = await request.json().catch(() => ({}));
       return Response.json({
-        displayName: await setDisplayName(id, body.displayName),
+        // Loaded only for a rename, so /api/me starts without the food data.
+        displayName: await (
+          await import("../../server/community.js")
+        ).setDisplayName(id, body.displayName),
       });
     }
     if (pathname === "/api/auth/logout")

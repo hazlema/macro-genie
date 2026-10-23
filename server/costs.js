@@ -1,4 +1,4 @@
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 import { database } from "./db.js";
 import { requireAdmin } from "./roles.js";
 

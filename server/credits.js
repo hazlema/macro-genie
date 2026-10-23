@@ -1,5 +1,5 @@
 import { getAccount, refundCredit, spendCredit } from "./accounts.js";
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 import { requireActive } from "./roles.js";
 import { readSession } from "./session.js";
 import { collectUsage, saveUsage } from "./usage.js";

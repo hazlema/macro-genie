@@ -1,6 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+// Just the error classes, not the whole SDK, to keep cold starts light.
+import { APIConnectionTimeoutError } from "@anthropic-ai/sdk/error";
 import { ZodError } from "zod";
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 import { isDatabaseDown, reportDatabaseDown } from "./db.js";
 
 // Turns any error into a JSON response a visitor can act on.
@@ -12,7 +13,7 @@ export const fail = (error) => {
     );
   if (error instanceof UserFacingError)
     return Response.json({ error: error.message }, { status: error.status });
-  if (error instanceof Anthropic.APIConnectionTimeoutError)
+  if (error instanceof APIConnectionTimeoutError)
     return Response.json(
       { error: "This took too long. Try again." },
       { status: 504 },

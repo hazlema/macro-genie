@@ -1,4 +1,3 @@
-import { client } from "./chef.js";
 import { addUsage, emptyUsage, logUsage, saveUsage } from "./usage.js";
 import { measure } from "./timing.js";
 
@@ -50,7 +49,9 @@ const unsure = (reason) => ({ verdict: "unsure", reason, mealType: null });
 export async function moderate(kind, text, api) {
   let model = api;
   try {
-    model ??= client();
+    // Loaded on first use so Community requests that never post skip the
+    // Anthropic SDK and food data at cold start.
+    model ??= (await import("./chef.js")).client();
   } catch {
     return unsure(
       "The automatic check isn't available, so this waits for review.",

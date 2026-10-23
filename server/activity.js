@@ -1,4 +1,4 @@
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 import { database } from "./db.js";
 
 // The admin Log tab: contributions, sign-ins, credits, and problems. Ordinary

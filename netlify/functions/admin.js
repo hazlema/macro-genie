@@ -15,7 +15,7 @@ import {
 } from "../../server/invites.js";
 import { listMessages, setMessageStatus } from "../../server/messages.js";
 import { moneyOverview } from "../../server/money.js";
-import { UserFacingError } from "../../server/chef.js";
+import { UserFacingError } from "../../server/errors.js";
 import { fail } from "../../server/http.js";
 import { requireMod } from "../../server/roles.js";
 import { readSession } from "../../server/session.js";
