@@ -1,4 +1,4 @@
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 import { database } from "./db.js";
 
 // Who may do what. Owners are the Google accounts listed in ADMIN_SUBS:

@@ -1,4 +1,4 @@
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 import { database, transaction } from "./db.js";
 import { logActivity } from "./activity.js";
 import { roleOf } from "./roles.js";

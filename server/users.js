@@ -1,6 +1,6 @@
 import { addCredits } from "./accounts.js";
 import { logActivity } from "./activity.js";
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 import { database, transaction } from "./db.js";
 import { purgePost } from "./seo.js";
 import { isOwnerSub, requireAdmin, requireMod } from "./roles.js";

@@ -1,4 +1,4 @@
-import { UserFacingError } from "../../server/chef.js";
+import { UserFacingError } from "../../server/errors.js";
 import { fail } from "../../server/http.js";
 import { PACKS } from "../../server/packs.js";
 import { redeemInvite } from "../../server/invites.js";

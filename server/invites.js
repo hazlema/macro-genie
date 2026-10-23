@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import nodemailer from "nodemailer";
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 import { database, transaction } from "./db.js";
 import { requireActive, requireOwner } from "./roles.js";
 import {

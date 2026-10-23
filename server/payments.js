@@ -1,7 +1,7 @@
 import { addCredits, getAccount } from "./accounts.js";
 import { logActivity } from "./activity.js";
 import { database, transaction } from "./db.js";
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 import { packById } from "./packs.js";
 import { requireActive } from "./roles.js";
 import { UNAVAILABLE, stripe } from "./stripe.js";

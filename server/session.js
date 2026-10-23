@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 
 // Sessions are a signed cookie holding the account id and an expiry; there's
 // no session table. SESSION_SECRET signs them (any long random string).

@@ -1,4 +1,4 @@
-import { UserFacingError } from "../../server/chef.js";
+import { UserFacingError } from "../../server/errors.js";
 import { fail } from "../../server/http.js";
 import { checkMessage, saveMessage } from "../../server/messages.js";
 import { roleOf } from "../../server/roles.js";

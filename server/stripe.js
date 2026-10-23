@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { UserFacingError } from "./chef.js";
+import { UserFacingError } from "./errors.js";
 
 export const UNAVAILABLE =
   "Payments are unavailable right now. Try again in a few minutes.";

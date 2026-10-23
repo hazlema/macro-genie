@@ -6,12 +6,11 @@ import { MODELS, addUsage, emptyUsage, logUsage } from "./usage.js";
 import { measure } from "./timing.js";
 import { checkMeasure } from "../src/lib/measures.js";
 import { z } from "zod";
-import raw from "../foods.json" with { type: "json" };
+import { foodById, foods } from "./food-data.js";
 import {
   NUTRIENTS,
   findFoods,
   formatAmount,
-  normalizeDataset,
 } from "../src/lib/foods.js";
 import {
   expandDislikes,
@@ -28,9 +27,7 @@ const pick = (name) =>
   MODELS.includes(process.env[name]) ? process.env[name] : "claude-opus-5-5";
 export const ideaModel = () => pick("IDEA_MODEL");
 export const recipeModel = () => pick("RECIPE_MODEL");
-const { foods } = normalizeDataset(raw);
-const byId = new Map(foods.map((f) => [f.id, f]));
-export const foodById = (id) => byId.get(id) ?? null;
+export { foodById };
 
 // Each of the four parallel requests leans a different way so the ideas differ.
 // A cooking style can't suit every request (a salad isn't a bake), so each one
@@ -104,12 +101,8 @@ export const methodRequest = z
   })
   .strict();
 
-export class UserFacingError extends Error {
-  constructor(message, status = 400) {
-    super(message);
-    this.status = status;
-  }
-}
+export { UserFacingError } from "./errors.js";
+import { UserFacingError } from "./errors.js";
 
 const SYSTEM = `You design dishes for Macro Genie, a site where people find food by nutrition numbers. A person gives you per-serving nutrition targets, foods they have on hand, and foods they won't eat. You propose one dish.
 
@@ -311,7 +304,7 @@ function resolveFood(ref, dislikes) {
   const key = String(ref ?? "").trim();
   // Models sometimes copy more than the id: "usda-row-7811 | Pumpkin, …".
   const id = key.match(/usda-row-\d+/)?.[0];
-  if (id) return byId.get(id) ?? null;
+  if (id) return foodById(id);
   if (key.length < 3) return null;
   return (
     findFoods(foods, key, { exclude: expandDislikes(dislikes), limit: 1 })[0] ??
@@ -735,7 +728,7 @@ export async function writeRecipe(
 ) {
   const req = methodRequest.parse(input);
   const items = req.ingredients
-    .map(({ id, grams }) => ({ food: byId.get(id), grams: Math.round(grams) }))
+    .map(({ id, grams }) => ({ food: foodById(id), grams: Math.round(grams) }))
     .filter((i) => i.food);
   if (!items.length)
     throw new UserFacingError("No known foods in this recipe.");
